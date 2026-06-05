@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """每週下載檔案腳本。
 
-讀取專案根目錄的 config.json，從設定的網址下載檔案，
-存到歷史資料夾並更新給網頁讀取的最新檔案與 manifest.json。
+讀取專案根目錄的 config.json，從設定的網址下載當週檔案，
+增量併入 merge.xlsx / merge.json，併入後刪除當週下載檔以省空間。
 
 網址可使用佔位符，會依「現在日期 + weekOffset」自動代入:
     {isoweek}  -> 例 2026-W22 （ISO 年-週）
@@ -23,7 +23,7 @@ import json
 import re
 import sys
 import urllib.request
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -89,15 +89,6 @@ def download(url: str, dest: Path) -> None:
     print(f"已存檔: {dest} ({len(data):,} bytes)")
 
 
-def prune_history(history_dir: Path, keep: int) -> None:
-    if keep <= 0:
-        return
-    files = sorted(history_dir.glob("*"), key=lambda p: p.name, reverse=True)
-    for old in files[keep:]:
-        old.unlink()
-        print(f"清除舊檔: {old.name}")
-
-
 def main() -> None:
     cfg = load_config()
     override_url, week_label = parse_args(sys.argv[1:])
@@ -120,42 +111,32 @@ def main() -> None:
         url = resolve_url(template, week_label)
 
     out_dir = ROOT / cfg.get("outputDir", "web/data")
-    history_dir = out_dir / "history"
     out_dir.mkdir(parents=True, exist_ok=True)
-    history_dir.mkdir(parents=True, exist_ok=True)
 
     ext = guess_ext(url)
-    now = datetime.now(timezone.utc)
-    base = cfg.get("fileName", "data")
-    # 用週數命名歷史檔，重跑同一週會覆蓋而非堆積
     safe_week = re.sub(r"[^0-9A-Za-z\-]", "_", week_label)
-    history_file = history_dir / f"{base}-{safe_week}.{ext}"
+    # 當週下載檔（暫存）：併入 merge 後即刪除
+    base = cfg.get("fileName", "data")
+    weekly_file = out_dir / f"{base}-{safe_week}.{ext}"
     print(f"目標週: {week_label}")
-    download(url, history_file)
+    download(url, weekly_file)
 
-    # 更新給網頁讀取的最新檔
-    latest_file = out_dir / f"latest.{ext}"
-    latest_file.write_bytes(history_file.read_bytes())
+    # 增量併入 merge.xlsx（本機留存）+ merge.json（網頁載入）
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    try:
+        from merge import append_week
+    except ImportError as exc:
+        print(
+            f"\n⚠️ 無法合併（{exc}）。已保留當週下載檔 {weekly_file.name}，"
+            "但未併入 merge。\n   請先安裝相依套件：pip install -r scripts/requirements.txt"
+        )
+        return
 
-    # 清除過期歷史
-    prune_history(history_dir, int(cfg.get("keepHistory", 26)))
+    append_week(weekly_file, week_label=week_label, source_url=url)
 
-    # 產生 manifest 供網頁辨識最新檔案
-    history_list = sorted(
-        (p.name for p in history_dir.glob("*")), reverse=True
-    )
-    manifest = {
-        "latest": latest_file.name,
-        "type": ext,
-        "week": week_label,
-        "sourceUrl": url,
-        "downloadedAt": now.isoformat(),
-        "history": history_list,
-    }
-    (out_dir / "manifest.json").write_text(
-        json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
-    print(f"已更新 manifest.json，最新檔案: {latest_file.name}")
+    # 併入成功 -> 刪除當週下載檔以省空間
+    weekly_file.unlink()
+    print(f"已刪除當週下載檔: {weekly_file.name}")
     print("完成。")
 
 

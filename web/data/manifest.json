@@ -1,7 +1,13 @@
 {
-  "latest": "latest.csv",
-  "type": "csv",
-  "sourceUrl": "範例資料（執行 download.py 後會被真實資料覆蓋）",
-  "downloadedAt": "2026-06-05T00:00:00+00:00",
-  "history": ["data-2026-06-05.csv"]
+  "latest": "merge.json",
+  "type": "json",
+  "weeks": [
+    "2026-W20",
+    "2026-W21",
+    "2026-W22",
+    "2026-W23"
+  ],
+  "rowCount": 48,
+  "sourceUrl": "http://10.11.108.23/QA_SPC/zkau/view/z_ouf/dwnmed-2/9op/RP0017_NPW_MONI_Alarm_Rate_Weekly_Report_{isoweek}.xlsx",
+  "downloadedAt": "2026-06-05T07:20:34.335061+00:00"
 }

@@ -32,16 +32,20 @@
 
       sourceLabel.textContent = "資料來源：" + (manifest.sourceUrl || manifest.latest);
       if (manifest.downloadedAt) {
+        const wk = manifest.weeks && manifest.weeks.length
+          ? `　涵蓋 ${manifest.weeks.length} 週（${manifest.weeks[0]} ~ ${manifest.weeks[manifest.weeks.length - 1]}）`
+          : "";
         updatedLabel.textContent =
-          "更新時間：" + new Date(manifest.downloadedAt).toLocaleString("zh-TW");
+          "更新時間：" + new Date(manifest.downloadedAt).toLocaleString("zh-TW") + wk;
       }
 
-      if (/xlsx?$/i.test(manifest.type || manifest.latest)) {
-        const buf = await fileRes.arrayBuffer();
-        parseExcel(buf);
+      const type = (manifest.type || "").toLowerCase();
+      if (type === "json" || /\.json$/i.test(manifest.latest)) {
+        parseMergeJson(await fileRes.json());
+      } else if (/xlsx?$/i.test(type || manifest.latest)) {
+        parseExcel(await fileRes.arrayBuffer());
       } else {
-        const text = await fileRes.text();
-        parseDelimited(text, manifest.type === "tsv");
+        parseDelimited(await fileRes.text(), type === "tsv");
       }
     } catch (err) {
       setStatus(
@@ -77,6 +81,15 @@
       delimiter: isTsv ? "\t" : "",
     });
     ingest(result.data, result.meta.fields || []);
+  }
+
+  function parseMergeJson(payload) {
+    // download.py + merge.py 產生的合併檔：{ columns, rows, ... }
+    const rows = payload.rows || [];
+    const fields = payload.columns && payload.columns.length
+      ? payload.columns
+      : (rows.length ? Object.keys(rows[0]) : []);
+    ingest(rows, fields);
   }
 
   function parseExcel(arrayBuffer) {
@@ -202,6 +215,18 @@
     const numOpts = numericCols.map((c) => `<option value="${esc(c.name)}">${esc(c.name)}</option>`).join("");
     ySel.innerHTML = numOpts;
     hSel.innerHTML = numOpts;
+
+    // 智慧預設：X 軸用 week，數值用 ALARM_RATE_PCT / ALARM_COUNT（避免預設成 YEAR/WEEK）
+    const names = state.columns.map((c) => c.name);
+    const findCol = (cands) => cands.find((n) => names.includes(n));
+    const defaultX = findCol(["week", "WEEK", "DATA_PERIOD"]) || "__index__";
+    const numNames = numericCols.map((c) => c.name);
+    const defaultY =
+      ["ALARM_RATE_PCT", "ALARM_COUNT", "TOTAL_POINT_COUNT"].find((n) => numNames.includes(n)) ||
+      numNames.find((n) => !/^(year|week)$/i.test(n)) ||
+      numNames[0];
+    if (defaultX) xSel.value = defaultX;
+    if (defaultY) { ySel.value = defaultY; hSel.value = defaultY; }
 
     xSel.onchange = drawLine;
     ySel.onchange = drawLine;
