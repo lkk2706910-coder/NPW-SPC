@@ -11,7 +11,9 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from merge import append_week, merge_xlsx_path, out_dir  # noqa: E402
+from merge import append_week, load_config, merge_xlsx_path, out_dir  # noqa: E402
+
+ROOT = Path(__file__).resolve().parent.parent
 
 random.seed(42)
 
@@ -79,14 +81,17 @@ for week in range(20, 24):
                 idx += 1
                 rows.append(make_row(2026, week, area, process, param, idx))
     df = pd.DataFrame(rows, columns=COLUMNS)
-    # 固定檔名每週覆蓋，與 download.py 行為一致
-    weekly_file = d / "NPW_Alarm_Rate_Weekly.xlsx"
-    df.to_excel(weekly_file, index=False)
-    print(f"[下載] 2026-W{week:02d} -> {weekly_file.name}（{len(df)} 列，含全部 AREA）")
+    # 下載到 archive 資料夾、用真實檔名（含週數）；同名覆蓋只留一份
+    archive_dir = ROOT / load_config().get("archiveDir", "downloads")
+    archive_dir.mkdir(parents=True, exist_ok=True)
+    label = f"2026-W{week:02d}"
+    download_file = archive_dir / f"RP0017_NPW_MONI_Alarm_Rate_Weekly_Report_{label}.xlsx"
+    df.to_excel(download_file, index=False)
+    print(f"[下載] {download_file.name}（{len(df)} 列，含全部 AREA）")
 
-    append_week(weekly_file, week_label=f"2026-W{week:02d}",
+    append_week(download_file, week_label=label,
                 source_url="範例資料（執行 download.py 後會被真實資料覆蓋）")
-    weekly_file.unlink()
-    print(f"[刪除] {weekly_file.name}\n")
+    download_file.unlink()  # 執行完 merge 刪除
+    print(f"[刪除] {download_file.name}\n")
 
 print(f"完成。長期資料庫: {merge_xlsx_path().name}")

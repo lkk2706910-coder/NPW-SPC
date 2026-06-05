@@ -1,7 +1,7 @@
 download.log
 __pycache__/
 *.pyc
-# 殘留的當週下載檔（正常情況下併入 merge 後會被刪除）
-web/data/NPW_Alarm_Rate_Weekly.xlsx
+# 下載存檔資料夾（併入 merge 後會被刪除；殘留檔也不入庫）
+downloads/
 web/data/_tmp_*.xlsx
 web/data/history/

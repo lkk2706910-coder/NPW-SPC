@@ -113,11 +113,15 @@ def main() -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     ext = guess_ext(url)
-    # 固定檔名，每週覆蓋（併入 merge 後即刪除，不留每週新檔）
-    base = cfg.get("fileName", "data")
-    weekly_file = out_dir / f"{base}.{ext}"
+    # 用伺服器真實檔名（含週數）下載；同名覆蓋只留一份
+    real_name = url.split("?")[0].rstrip("/").split("/")[-1]
+    if not real_name or "." not in real_name:
+        real_name = f"{cfg.get('fileName', 'data')}-{week_label}.{ext}"
+    archive_dir = ROOT / cfg.get("archiveDir", "downloads")
+    archive_dir.mkdir(parents=True, exist_ok=True)
+    download_file = archive_dir / real_name
     print(f"目標週: {week_label}")
-    download(url, weekly_file)
+    download(url, download_file)  # 同名直接覆蓋，不產生 (1)、(2)
 
     # 增量併入 merge.xlsx（本機留存）+ merge.json（網頁載入）
     sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -125,16 +129,16 @@ def main() -> None:
         from merge import append_week
     except ImportError as exc:
         print(
-            f"\n⚠️ 無法合併（{exc}）。已保留當週下載檔 {weekly_file.name}，"
+            f"\n⚠️ 無法合併（{exc}）。已保留下載檔 {download_file.name}，"
             "但未併入 merge。\n   請先安裝相依套件：pip install -r scripts/requirements.txt"
         )
         return
 
-    append_week(weekly_file, week_label=week_label, source_url=url)
+    append_week(download_file, week_label=week_label, source_url=url)
 
-    # 併入成功 -> 刪除當週下載檔以省空間
-    weekly_file.unlink()
-    print(f"已刪除當週下載檔: {weekly_file.name}")
+    # 執行完 merge -> 刪除下載檔
+    download_file.unlink()
+    print(f"已刪除下載檔: {download_file.name}")
     print("完成。")
 
 
