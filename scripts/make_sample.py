@@ -79,11 +79,13 @@ for week in range(20, 24):
                 idx += 1
                 rows.append(make_row(2026, week, area, process, param, idx))
     df = pd.DataFrame(rows, columns=COLUMNS)
-    weekly_file = d / f"RP0017_NPW_MONI_Alarm_Rate_Weekly_Report_2026-W{week:02d}.xlsx"
+    # 固定檔名每週覆蓋，與 download.py 行為一致
+    weekly_file = d / "NPW_Alarm_Rate_Weekly.xlsx"
     df.to_excel(weekly_file, index=False)
-    print(f"[下載] {weekly_file.name}（{len(df)} 列，含全部 AREA）")
+    print(f"[下載] 2026-W{week:02d} -> {weekly_file.name}（{len(df)} 列，含全部 AREA）")
 
-    append_week(weekly_file, source_url="範例資料（執行 download.py 後會被真實資料覆蓋）")
+    append_week(weekly_file, week_label=f"2026-W{week:02d}",
+                source_url="範例資料（執行 download.py 後會被真實資料覆蓋）")
     weekly_file.unlink()
     print(f"[刪除] {weekly_file.name}\n")
 

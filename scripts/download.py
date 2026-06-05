@@ -20,7 +20,6 @@
 from __future__ import annotations
 
 import json
-import re
 import sys
 import urllib.request
 from datetime import date, timedelta
@@ -114,10 +113,9 @@ def main() -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     ext = guess_ext(url)
-    safe_week = re.sub(r"[^0-9A-Za-z\-]", "_", week_label)
-    # 當週下載檔（暫存）：併入 merge 後即刪除
+    # 固定檔名，每週覆蓋（併入 merge 後即刪除，不留每週新檔）
     base = cfg.get("fileName", "data")
-    weekly_file = out_dir / f"{base}-{safe_week}.{ext}"
+    weekly_file = out_dir / f"{base}.{ext}"
     print(f"目標週: {week_label}")
     download(url, weekly_file)
 
