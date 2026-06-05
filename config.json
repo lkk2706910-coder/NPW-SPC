@@ -1,6 +1,7 @@
 {
-  "fileUrl": "https://example.com/path/to/your-file.csv",
-  "fileName": "data",
+  "fileUrl": "http://10.11.108.23/QA_SPC/zkau/view/z_ouf/dwnmed-2/9op/RP0017_NPW_MONI_Alarm_Rate_Weekly_Report_{isoweek}.xlsx",
+  "fileName": "NPW_Alarm_Rate_Weekly",
   "outputDir": "web/data",
-  "keepHistory": 26
+  "keepHistory": 26,
+  "weekOffset": 0
 }

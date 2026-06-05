@@ -22,20 +22,25 @@ NPW-SPC/
 
 ## 設定
 
-編輯 `config.json`，把 `fileUrl` 換成你的真實檔案網址：
+`config.json` 範例（已預設為 NPW Alarm Rate 週報）：
 
 ```json
 {
-  "fileUrl": "https://your-server.com/path/to/file.csv",
-  "fileName": "data",
+  "fileUrl": "http://10.11.108.23/QA_SPC/zkau/view/z_ouf/dwnmed-2/9op/RP0017_NPW_MONI_Alarm_Rate_Weekly_Report_{isoweek}.xlsx",
+  "fileName": "NPW_Alarm_Rate_Weekly",
   "outputDir": "web/data",
-  "keepHistory": 26
+  "keepHistory": 26,
+  "weekOffset": 0
 }
 ```
 
+- `fileUrl`：檔案網址，可用佔位符自動代入週數
+  - `{isoweek}` → `2026-W22`（ISO 年-週）
+  - `{year}` → `2026`、`{week}` → `22`
 - `fileName`：歷史檔的檔名前綴
 - `outputDir`：下載輸出資料夾（預設給網頁讀取）
 - `keepHistory`：保留幾份歷史檔（26 約等於半年）
+- `weekOffset`：抓哪一週。`0` = 本週；若週報是「上週資料、本週才產出」，設 `-1` 抓上一週
 
 支援副檔名：`.csv` `.tsv` `.xlsx` `.xls`（會依網址自動判斷）。
 
@@ -44,10 +49,15 @@ NPW-SPC/
 手動執行一次：
 
 ```bash
-python3 scripts/download.py
-# 或臨時指定網址
-python3 scripts/download.py "https://your-server.com/file.csv"
+python3 scripts/download.py                 # 自動抓現在這一週
+python3 scripts/download.py --week 2026-W22  # 指定某一週（補抓歷史）
+python3 scripts/download.py "http://.../file.xlsx"  # 臨時指定完整網址
 ```
+
+> ⚠️ 此網址為內網位置（10.11.108.23），請在公司網路內執行。
+> 網址中的 `zkau/.../dwnmed-2/9op/` 是 ZK 框架的下載路徑，部分系統會綁定
+> 登入工作階段而非固定連結；若下載失敗（401/404/檔案損毀），代表該段路徑
+> 會隨工作階段改變，需改用帶 cookie/認證的方式下載（可再回報，我協助調整）。
 
 執行後會：
 1. 下載檔案到 `web/data/history/data-YYYY-MM-DD.<ext>`

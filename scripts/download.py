@@ -4,9 +4,15 @@
 讀取專案根目錄的 config.json，從設定的網址下載檔案，
 存到歷史資料夾並更新給網頁讀取的最新檔案與 manifest.json。
 
+網址可使用佔位符，會依「現在日期 + weekOffset」自動代入:
+    {isoweek}  -> 例 2026-W22 （ISO 年-週）
+    {year}     -> 例 2026     （ISO 年）
+    {week}     -> 例 22       （ISO 週，補零兩位）
+
 用法:
-    python scripts/download.py              # 使用 config.json 的網址
-    python scripts/download.py <url>        # 臨時指定網址（覆蓋設定）
+    python scripts/download.py              # 使用 config.json，自動代入當前週
+    python scripts/download.py <url>        # 臨時指定完整網址（覆蓋設定）
+    python scripts/download.py --week 2026-W22   # 指定某一週
 
 排程（每週一早上 8 點，Linux/macOS crontab）:
     0 8 * * 1 cd /path/to/NPW-SPC && /usr/bin/python3 scripts/download.py >> download.log 2>&1
@@ -14,9 +20,10 @@
 from __future__ import annotations
 
 import json
+import re
 import sys
 import urllib.request
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -28,6 +35,40 @@ def load_config() -> dict:
         raise SystemExit(f"找不到設定檔: {CONFIG_PATH}")
     with CONFIG_PATH.open(encoding="utf-8") as f:
         return json.load(f)
+
+
+def iso_week_label(d: date) -> str:
+    """回傳像 2026-W22 的 ISO 年-週字串。"""
+    iso = d.isocalendar()
+    return f"{iso.year}-W{iso.week:02d}"
+
+
+def resolve_url(template: str, week_label: str) -> str:
+    """把網址裡的 {isoweek}/{year}/{week} 佔位符代入實際週數。"""
+    year, week = week_label.split("-W")
+    return (
+        template.replace("{isoweek}", week_label)
+        .replace("{year}", year)
+        .replace("{week}", week)
+    )
+
+
+def parse_args(argv: list[str]) -> tuple[str | None, str | None]:
+    """回傳 (override_url, week_label)。"""
+    override_url = None
+    week_label = None
+    i = 0
+    while i < len(argv):
+        arg = argv[i]
+        if arg == "--week" and i + 1 < len(argv):
+            week_label = argv[i + 1]
+            i += 2
+        elif arg.startswith("http"):
+            override_url = arg
+            i += 1
+        else:
+            i += 1
+    return override_url, week_label
 
 
 def guess_ext(url: str) -> str:
@@ -59,12 +100,24 @@ def prune_history(history_dir: Path, keep: int) -> None:
 
 def main() -> None:
     cfg = load_config()
-    url = sys.argv[1] if len(sys.argv) > 1 else cfg.get("fileUrl", "")
-    if not url or "example.com" in url:
+    override_url, week_label = parse_args(sys.argv[1:])
+
+    # 決定要抓哪一週：--week 指定 > 現在日期 + weekOffset
+    if week_label is None:
+        offset = int(cfg.get("weekOffset", 0))
+        target_day = date.today() + timedelta(weeks=offset)
+        week_label = iso_week_label(target_day)
+
+    template = cfg.get("fileUrl", "")
+    if override_url:
+        url = override_url
+    elif not template or "example.com" in template:
         raise SystemExit(
             "請先在 config.json 設定真實的 fileUrl，或用參數傳入網址：\n"
             "    python scripts/download.py <網址>"
         )
+    else:
+        url = resolve_url(template, week_label)
 
     out_dir = ROOT / cfg.get("outputDir", "web/data")
     history_dir = out_dir / "history"
@@ -73,10 +126,11 @@ def main() -> None:
 
     ext = guess_ext(url)
     now = datetime.now(timezone.utc)
-    stamp = now.strftime("%Y-%m-%d")
     base = cfg.get("fileName", "data")
-
-    history_file = history_dir / f"{base}-{stamp}.{ext}"
+    # 用週數命名歷史檔，重跑同一週會覆蓋而非堆積
+    safe_week = re.sub(r"[^0-9A-Za-z\-]", "_", week_label)
+    history_file = history_dir / f"{base}-{safe_week}.{ext}"
+    print(f"目標週: {week_label}")
     download(url, history_file)
 
     # 更新給網頁讀取的最新檔
@@ -93,6 +147,7 @@ def main() -> None:
     manifest = {
         "latest": latest_file.name,
         "type": ext,
+        "week": week_label,
         "sourceUrl": url,
         "downloadedAt": now.isoformat(),
         "history": history_list,
