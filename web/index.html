@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NPW-SPC 資料分析儀表板</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <header>
+    <h1>NPW-SPC 資料分析儀表板</h1>
+    <p class="subtitle">自動讀取每週下載的資料檔，產生統計摘要與圖表</p>
+  </header>
+
+  <section class="toolbar">
+    <div class="source-info">
+      <span id="sourceLabel">資料來源：尚未載入</span>
+      <span id="updatedLabel"></span>
+    </div>
+    <div class="controls">
+      <button id="reloadBtn" type="button">重新載入最新檔</button>
+      <label class="upload-btn">
+        手動上傳 CSV / Excel
+        <input id="fileInput" type="file" accept=".csv,.tsv,.xlsx,.xls" hidden />
+      </label>
+    </div>
+  </section>
+
+  <p id="status" class="status"></p>
+
+  <main id="dashboard" hidden>
+    <section class="cards" id="summaryCards"></section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h2>趨勢圖</h2>
+        <div class="selectors">
+          <label>X 軸
+            <select id="xAxisSelect"></select>
+          </label>
+          <label>數值欄位
+            <select id="ySeriesSelect"></select>
+          </label>
+        </div>
+      </div>
+      <div class="chart-wrap"><canvas id="lineChart"></canvas></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h2>分佈直方圖</h2>
+        <div class="selectors">
+          <label>欄位
+            <select id="histSelect"></select>
+          </label>
+        </div>
+      </div>
+      <div class="chart-wrap"><canvas id="histChart"></canvas></div>
+    </section>
+
+    <section class="panel">
+      <h2>各數值欄位統計</h2>
+      <div class="table-scroll">
+        <table id="statsTable"></table>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>資料預覽（前 50 列）</h2>
+      <div class="table-scroll">
+        <table id="previewTable"></table>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+{
+  "latest": "latest.csv",
+  "type": "csv",
+  "sourceUrl": "範例資料（執行 download.py 後會被真實資料覆蓋）",
+  "downloadedAt": "2026-06-05T00:00:00+00:00",
+  "history": ["data-2026-06-05.csv"]
+}

@@ -1,0 +1,4 @@
+download.log
+__pycache__/
+*.pyc
+web/data/history/

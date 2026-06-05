@@ -1,0 +1,6 @@
+{
+  "fileUrl": "https://example.com/path/to/your-file.csv",
+  "fileName": "data",
+  "outputDir": "web/data",
+  "keepHistory": 26
+}
