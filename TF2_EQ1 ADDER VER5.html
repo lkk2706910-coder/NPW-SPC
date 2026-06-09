@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <title>SPC 管制圖儀表板</title>
 <!-- 外部套件 -->
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.3.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <style>
@@ -257,8 +256,8 @@ header .meta { font-size: 12px; text-align: right; opacity: 0.9; }
 <div class="page-wrapper">
   <div id="top-panel">
     <div id="top-panel-left">
-       <span class="file-input-label">資料來源：自動載入 data1.xlsx（AMAT_PA 分頁）</span>
-      <input type="file" id="file-input" accept=".xlsx,.xls">
+       <span class="file-input-label">資料來源：DB（spc_data_v5.aspx）</span>
+      <span id="load-status" class="file-input-label" style="display:none; font-weight:700; color:#0f4aa8;"></span>
       <span class="file-input-label">分群(依 CHART_NAME)：</span>
 <select id="chartname-filter">
   <option value="ALL">全部</option>
@@ -374,7 +373,6 @@ function getSortedUnits(groupsObj) {
   document.getElementById('page-time').textContent = text;
 })();
 
-document.getElementById('file-input').addEventListener('change', handleFile, false);
 document.getElementById('chartname-filter').addEventListener('change', (e) => {
   currentChartNameFilter = e.target.value;
   if (!rawJsonGlobal || rawJsonGlobal.length === 0) return;
@@ -637,16 +635,32 @@ function drawHighlightsGroupedByChartName(sourceData) {
 }
 
 
-/* ============== 共用的 Excel buffer 處理 ============== */
-function processBinaryExcelBuffer(arrayBuffer) {
-  const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-  const sheetName = workbook.SheetNames[0];
-  const sheet = workbook.Sheets[sheetName];
-  const json = XLSX.utils.sheet_to_json(sheet, { defval: '' });
-  rawJsonGlobal = json;
+/* ============== 資料來源：DB（spc_data_v5.aspx，與 NEW ABC 一致） ============== */
+const SPC_API_URL = './spc_data_v5.aspx';
+const currentTab = 'ADDER'; // 本頁為 ADDER 視圖
+
+function setLoadStatus(text) {
+  const el = document.getElementById('load-status');
+  if (!el) return;
+  el.style.display = text ? 'inline' : 'none';
+  el.textContent = text || '';
+}
+
+async function fetchJsonOrThrow(url) {
+  const res = await fetch(url, { method: 'GET' });
+  if (!res.ok) {
+    const t = await res.text();
+    throw new Error(`載入 DB 失敗 HTTP ${res.status}: ${t}`);
+  }
+  return await res.json();
+}
+
+/* 共用渲染流程（取代原本 processBinaryExcelBuffer） */
+function renderFromRows(rows) {
+  rawJsonGlobal = rows || [];
   const filtered = applyChartNameFilter(rawJsonGlobal);
   drawScoreTable(filtered);          // 先產生 scoreRowsGlobal
-    sortScoreTableBy('score', 'desc'); // ★ 一進來就 C->B->A
+  sortScoreTableBy('score', 'desc'); // ★ 一進來就 C->B->A
   // 同步表頭箭頭顯示
   const thUnit  = document.getElementById('th-unit');
   const thScore = document.getElementById('th-score');
@@ -654,45 +668,38 @@ function processBinaryExcelBuffer(arrayBuffer) {
   if (thUnit)  thUnit.setAttribute('data-order', 'asc');
   drawCharts(filtered);
 
-    // ★ Default view: show only highlighted/bad-score charts first
-showOnlyBadScoreCharts();
-      ensureChartsVisible();
+  // ★ 預設：先只顯示重點(B/C)機台
+  showOnlyBadScoreCharts();
+  ensureChartsVisible();
 
-    // Ensure toggle button is correct on first load
-    const toggleBtn = document.getElementById('toggle-highlight-btn');
-    if (toggleBtn) {
-      // Color reflects current mode: highlight mode -> red
-      toggleBtn.textContent = '顯示全部機台';
-      toggleBtn.classList.remove('btn-toggle-all');
-      toggleBtn.classList.add('btn-toggle-highlight');
-    }
+  // 切換鈕初始狀態
+  const toggleBtn = document.getElementById('toggle-highlight-btn');
+  if (toggleBtn) {
+    toggleBtn.textContent = '顯示全部機台';
+    toggleBtn.classList.remove('btn-toggle-all');
+    toggleBtn.classList.add('btn-toggle-highlight');
+  }
 }
 
-/* ============== 手動上傳：改用 ArrayBuffer，走同一流程 ============== */
-function handleFile(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = function (evt) {
-    const arrayBuffer = evt.target.result;
-    processBinaryExcelBuffer(arrayBuffer);
-  };
-  reader.readAsArrayBuffer(file);
-}
-
-/* ============== 自動載入 data1.xlsx 的 AMAT_PA 分頁 ============== */
-async function loadDefaultExcel() {
-    try {
-        const response = await fetch('data1.xlsx');
-        if (!response.ok) {
-            console.error('載入 data1.xlsx 失敗：', response.status, response.statusText);
-            return;
-        }
-        const arrayBuffer = await response.arrayBuffer();
-        processBinaryExcelBuffer(arrayBuffer);
-    } catch (err) {
-        console.error('載入 data1.xlsx 發生錯誤：', err);
-    }
+/* ============== 自動載入：DB（tab=ADDER, chartName=ALL；分群在前端處理） ============== */
+async function loadDataFromDb() {
+  try {
+    setLoadStatus('載入中：DB 查詢中...');
+    const url = `${SPC_API_URL}?tab=${encodeURIComponent(currentTab)}&chartName=ALL&_=${Date.now()}`;
+    const data = await fetchJsonOrThrow(url);
+    // ASP.NET JSON 的 DateTime 為 /Date(ms)/，正規化成 'YYYY-MM-DD HH:mm' 供下游使用
+    const rows = (data && data.rows ? data.rows : []).map(r => ({
+      ...r,
+      UPDATE_TIME: normalizeUpdateTimeToLabel(r.UPDATE_TIME)
+    }));
+    setLoadStatus(`載入完成：資料列 ${rows.length}`);
+    renderFromRows(rows);
+    setLoadStatus('');
+  } catch (err) {
+    console.error('載入 DB 發生錯誤：', err);
+    setLoadStatus('');
+    alert(String(err && err.message ? err.message : err));
+  }
 }
 
 // 依你的命名規則，把完整 CHART_NAME 精簡成短名稱
@@ -785,8 +792,27 @@ function excelDateToJSDate(serial) {
     String(minutes).padStart(2, '0');
 }
 
-/* ====== 新增：UPDATE_TIME 解析 + 30天判斷 ====== */
+function formatDateTime(d) {
+  if (!d || isNaN(d.getTime())) return '';
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function normalizeUpdateTimeToLabel(updateTime) {
+  const d = parseUpdateTimeToDate(updateTime);
+  return d ? formatDateTime(d) : String(updateTime ?? '');
+}
+
+/* ====== UPDATE_TIME 解析 + 30天判斷（支援 /Date(ms)/） ====== */
 function parseUpdateTimeToDate(updateTime) {
+  if (updateTime == null) return null;
+
+  // ASP.NET JSON DateTime format: "/Date(1768525200000)/"
+  const m = String(updateTime).match(/\/Date\((-?\d+)\)\//);
+  if (m && m[1]) {
+    const ms = parseInt(m[1], 10);
+    return isNaN(ms) ? null : new Date(ms);
+  }
+
   if (typeof updateTime === 'number') {
     return new Date(excelDateToJSDate(updateTime));
   }
@@ -1379,7 +1405,7 @@ ${oldRowsText.join('')}
   });
 }
 
-// 綁定表頭排序點擊 + 自動載入 data1.xlsx
+// 綁定表頭排序點擊 + 自動從 DB 載入
 window.addEventListener('DOMContentLoaded', () => {
   const thUnit = document.getElementById('th-unit');
   const thScore = document.getElementById('th-score');
@@ -1404,8 +1430,8 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // ★ 開啟網頁就自動載入 data1.xlsx
-  loadDefaultExcel();
+  // ★ 開啟網頁就自動從 DB 載入（與 NEW ABC 一致）
+  loadDataFromDb();
 });
 
 function buildParticleMapUrl(row) {
