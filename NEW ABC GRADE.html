@@ -810,6 +810,7 @@ let globalGroups = {};
 let scoreRowsGlobal = [];
 // 新增：保留原始匯入資料 + CHART_NAME 分群過濾
 let rawJsonGlobal = [];
+let chartInstances = []; // 追蹤已建立的 Chart.js 實例，重繪前先 destroy 避免記憶體洩漏
 let currentChartNameFilter = 'ALL';
 let currentProcessUnitSearch = '';
 
@@ -1475,7 +1476,9 @@ showOnlyChart(unit);
 }
 function showOnlyChart(unit) {
 document.querySelectorAll('.chart-container').forEach(div => {
-div.style.display = (div.getAttribute('data-unit') === unit) ? '' : 'none';
+const match = div.getAttribute('data-unit') === unit;
+if (match && div._buildChart) div._buildChart(); // 延後建立的圖：點選時才建
+div.style.display = match ? '' : 'none';
 });
 document.getElementById('show-all-btn').style.display = 'inline-block';
 }
@@ -1498,6 +1501,7 @@ function showOnlyBadScoreCharts() {
 }
 function showAllCharts() {
 document.querySelectorAll('.chart-container').forEach(div => {
+if (div._buildChart) div._buildChart(); // 延後建立的圖：顯示全部時才建
 div.style.display = '';
 });
 const btn = document.getElementById('show-all-btn');
@@ -1511,6 +1515,9 @@ const unit = row.CHART_NAME;
 if (!groups[unit]) groups[unit] = [];
 groups[unit].push(row);
 });
+// 重繪前銷毀舊圖表，避免 Chart.js 實例累積造成卡頓／記憶體洩漏
+chartInstances.forEach(c => { try { c.destroy(); } catch (e) {} });
+chartInstances = [];
 document.getElementById('charts').innerHTML = '';
 const near2SigmaUnits = [];
 const liftUpUnits = [];
@@ -1907,8 +1914,10 @@ container.innerHTML = `
 <canvas height="350"></canvas>
 `;
 document.getElementById('charts').appendChild(container);
+const buildChart = () => {
+if (container._chartBuilt) return;
 const ctx = container.querySelector('canvas').getContext('2d');
-new Chart(ctx, {
+chartInstances.push(new Chart(ctx, {
 type: 'line',
 data: {
 labels,
@@ -1977,6 +1986,7 @@ datalabels: { display: false }
 ]
 },
 options: {
+animation: false,
 responsive: false,
 layout: { padding: { top: 16 } },
 
@@ -2057,7 +2067,16 @@ y: { title: { display: true, text: '測量值' }, min: yMin, max: yMax }
 }
 },
 plugins: [ChartDataLabels]
-});
+}));
+container._chartBuilt = true;
+};
+// 延後建圖：預設只建立會顯示的 B/C 圖，其餘存 builder，待「顯示全部／點選」時才建
+const __scoreForUnit = scoreMap[unit] || '-';
+if (__scoreForUnit === 'B' || __scoreForUnit === 'C') {
+  buildChart();
+} else {
+  container._buildChart = buildChart;
+}
 });
 }
 
