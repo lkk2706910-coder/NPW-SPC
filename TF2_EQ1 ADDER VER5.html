@@ -1,0 +1,1499 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>SPC 管制圖儀表板</title>
+<!-- 外部套件 -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.3.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<style>
+/* ---- 全局樣式 ---- */
+* { box-sizing: border-box; }
+body {
+  font-family: "Microsoft JhengHei", Arial, sans-serif;
+  margin: 0;
+  background: #f3f5f9;
+  color: #333;
+}
+/* 頁首 */
+header {
+  background: linear-gradient(135deg, #1e88e5, #1565c0);
+  color: #fff;
+  padding: 16px 32px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+header .title-block { display: flex; flex-direction: column; }
+header h1 { margin: 0; font-size: 22px; letter-spacing: 1px; }
+header .meta { font-size: 12px; text-align: right; opacity: 0.9; }
+/* 主容器 */
+.page-wrapper { max-width: 1440px; margin: 20px auto 40px; padding: 0 24px 24px; }
+/* 上方操作區塊 */
+#top-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+#top-panel-left { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+/* 檔案上傳 */
+.file-input-label { font-size: 13px; color: #555; margin-right: 4px; }
+#file-input {
+  padding: 6px 10px;
+  font-size: 13px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  background: #fff;
+}
+/* 按鈕 */
+.btn-primary {
+  display: inline-block;
+  padding: 6px 14px;
+  font-size: 13px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  background: #1976d2;
+  color: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.05s ease;
+}
+
+/* toggle button styles */
+.btn-toggle-highlight{
+  background: #c62828; /* red */
+}
+.btn-toggle-highlight:hover{
+  background: #8e0000;
+}
+
+.btn-toggle-all{
+  background: #1976d2; /* blue (same as primary) */
+}
+.btn-toggle-all:hover{
+  background: #145ea8;
+}
+#back-to-top{
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 9999;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: #2563eb;
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0,0,0,.18);
+  display: none; /* 預設隱藏 */
+}
+#back-to-top:hover{ filter: brightness(.95); }
+.unit-link.badscore-B { color: #d47b00; background: #fff3e0; border-color: #ffb74d; }
+.unit-link.badscore-C { color: #c62828; background: #ffebee; border-color: #ef9a9a; }
+.btn-primary:hover { background: #145ea8; box-shadow: 0 2px 5px rgba(0,0,0,0.25); transform: translateY(-1px); }
+.btn-primary:active { transform: translateY(0); box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+/* 操作說明 */
+.hint-text { font-size: 12px; color: #666; margin-top: 4px; }
+/* 主要左右布局 */
+#main-layout { display: flex; align-items: flex-start; margin-top: 6px; gap: 20px; }
+/* 左側：機台評分表卡片 */
+#score-table-container {
+  width: 260px;
+  min-width: 220px;
+  position: sticky;
+  top: 90px;
+  align-self: flex-start;
+  z-index: 10;
+  background: #ffffff;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+  padding: 12px 12px 14px 12px;
+  /* Make the score table panel scrollable so the page doesn't need to scroll */
+    height: calc(100vh - 190px);
+
+
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid #e5e7eb;
+}
+#score-table-container > b { display: inline-block; margin-bottom: 8px; font-size: 14px; color: #1565c0; }
+#score-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+#score-table th, #score-table td { border: 1px solid #e0e0e0; padding: 6px 8px; text-align: center; }
+#score-table th { background: #f5f7fb; font-weight: 600; color: #555; }
+#score-table tbody tr:nth-child(even) { background: #fafafa; }
+#score-table tbody tr:hover { background: #e3f2fd; }
+.score-link { color: #1976d2; cursor: pointer; text-decoration: underline; font-weight: 500; }
+.score-A { background: #e3fbe3; }
+.score-B { background: #fff9e0; }
+.score-C { background: #ffe3e3; }
+/* 可排序表頭樣式 */
+#score-table th.sortable { cursor: pointer; position: relative; }
+#score-table th.sortable::after { content: '▲'; font-size: 10px; margin-left: 4px; opacity: 0.4; }
+#score-table th.sortable[data-order="desc"]::after { content: '▼'; }
+/* 右側內容區 */
+#right-panel { flex: 1; min-width: 0; }
+/* Highlight 區塊 */
+#highlight-units {
+  margin-bottom: 12px;
+  font-size: 13px;
+  background: #e3f2fd;
+  border-left: 4px solid #1976d2;
+  padding: 8px 10px 8px 12px;
+  border-radius: 6px;
+  display: none;
+
+    /* Keep highlights compact: internal scroll */
+  max-height: 360px;
+  overflow: auto;
+}
+
+/* 分群總覽：卡片式排列 */
+.highlight-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.group-card {
+  background: rgba(255,255,255,0.75);
+  border: 1px solid rgba(25,118,210,0.20);
+  border-left: 4px solid #1976d2;
+  border-radius: 8px;
+  padding: 10px 10px 8px;
+}
+
+.group-card-title {
+  font-weight: 800;
+  font-size: 14px;
+  color: #0d47a1;
+  margin: 0 0 6px;
+  letter-spacing: .4px;
+}
+
+.group-card .highlight-row {
+  margin-bottom: 6px;
+}
+#highlight-units-title { font-weight: 600; color: #1565c0; margin-bottom: 4px; }
+.highlight-row { margin-bottom: 3px; }
+.highlight-label { font-weight: 600; margin-right: 4px; }
+.unit-link {
+  display: inline-block;
+  margin: 2px 4px 2px 0;
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-size: 12px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.highlight-subtitle{
+  font-weight: 800;
+  color: #0d47a1;
+  margin: 6px 0 6px;
+  font-size: 15px;
+  letter-spacing: .5px;
+}
+
+/* 分群標題強化（分群總覽用） */
+.highlight-subtitle.group-title{
+  color: #6a1b9a; /* 紫色更醒目 */
+  font-size: 16px;
+}
+.unit-link.near2sigma { color: #d47b00; background: #fff3e0; border-color: #ffb74d; }
+.unit-link.liftup { color: #c62828; background: #ffebee; border-color: #ef9a9a; }
+.unit-link:hover { filter: brightness(0.95); }
+/* 顯示全部按鈕區塊 */
+#show-all-btn { margin: 0 0 10px 0; display: none; }
+/* 圖表網格 */
+#charts { display: flex; flex-wrap: wrap; gap: 18px; }
+/* 圖表卡片 */
+.chart-container {
+  width: 48%;
+  min-width: 360px;
+  background: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  padding: 8px 10px 10px 10px;
+  box-sizing: border-box;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+  overflow: hidden;
+}
+.chart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #e5e7eb;
+}
+.chart-header-title { margin: 0; font-size: 14px; color: #1565c0; letter-spacing: 1px; font-weight: 600; }
+.chart-header-tag { font-size: 11px; color: #777; }
+.chart-container canvas { margin-top: 4px; width: 100% !important; display: block; }
+/* RWD */
+@media (max-width: 1024px) {
+  #main-layout { flex-direction: column; }
+  #score-table-container { position: static; width: 100%; margin-bottom: 14px; }
+  .chart-container { width: 100%; min-width: 0; }
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="title-block"><h1>SPC 管制圖儀表板</h1></div>
+  <div class="meta">
+    <div>版本：v5.0</div>
+    <div id="page-time"></div>
+  </div>
+</header>
+
+<div class="page-wrapper">
+  <div id="top-panel">
+    <div id="top-panel-left">
+       <span class="file-input-label">資料來源：自動載入 data1.xlsx（AMAT_PA 分頁）</span>
+      <input type="file" id="file-input" accept=".xlsx,.xls">
+      <span class="file-input-label">分群(依 CHART_NAME)：</span>
+<select id="chartname-filter">
+  <option value="ALL">全部</option>
+  <option value="-PA-">-PA-</option>
+  <option value="HTSIN130_11">HTSIN130_11</option>
+  <option value="PEOX50A">PEOX50A</option>
+  <option value="XFER">XFER</option>
+  <option value="HTN4DCPA">HTN4DCPA</option>
+  <option value="FSHTN4DCPA">FSHTN4DCPA</option>
+  <option value="LTUSG250_20">LTUSG250_20</option>
+  <option value="LTUSG2.5K">LTUSG2.5K</option>
+  <option value="STIPURGE">STIPURGE</option>
+  <option value="NOSCRB7K">NOSCRB7K</option>
+  <option value="USG50">USG50</option>
+  <option value="NOSCRBUSG2K">NOSCRBUSG2K</option>
+  <option value="SABOX110">SABOX110</option>
+  <option value="OX50">OX50</option>
+  <option value="HTSIN120_2.0">HTSIN120_2.0</option>
+</select>
+    </div>
+        <div>
+          <button id="toggle-highlight-btn" class="btn-primary btn-toggle-all" onclick="toggleHighlightView()">顯示全部機台</button>
+        </div>
+  </div>
+
+  <div class="hint-text">
+    · 點機台名稱可只顯示該機台之管制圖。<br>
+    · 上方「接近兩倍σ / 三點上升」列表提供高風險機台快速篩選。
+  </div>
+
+  <div id="main-layout">
+    <!-- 左側：機台評分表 -->
+    <div id="score-table-container">
+      <b>機台評分表(Tool ABC)</b>
+      <table id="score-table">
+        <thead>
+          <tr>
+            <th id="th-unit" class="sortable" data-sort-key="unit" data-order="asc">機台</th>
+            <th id="th-score" class="sortable" data-sort-key="score" data-order="asc">評分</th>
+          </tr>
+        </thead>
+        <tbody><!-- 動態產生 --></tbody>
+      </table>
+    </div>
+
+    <!-- 右側：Highlight + 圖表 -->
+    <div id="right-panel">
+      <div id="highlight-units"><div id="highlight-units-title">重點提示</div></div>
+      <div id="charts"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+let lastNear2SigmaUnits = [];
+let globalGroups = {};
+let scoreRowsGlobal = [];
+// 新增：保留原始匯入資料 + CHART_NAME 分群過濾
+let rawJsonGlobal = [];
+let currentChartNameFilter = 'ALL';
+
+function applyChartNameFilter(data) {
+  const filter = document.getElementById('chartname-filter').value;
+  return applyChartNameFilterByValue(data, filter);
+}
+
+function applyChartNameFilterByValue(data, filter) {
+  if (filter === 'ALL') return data;
+  if (filter === 'OX50') {
+    // 只包含 CHART_NAME 含 OX50、含 SACVD，且不含 NISACVD、且不以 PEO 開頭
+    return data.filter(row => {
+      const name = String(row.CHART_NAME).trim().toUpperCase();
+      return (
+        name.includes('OX50') &&
+        name.includes('SACVD') &&
+        !name.includes('NISACVD') &&
+        !name.startsWith('PEO')
+      );
+    });
+  }
+  return data.filter(row => String(row.CHART_NAME).trim().includes(filter));
+}
+
+
+
+/** =========================
+ *  新增：群組排序（B01 -> B02 -> B03 ...）
+ *  會同時影響：重點提示 / 評分表 / 圖表顯示順序
+ *  ========================= */
+function getGroupSortKeyFromUnit(unitFullName) {
+  const parts = String(unitFullName || '').split('-');
+  const chamber = parts[2] || '';
+  const group = parts[3] || '';
+  const m = String(group).match(/B(\d+)/i);
+  const groupNo = m ? parseInt(m[1], 10) : 9999;
+  return { groupNo, chamber, unitFullName: String(unitFullName || '') };
+}
+function getSortedUnits(groupsObj) {
+  return Object.keys(groupsObj).sort((a, b) => {
+    const ka = getGroupSortKeyFromUnit(a);
+    const kb = getGroupSortKeyFromUnit(b);
+    if (ka.groupNo !== kb.groupNo) return ka.groupNo - kb.groupNo;
+    if (ka.chamber !== kb.chamber) return ka.chamber.localeCompare(kb.chamber);
+    return ka.unitFullName.localeCompare(kb.unitFullName);
+  });
+}
+
+// 顯示載入時間
+(function showTime() {
+  const t = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  const text = `更新時間：${t.getFullYear()}-${pad(t.getMonth()+1)}-${pad(t.getDate())} ${pad(t.getHours())}:${pad(t.getMinutes())}`;
+  document.getElementById('page-time').textContent = text;
+})();
+
+document.getElementById('file-input').addEventListener('change', handleFile, false);
+document.getElementById('chartname-filter').addEventListener('change', (e) => {
+  currentChartNameFilter = e.target.value;
+  if (!rawJsonGlobal || rawJsonGlobal.length === 0) return;
+  const filtered = applyChartNameFilter(rawJsonGlobal);
+  drawScoreTable(filtered);
+  // ★ 進入/切換時：評分表強制 C->B->A
+  sortScoreTableBy('score', 'desc');
+  document.getElementById('th-score')?.setAttribute('data-order', 'desc');
+  document.getElementById('th-unit')?.setAttribute('data-order', 'asc');
+  drawCharts(filtered);
+    // ★ 進入/切換時：先只顯示 C/B 圖（A 先藏）
+  showOnlyBadScoreCharts();
+  ensureChartsVisible();
+});
+
+const RULE_TOOLTIPS = {
+  near2sigma: '接近 2σ 警戒：最後一點與 2σ 差距 < 1',
+  scoreBC: '評分 B/C：最後 4 筆 MEAN_VALUE 的平均',
+  liftup: '最近 3 點上升：最近3點平均高於最近10點平均 + 最近3點靠近 1σ 線'
+};
+
+function buildHighlightSectionHTML(sectionTitle, groups, scoreMap, subtitleClass = '') {
+  const near2SigmaUnits = [];
+  const liftUpUnits = [];
+  const near2SigmaOldUnits = [];
+  const liftUpOldUnits = [];
+  const BOldUnits = [];
+  const COldUnits = [];
+
+  getSortedUnits(groups).forEach(unit => {
+    const rows = groups[unit];
+    rows.sort((a, b) => {
+      const ta = typeof a.UPDATE_TIME === 'number' ? excelDateToJSDate(a.UPDATE_TIME) : a.UPDATE_TIME;
+      const tb = typeof b.UPDATE_TIME === 'number' ? excelDateToJSDate(b.UPDATE_TIME) : b.UPDATE_TIME;
+      return new Date(ta) - new Date(tb);
+    });
+
+    const lastRow = rows[rows.length - 1];
+    const lastDate = parseUpdateTimeToDate(lastRow.UPDATE_TIME);
+    const isOld = isOverDaysFromNow(lastDate, 30);
+
+    const meanValueLast = Number(lastRow.MEAN_VALUE);
+    const xbarLast = Number(lastRow.XBAR);
+    const sigmaLast = Number(lastRow.SIGMA);
+    const twoSigmaLast = xbarLast + 2 * sigmaLast;
+
+    const diffAbs2 = Math.abs(meanValueLast - twoSigmaLast);
+    if (diffAbs2 <= 1) {
+      (isOld ? near2SigmaOldUnits : near2SigmaUnits).push(unit);
+    }
+
+    const meanValuesRaw = rows.map(r => Number(r.MEAN_VALUE));
+    const xbarsAll = rows.map(r => Number(r.XBAR));
+    const sigmasAll = rows.map(r => Number(r.SIGMA));
+    const totalPoints = meanValuesRaw.length;
+
+    if (totalPoints >= 3) {
+      const last10StartIndex = Math.max(0, totalPoints - 10);
+      const last10 = meanValuesRaw.slice(last10StartIndex);
+      const avgLast10 = last10.reduce((a, b) => a + b, 0) / last10.length;
+
+      const last3 = meanValuesRaw.slice(-3);
+      const avgLast3 = last3.reduce((a, b) => a + b, 0) / last3.length;
+
+      const last3Indices = [totalPoints - 3, totalPoints - 2, totalPoints - 1];
+      const isAllNearOneSigma = last3Indices.every(idx => {
+        const meanVal = meanValuesRaw[idx];
+        const xbar = xbarsAll[idx];
+        const sigma = sigmasAll[idx];
+        const oneSigmaLine = xbar + sigma;
+        return meanVal >= (oneSigmaLine - 2) && meanVal <= (oneSigmaLine + 2);
+      });
+
+      if (avgLast3 > avgLast10 && isAllNearOneSigma) {
+        (isOld ? liftUpOldUnits : liftUpUnits).push(unit);
+      }
+    }
+  });
+
+  const sortByGroup = (a, b) => {
+    const ka = getGroupSortKeyFromUnit(a);
+    const kb = getGroupSortKeyFromUnit(b);
+    if (ka.groupNo !== kb.groupNo) return ka.groupNo - kb.groupNo;
+    if (ka.chamber !== kb.chamber) return ka.chamber.localeCompare(kb.chamber);
+    return ka.unitFullName.localeCompare(kb.unitFullName);
+  };
+
+  const allB = Object.keys(scoreMap).filter(u => scoreMap[u] === 'B');
+  const allC = Object.keys(scoreMap).filter(u => scoreMap[u] === 'C');
+  const BUnits = [];
+  const CUnits = [];
+
+  allB.forEach(unit => {
+    const rows = groups[unit] || [];
+    if (!rows.length) return;
+    const lastRow = rows[rows.length - 1];
+    const lastDate = parseUpdateTimeToDate(lastRow.UPDATE_TIME);
+    (isOverDaysFromNow(lastDate, 30) ? BOldUnits : BUnits).push(unit);
+  });
+
+  allC.forEach(unit => {
+    const rows = groups[unit] || [];
+    if (!rows.length) return;
+    const lastRow = rows[rows.length - 1];
+    const lastDate = parseUpdateTimeToDate(lastRow.UPDATE_TIME);
+    (isOverDaysFromNow(lastDate, 30) ? COldUnits : CUnits).push(unit);
+  });
+
+  BUnits.sort(sortByGroup);
+  CUnits.sort(sortByGroup);
+  BOldUnits.sort(sortByGroup);
+  COldUnits.sort(sortByGroup);
+
+  const rowsText = [];
+
+  if (near2SigmaUnits.length > 0) {
+    rowsText.push(
+      `<div class="highlight-row"><span class="highlight-label" title="${RULE_TOOLTIPS.near2sigma}">接近 2σ 警戒：</span>` +
+      near2SigmaUnits.map(unit => {
+        const shortName = getScoreTableDisplayName(unit);
+        return `<span class="unit-link near2sigma" data-unit="${unit}" title="${unit}">${shortName}</span>`;
+      }).join('') + `</div>`
+    );
+  }
+
+  if (BUnits.length > 0) {
+    rowsText.push(
+      `<div class="highlight-row"><span class="highlight-label" title="${RULE_TOOLTIPS.scoreBC}">評分 B：</span>` +
+      BUnits.map(unit => {
+        const shortName = getScoreTableDisplayName(unit);
+        return `<span class="unit-link badscore-B" data-unit="${unit}" title="${unit}">${shortName}</span>`;
+      }).join('') + `</div>`
+    );
+  }
+
+  if (CUnits.length > 0) {
+    rowsText.push(
+      `<div class="highlight-row"><span class="highlight-label" title="${RULE_TOOLTIPS.scoreBC}">評分 C：</span>` +
+      CUnits.map(unit => {
+        const shortName = getScoreTableDisplayName(unit);
+        return `<span class="unit-link badscore-C" data-unit="${unit}" title="${unit}">${shortName}</span>`;
+      }).join('') + `</div>`
+    );
+  }
+
+  if (liftUpUnits.length > 0) {
+    rowsText.push(
+      `<div class="highlight-row"><span class="highlight-label" title="${RULE_TOOLTIPS.liftup}">最近 3 點上升：</span>` +
+      liftUpUnits.map(unit => {
+        const shortName = getScoreTableDisplayName(unit);
+        return `<span class="unit-link liftup" data-unit="${unit}" title="${unit}">${shortName}</span>`;
+      }).join('') + `</div>`
+    );
+  }
+
+  const oldRowsText = [];
+
+  if (near2SigmaOldUnits.length > 0) {
+    oldRowsText.push(
+      `<div class="highlight-row"><span class="highlight-label">接近 2σ 警戒：</span>` +
+      near2SigmaOldUnits.map(unit => {
+        const shortName = getScoreTableDisplayName(unit);
+        return `<span class="unit-link near2sigma" data-unit="${unit}" title="${unit}">${shortName}</span>`;
+      }).join('') + `</div>`
+    );
+  }
+
+  if (BOldUnits.length > 0) {
+    oldRowsText.push(
+      `<div class="highlight-row"><span class="highlight-label">評分 B：</span>` +
+      BOldUnits.map(unit => {
+        const shortName = getScoreTableDisplayName(unit);
+        return `<span class="unit-link badscore-B" data-unit="${unit}" title="${unit}">${shortName}</span>`;
+      }).join('') + `</div>`
+    );
+  }
+
+  if (COldUnits.length > 0) {
+    oldRowsText.push(
+      `<div class="highlight-row"><span class="highlight-label">評分 C：</span>` +
+      COldUnits.map(unit => {
+        const shortName = getScoreTableDisplayName(unit);
+        return `<span class="unit-link badscore-C" data-unit="${unit}" title="${unit}">${shortName}</span>`;
+      }).join('') + `</div>`
+    );
+  }
+
+  if (liftUpOldUnits.length > 0) {
+    oldRowsText.push(
+      `<div class="highlight-row"><span class="highlight-label">最近 3 點上升：</span>` +
+      liftUpOldUnits.map(unit => {
+        const shortName = getScoreTableDisplayName(unit);
+        return `<span class="unit-link liftup" data-unit="${unit}" title="${unit}">${shortName}</span>`;
+      }).join('') + `</div>`
+    );
+  }
+
+  if (oldRowsText.length > 0) {
+    rowsText.push(
+      `<div style="margin-top:10px; padding-top:8px; border-top:1px dashed rgba(0,0,0,.25);">
+<div class="highlight-subtitle">30天未進點</div>
+${oldRowsText.join('')}
+</div>`
+    );
+  }
+
+  const html = rowsText.join('');
+  if (!html) return '';
+
+    return `
+    <div class="group-card">
+      <div class="group-card-title">${sectionTitle}</div>
+      ${html}
+    </div>
+  `;
+}
+
+function drawHighlightsGroupedByChartName(sourceData) {
+  const highlightDiv = document.getElementById('highlight-units');
+
+  // Build a score map based on current score table calculation
+  const scoreMap = {};
+  (scoreRowsGlobal || []).forEach(r => { scoreMap[r.unit] = r.score; });
+
+  const sections = [];
+  const options = Array.from(document.querySelectorAll('#chartname-filter option'))
+    .map(o => o.value)
+    .filter(v => v !== 'ALL');
+
+  options.forEach(opt => {
+    const filtered = applyChartNameFilterByValue(sourceData, opt);
+    if (!filtered || filtered.length === 0) return;
+
+    const groups = {};
+    filtered.forEach(row => {
+      const unit = row.CHART_NAME;
+      if (!groups[unit]) groups[unit] = [];
+      groups[unit].push(row);
+    });
+
+    // Only keep scores for units within this group
+    const localScoreMap = {};
+    Object.keys(groups).forEach(u => {
+      if (u in scoreMap) localScoreMap[u] = scoreMap[u];
+    });
+
+    const sectionHtml = buildHighlightSectionHTML(`分群：${opt}`, groups, localScoreMap, 'group-title');
+    if (sectionHtml) sections.push(sectionHtml);
+  });
+
+    if (sections.length) {
+    highlightDiv.style.display = 'block';
+    highlightDiv.innerHTML = `<div id="highlight-units-title">重點提示（分群總覽）</div><div class="highlight-grid">${sections.join('')}</div>`;
+    
+  } else {
+    highlightDiv.style.display = 'none';
+    highlightDiv.innerHTML = '';
+    
+  }
+}
+
+
+/* ============== 共用的 Excel buffer 處理 ============== */
+function processBinaryExcelBuffer(arrayBuffer) {
+  const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+  const sheetName = workbook.SheetNames[0];
+  const sheet = workbook.Sheets[sheetName];
+  const json = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+  rawJsonGlobal = json;
+  const filtered = applyChartNameFilter(rawJsonGlobal);
+  drawScoreTable(filtered);          // 先產生 scoreRowsGlobal
+    sortScoreTableBy('score', 'desc'); // ★ 一進來就 C->B->A
+  // 同步表頭箭頭顯示
+  const thUnit  = document.getElementById('th-unit');
+  const thScore = document.getElementById('th-score');
+  if (thScore) thScore.setAttribute('data-order', 'desc');
+  if (thUnit)  thUnit.setAttribute('data-order', 'asc');
+  drawCharts(filtered);
+
+    // ★ Default view: show only highlighted/bad-score charts first
+showOnlyBadScoreCharts();
+      ensureChartsVisible();
+
+    // Ensure toggle button is correct on first load
+    const toggleBtn = document.getElementById('toggle-highlight-btn');
+    if (toggleBtn) {
+      // Color reflects current mode: highlight mode -> red
+      toggleBtn.textContent = '顯示全部機台';
+      toggleBtn.classList.remove('btn-toggle-all');
+      toggleBtn.classList.add('btn-toggle-highlight');
+    }
+}
+
+/* ============== 手動上傳：改用 ArrayBuffer，走同一流程 ============== */
+function handleFile(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function (evt) {
+    const arrayBuffer = evt.target.result;
+    processBinaryExcelBuffer(arrayBuffer);
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+/* ============== 自動載入 data1.xlsx 的 AMAT_PA 分頁 ============== */
+async function loadDefaultExcel() {
+    try {
+        const response = await fetch('data1.xlsx');
+        if (!response.ok) {
+            console.error('載入 data1.xlsx 失敗：', response.status, response.statusText);
+            return;
+        }
+        const arrayBuffer = await response.arrayBuffer();
+        processBinaryExcelBuffer(arrayBuffer);
+    } catch (err) {
+        console.error('載入 data1.xlsx 發生錯誤：', err);
+    }
+}
+
+// 依你的命名規則，把完整 CHART_NAME 精簡成短名稱
+function getShortUnitName(fullName) {
+  if (!fullName) return '';
+  const parts = fullName.split('-');
+  // 處理結尾有 [xxx Eng] 的情況
+  let waferStage = parts[parts.length - 1];
+  let engTag = '';
+  if (/^\[.*Eng\]$/i.test(waferStage)) {
+    engTag = waferStage;
+    waferStage = parts[parts.length - 2] || '';
+  }
+  const toolType   = parts[1] || '';
+  const chamber    = parts[2] || '';
+  const group      = parts[3] || '';
+  const recipe     = parts[4] || '';
+  // 若有 engTag，補上
+  return `${toolType}-${chamber}-${group}-${recipe}-${waferStage}${engTag ? '-' + engTag : ''}`;
+}
+
+// 例：NT-TEOSPE-B08-A-TEOS0.5K-PA009-ADDER-W1 → B08A1
+function getScoreTableDisplayName(fullName) {
+  if (!fullName) return '';
+  // 1. 針對 SACVD-B03/B05/B07 且有 SABOX110
+  const specialMatch = fullName.match(/SACVD-(B0[357])/i);
+  if (specialMatch && fullName.includes('SABOX110')) {
+    // 取 B03/B05/B07
+    const chamber = specialMatch[1].toUpperCase();
+    // 取 group (A/B/C...)，例如 -A_ 或 -B_ 或 -C_
+    const groupMatch = fullName.match(/-(A|B|C)[^A-Z0-9]/i);
+    const group = groupMatch ? groupMatch[1].toUpperCase() : '';
+    // 取 W1/W2
+    const waferMatch = fullName.match(/W(\d+)/i);
+    const wafer = waferMatch ? waferMatch[1] : '';
+    // 組合
+    return `SA-${chamber}${group}${wafer}`;
+  }
+  // 2. 其他維持原本邏輯
+let toolType = '';
+if (/NISACVD/i.test(fullName)) toolType = 'NI';
+else if (/SACVD/i.test(fullName)) toolType = 'SA';
+  const chamberMatch = fullName.match(/B\d{2}/i);
+  const chamber = chamberMatch ? chamberMatch[0].toUpperCase() : '';
+  let group = '';
+  if (/XFER/i.test(fullName)) {
+    group = 'XFER';
+  } else {
+    if (chamberMatch) {
+      const afterChamber = fullName.split(chamberMatch[0])[1] || '';
+      const groupMatch = afterChamber.match(/-([A-Z]{1,2})\b/);
+      group = groupMatch ? groupMatch[1] : '';
+    }
+  }
+  const parts = fullName.split('-');
+  let lastPart = parts[parts.length - 1];
+  if (/^\[.*Eng\]$/i.test(lastPart)) {
+    lastPart = parts[parts.length - 2] || '';
+  }
+  let wafer = '';
+  const waferMatch = lastPart.match(/W(\d+)$/i);
+  wafer = waferMatch ? waferMatch[1] : '';
+  if (group === 'B' && chamber) {
+    return `${toolType}-${chamber}B${wafer}`;
+  }
+  if (group === 'XFER' && chamber) {
+    return `${toolType}-${chamber}XFER${wafer}`;
+  }
+  return `${toolType}-${chamber}${group}${wafer}`;
+}
+
+
+// Excel 日期數字轉 JS 日期字串
+function excelDateToJSDate(serial) {
+  var utc_days  = Math.floor(serial - 25569);
+  var utc_value = utc_days * 86400;
+  var date_info = new Date(utc_value * 1000);
+  var fractional_day = serial - Math.floor(serial) + 0.0000001;
+  var total_seconds = Math.floor(86400 * fractional_day);
+  var seconds = total_seconds % 60;
+  var hours = Math.floor(total_seconds / 3600);
+  var minutes = Math.floor(total_seconds / 60) % 60;
+  date_info.setHours(hours);
+  date_info.setMinutes(minutes);
+  date_info.setSeconds(seconds);
+  return date_info.getFullYear() + '-' +
+    String(date_info.getMonth() + 1).padStart(2, '0') + '-' +
+    String(date_info.getDate()).padStart(2, '0') + ' ' +
+    String(hours).padStart(2, '0') + ':' +
+    String(minutes).padStart(2, '0');
+}
+
+/* ====== 新增：UPDATE_TIME 解析 + 30天判斷 ====== */
+function parseUpdateTimeToDate(updateTime) {
+  if (typeof updateTime === 'number') {
+    return new Date(excelDateToJSDate(updateTime));
+  }
+  const s = String(updateTime || '').trim();
+  if (!s) return null;
+  const d = new Date(s.replace(' ', 'T'));
+  return isNaN(d.getTime()) ? null : d;
+}
+function isOverDaysFromNow(dateObj, days) {
+  if (!dateObj) return false;
+  return (Date.now() - dateObj.getTime()) > days * 24 * 60 * 60 * 1000;
+}
+
+// 評分規則
+function getScore(unit, value) {
+  const name = String(unit).toUpperCase();
+
+  // NISACVD 或 SACVD 且有 XFER
+  if ((name.includes('SACVD') || name.includes('NISACVD')) && name.includes('XFER')) {
+    if (value <= 2) return 'A';
+    if (value > 2 && value <= 4.5) return 'B';
+    if (value > 4.5) return 'C';
+  }
+  // SACVD（不含 NISACVD、不含 XFER）
+  else if (name.includes('SACVD') && !name.includes('NISACVD') && !name.includes('XFER')) {
+    if (value <= 3) return 'A';
+    if (value > 3 && value <= 6) return 'B';
+    if (value > 6) return 'C';
+  }
+  // NISACVD（不含 XFER）
+  else if (name.includes('NISACVD') && !name.includes('XFER')) {
+    if (value <= 2) return 'A';
+    if (value > 2 && value <= 4.5) return 'B';
+    if (value > 4.5) return 'C';
+  }
+  return '-';
+}
+
+
+// 評分表格：計算並準備資料
+function drawScoreTable(data) {
+  const groups = {};
+  data.forEach(row => {
+    const unit = row.CHART_NAME;
+    if (!groups[unit]) groups[unit] = [];
+    groups[unit].push(row);
+  });
+  globalGroups = groups;
+
+  const scoreRows = [];
+  getSortedUnits(groups).forEach(unit => {
+    const rows = groups[unit];
+    rows.sort((a, b) => {
+      const ta = typeof a.UPDATE_TIME === 'number' ? excelDateToJSDate(a.UPDATE_TIME) : a.UPDATE_TIME;
+      const tb = typeof b.UPDATE_TIME === 'number' ? excelDateToJSDate(b.UPDATE_TIME) : b.UPDATE_TIME;
+      return new Date(ta) - new Date(tb);
+    });
+    const last4Rows = rows.slice(-4);
+    const sum = last4Rows.reduce((acc, r) => acc + Number(r.MEAN_VALUE || 0), 0);
+    const meanValue = sum / last4Rows.length;
+    const score = getScore(unit, meanValue);
+    scoreRows.push({ unit, score });
+  });
+
+  scoreRowsGlobal = scoreRows;
+  renderScoreTable(scoreRowsGlobal);
+  setTimeout(bindScoreTableClick, 0);
+}
+
+function renderScoreTable(scoreRows) {
+  const tbody = document.querySelector('#score-table tbody');
+  tbody.innerHTML = '';
+  scoreRows.forEach(row => {
+    const displayName = getScoreTableDisplayName(row.unit);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>
+        <span class="score-link" data-unit="${row.unit}" title="${row.unit}">
+          ${displayName}
+        </span>
+      </td>
+      <td class="score-${row.score}">${row.score}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+const scoreOrder = { 'A': 1, 'B': 2, 'C': 3, '-': 99 };
+
+function sortScoreTableBy(key, order) {
+  if (!scoreRowsGlobal || scoreRowsGlobal.length === 0) return;
+  const sorted = [...scoreRowsGlobal].sort((a, b) => {
+    if (key === 'unit') {
+      if (a.unit < b.unit) return order === 'asc' ? -1 : 1;
+      if (a.unit > b.unit) return order === 'asc' ? 1 : -1;
+      return 0;
+    } else if (key === 'score') {
+      const sa = scoreOrder[a.score] ?? 99;
+      const sb = scoreOrder[b.score] ?? 99;
+      return order === 'asc' ? sa - sb : sb - sa;
+    }
+    return 0;
+  });
+  renderScoreTable(sorted);
+  setTimeout(bindScoreTableClick, 0);
+}
+
+function bindScoreTableClick() {
+  document.querySelectorAll('.score-link').forEach(link => {
+    link.onclick = function() {
+      const unit = this.getAttribute('data-unit');
+      showOnlyChart(unit);
+    };
+  });
+}
+
+function showOnlyChart(unit) {
+  document.querySelectorAll('.chart-container').forEach(div => {
+    div.style.display = (div.getAttribute('data-unit') === unit) ? '' : 'none';
+  });
+}
+
+function showOnlyBadScoreCharts() {
+    // ensure toggle state and button style
+    highlightViewOn = true;
+    const toggleBtn = document.getElementById('toggle-highlight-btn');
+    if (toggleBtn) {
+      // Color reflects current mode: highlight mode -> red
+      toggleBtn.textContent = '顯示全部機台';
+      toggleBtn.classList.remove('btn-toggle-all');
+      toggleBtn.classList.add('btn-toggle-highlight');
+    }
+
+
+  // 建 unit -> score 的對照表
+  const scoreMap = {};
+  (scoreRowsGlobal || []).forEach(r => scoreMap[r.unit] = r.score);
+
+  // Hide "30 days no data" units by default
+  const oldUnits = new Set();
+  Object.keys(globalGroups || {}).forEach(unit => {
+    const rows = globalGroups[unit] || [];
+    if (!rows.length) return;
+    rows.sort((a, b) => {
+      const ta = typeof a.UPDATE_TIME === 'number' ? excelDateToJSDate(a.UPDATE_TIME) : a.UPDATE_TIME;
+      const tb = typeof b.UPDATE_TIME === 'number' ? excelDateToJSDate(b.UPDATE_TIME) : b.UPDATE_TIME;
+      return new Date(ta) - new Date(tb);
+    });
+    const lastRow = rows[rows.length - 1];
+    const lastDate = parseUpdateTimeToDate(lastRow.UPDATE_TIME);
+    if (isOverDaysFromNow(lastDate, 30)) oldUnits.add(unit);
+  });
+
+  document.querySelectorAll('.chart-container').forEach(div => {
+    const unit = div.getAttribute('data-unit');
+    const s = scoreMap[unit] || '-';
+    const isOld = oldUnits.has(unit);
+
+    // Default show: only B/C and not old
+    div.style.display = (!isOld && (s === 'C' || s === 'B')) ? '' : 'none';
+  });
+
+  }
+
+let highlightViewOn = true;
+
+
+// If highlight filter hides everything, fallback to show all
+function ensureChartsVisible() {
+  const charts = Array.from(document.querySelectorAll('.chart-container'));
+  if (!charts.length) return;
+  const allHidden = charts.every(div => div.style.display === 'none');
+  if (allHidden) {
+    highlightViewOn = false;
+    showAllCharts();
+  }
+}
+
+
+function showAllCharts() {
+  document.querySelectorAll('.chart-container').forEach(div => {
+    div.style.display = '';
+  });
+
+    highlightViewOn = false;
+    const toggleBtn = document.getElementById('toggle-highlight-btn');
+  if (toggleBtn) {
+    // Color reflects current mode: all mode -> blue
+    toggleBtn.textContent = '顯示重點機台';
+    toggleBtn.classList.remove('btn-toggle-highlight');
+    toggleBtn.classList.add('btn-toggle-all');
+  }
+}
+
+function toggleHighlightView() {
+  if (highlightViewOn) {
+    // Switch to ALL
+    showAllCharts();
+  } else {
+    // Switch to highlight view
+    showOnlyBadScoreCharts();
+  }
+}
+
+function drawCharts(data) {
+  // If user selects ALL, show highlights grouped by each CHART_NAME filter option.
+  if (currentChartNameFilter === 'ALL') {
+    drawHighlightsGroupedByChartName(rawJsonGlobal || data);
+  }
+
+  const groups = {};
+  data.forEach(row => {
+    const unit = row.CHART_NAME;
+    if (!groups[unit]) groups[unit] = [];
+    groups[unit].push(row);
+  });
+
+  document.getElementById('charts').innerHTML = '';
+
+  const near2SigmaUnits = [];
+  const liftUpUnits = [];
+
+  // ====== 新增：30天未進點分流 ======
+  const near2SigmaOldUnits = [];
+  const liftUpOldUnits = [];
+  const BOldUnits = [];
+  const COldUnits = [];
+
+  const scoreMap = {};
+  scoreRowsGlobal.forEach(r => { scoreMap[r.unit] = r.score; });
+
+  // 先跑一次：判斷 near2sigma / liftup（依最後一點時間 > 30 天分流）
+  getSortedUnits(groups).forEach(unit => {
+    const rows = groups[unit];
+    rows.sort((a, b) => {
+      const ta = typeof a.UPDATE_TIME === 'number' ? excelDateToJSDate(a.UPDATE_TIME) : a.UPDATE_TIME;
+      const tb = typeof b.UPDATE_TIME === 'number' ? excelDateToJSDate(b.UPDATE_TIME) : b.UPDATE_TIME;
+      return new Date(ta) - new Date(tb);
+    });
+
+    const lastRow = rows[rows.length - 1];
+    const lastDate = parseUpdateTimeToDate(lastRow.UPDATE_TIME);
+    const isOld = isOverDaysFromNow(lastDate, 30);
+
+    const meanValueLast = Number(lastRow.MEAN_VALUE);
+    const xbarLast = Number(lastRow.XBAR);
+    const sigmaLast = Number(lastRow.SIGMA);
+    const twoSigmaLast = xbarLast + 2 * sigmaLast;
+
+    // 距離 2σ 的絕對差
+    const diffAbs2 = Math.abs(meanValueLast - twoSigmaLast);
+    if (diffAbs2 <= 1) {
+      (isOld ? near2SigmaOldUnits : near2SigmaUnits).push(unit);
+    }
+
+    const meanValuesRaw = rows.map(r => Number(r.MEAN_VALUE));
+    const xbarsAll = rows.map(r => Number(r.XBAR));
+    const sigmasAll = rows.map(r => Number(r.SIGMA));
+    const totalPoints = meanValuesRaw.length;
+
+    if (totalPoints >= 3) {
+      const last10StartIndex = Math.max(0, totalPoints - 10);
+      const last10 = meanValuesRaw.slice(last10StartIndex);
+      const avgLast10 = last10.reduce((a, b) => a + b, 0) / last10.length;
+
+      const last3 = meanValuesRaw.slice(-3);
+      const avgLast3 = last3.reduce((a, b) => a + b, 0) / last3.length;
+
+      const last3Indices = [totalPoints - 3, totalPoints - 2, totalPoints - 1];
+      const isAllNearOneSigma = last3Indices.every(idx => {
+        const meanVal = meanValuesRaw[idx];
+        const xbar = xbarsAll[idx];
+        const sigma = sigmasAll[idx];
+        const oneSigmaLine = xbar + sigma;
+        return meanVal >= (oneSigmaLine - 2) && meanVal <= (oneSigmaLine + 2);
+      });
+
+      if (avgLast3 > avgLast10 && isAllNearOneSigma) {
+        (isOld ? liftUpOldUnits : liftUpUnits).push(unit);
+      }
+    }
+  });
+
+  lastNear2SigmaUnits = near2SigmaUnits;
+
+  // ====== 依最後一點時間，分流 B/C 清單 ======
+  const sortByGroup = (a, b) => {
+    const ka = getGroupSortKeyFromUnit(a);
+    const kb = getGroupSortKeyFromUnit(b);
+    if (ka.groupNo !== kb.groupNo) return ka.groupNo - kb.groupNo;
+    if (ka.chamber !== kb.chamber) return ka.chamber.localeCompare(kb.chamber);
+    return ka.unitFullName.localeCompare(kb.unitFullName);
+  };
+
+  const allB = Object.keys(scoreMap).filter(u => scoreMap[u] === 'B');
+  const allC = Object.keys(scoreMap).filter(u => scoreMap[u] === 'C');
+
+  const BUnits = [];
+  const CUnits = [];
+
+  allB.forEach(unit => {
+    const rows = groups[unit] || [];
+    if (!rows.length) return;
+    const lastRow = rows[rows.length - 1];
+    const lastDate = parseUpdateTimeToDate(lastRow.UPDATE_TIME);
+    (isOverDaysFromNow(lastDate, 30) ? BOldUnits : BUnits).push(unit);
+  });
+
+  allC.forEach(unit => {
+    const rows = groups[unit] || [];
+    if (!rows.length) return;
+    const lastRow = rows[rows.length - 1];
+    const lastDate = parseUpdateTimeToDate(lastRow.UPDATE_TIME);
+    (isOverDaysFromNow(lastDate, 30) ? COldUnits : CUnits).push(unit);
+  });
+
+  BUnits.sort(sortByGroup);
+  CUnits.sort(sortByGroup);
+  BOldUnits.sort(sortByGroup);
+  COldUnits.sort(sortByGroup);
+
+  // ====== highlight 組裝 ======
+  // (Only render the single-group highlight when not ALL)
+  if (currentChartNameFilter !== 'ALL') {
+    const highlightDiv = document.getElementById('highlight-units');
+    const rowsText = [];
+
+    if (near2SigmaUnits.length > 0) {
+      rowsText.push(
+        `<div class="highlight-row"><span class="highlight-label" title="${RULE_TOOLTIPS.near2sigma}">接近 2σ 警戒：</span>` +
+        near2SigmaUnits.map(unit => {
+          const shortName = getScoreTableDisplayName(unit);
+          return `<span class="unit-link near2sigma" data-unit="${unit}" title="${unit}">${shortName}</span>`;
+        }).join('') + `</div>`
+      );
+    }
+
+    if (BUnits.length > 0) {
+      rowsText.push(
+        `<div class="highlight-row"><span class="highlight-label" title="${RULE_TOOLTIPS.scoreBC}">評分 B：</span>` +
+        BUnits.map(unit => {
+          const shortName = getScoreTableDisplayName(unit);
+          return `<span class="unit-link badscore-B" data-unit="${unit}" title="${unit}">${shortName}</span>`;
+        }).join('') + `</div>`
+      );
+    }
+
+    if (CUnits.length > 0) {
+      rowsText.push(
+        `<div class="highlight-row"><span class="highlight-label" title="${RULE_TOOLTIPS.scoreBC}">評分 C：</span>` +
+        CUnits.map(unit => {
+          const shortName = getScoreTableDisplayName(unit);
+          return `<span class="unit-link badscore-C" data-unit="${unit}" title="${unit}">${shortName}</span>`;
+        }).join('') + `</div>`
+      );
+    }
+
+    if (liftUpUnits.length > 0) {
+      rowsText.push(
+        `<div class="highlight-row"><span class="highlight-label" title="${RULE_TOOLTIPS.liftup}">最近 3 點上升：</span>` +
+        liftUpUnits.map(unit => {
+          const shortName = getScoreTableDisplayName(unit);
+          return `<span class="unit-link liftup" data-unit="${unit}" title="${unit}">${shortName}</span>`;
+        }).join('') + `</div>`
+      );
+    }
+
+    // --- 30天未進點區塊 ---
+    const oldRowsText = [];
+
+    if (near2SigmaOldUnits.length > 0) {
+      oldRowsText.push(
+        `<div class="highlight-row"><span class="highlight-label">接近 2σ 警戒：</span>` +
+        near2SigmaOldUnits.map(unit => {
+          const shortName = getScoreTableDisplayName(unit);
+          return `<span class="unit-link near2sigma" data-unit="${unit}" title="${unit}">${shortName}</span>`;
+        }).join('') + `</div>`
+      );
+    }
+
+    if (BOldUnits.length > 0) {
+      oldRowsText.push(
+        `<div class="highlight-row"><span class="highlight-label">評分 B：</span>` +
+        BOldUnits.map(unit => {
+          const shortName = getScoreTableDisplayName(unit);
+          return `<span class="unit-link badscore-B" data-unit="${unit}" title="${unit}">${shortName}</span>`;
+        }).join('') + `</div>`
+      );
+    }
+
+    if (COldUnits.length > 0) {
+      oldRowsText.push(
+        `<div class="highlight-row"><span class="highlight-label">評分 C：</span>` +
+        COldUnits.map(unit => {
+          const shortName = getScoreTableDisplayName(unit);
+          return `<span class="unit-link badscore-C" data-unit="${unit}" title="${unit}">${shortName}</span>`;
+        }).join('') + `</div>`
+      );
+    }
+
+    if (liftUpOldUnits.length > 0) {
+      oldRowsText.push(
+        `<div class="highlight-row"><span class="highlight-label">最近 3 點上升：</span>` +
+        liftUpOldUnits.map(unit => {
+          const shortName = getScoreTableDisplayName(unit);
+          return `<span class="unit-link liftup" data-unit="${unit}" title="${unit}">${shortName}</span>`;
+        }).join('') + `</div>`
+      );
+    }
+
+    if (oldRowsText.length > 0) {
+      rowsText.push(
+        `<div style="margin-top:10px; padding-top:8px; border-top:1px dashed rgba(0,0,0,.25);">
+<div class="highlight-subtitle">30天未進點</div>
+${oldRowsText.join('')}
+</div>`
+      );
+    }
+
+    const html = rowsText.join('');
+    const filterLabel = (currentChartNameFilter && currentChartNameFilter !== 'ALL')
+      ? `分群：${currentChartNameFilter}`
+      : '分群：全部';
+
+    if (html) {
+      highlightDiv.style.display = 'block';
+      highlightDiv.innerHTML = `<div id="highlight-units-title">重點提示（${filterLabel}）</div>${html}`;
+      
+    } else {
+      highlightDiv.style.display = 'none';
+      highlightDiv.innerHTML = '';
+      
+    }
+  }
+
+  setTimeout(() => {
+    document.querySelectorAll('.unit-link').forEach(link => {
+      link.onclick = function() {
+        const unit = this.getAttribute('data-unit');
+        showOnlyChart(unit);
+      };
+    });
+  }, 0);
+
+  // ====== charts ======
+  getSortedUnits(groups).forEach(unit => {
+    const rows = groups[unit];
+    rows.sort((a, b) => {
+      const ta = typeof a.UPDATE_TIME === 'number' ? excelDateToJSDate(a.UPDATE_TIME) : a.UPDATE_TIME;
+      const tb = typeof b.UPDATE_TIME === 'number' ? excelDateToJSDate(b.UPDATE_TIME) : b.UPDATE_TIME;
+      return new Date(ta) - new Date(tb);
+    });
+
+    const labels = rows.map(r => typeof r.UPDATE_TIME === 'number' ? excelDateToJSDate(r.UPDATE_TIME) : r.UPDATE_TIME);
+    const meanValuesRaw = rows.map(r => Number(r.MEAN_VALUE));
+    const ucl = rows.map(r => Number(r.UCL));
+    const uclValue = Math.max(...ucl);
+    const yMax = uclValue + 5;
+
+        const meanValues = meanValuesRaw.map(v => v > yMax ? yMax : v);
+
+    // Rule update:
+    // - Yellow/orange point should show only when value >= SPEC_HIGH (if exists)
+    // - Fallback: use UCL as SPEC_HIGH when SPEC_HIGH column is missing
+    const specHighRaw = rows.map(r => Number(r.SPEC_HIGH));
+    const hasSpecHigh = specHighRaw.some(v => Number.isFinite(v) && v !== 0);
+    const specHigh = hasSpecHigh ? specHighRaw : rows.map(() => uclValue);
+
+    const isOverSpecHigh = meanValuesRaw.map((v, idx) => Number(v) >= Number(specHigh[idx]));
+    const meanValueColors = isOverSpecHigh.map(flag => flag ? 'orange' : 'black');
+    const meanValueBorderColors = isOverSpecHigh.map(flag => flag ? 'orange' : 'black');
+    const meanValueRadius = isOverSpecHigh.map(flag => flag ? 7 : 4);
+
+    const xbars = rows.map(r => Number(r.XBAR));
+    const sigmas = rows.map(r => Number(r.SIGMA));
+    const avgXbar  = xbars.reduce((a,b) => a + b, 0) / xbars.length;
+    const avgSigma = sigmas.reduce((a,b) => a + b, 0) / sigmas.length;
+    const oneSigma = Array(labels.length).fill(avgXbar + avgSigma);
+    const twoSigma = Array(labels.length).fill(avgXbar + 2 * avgSigma);
+
+    const container = document.createElement('div');
+    container.className = 'chart-container';
+    container.setAttribute('data-unit', unit);
+
+    const shortName = getShortUnitName(unit);
+    container.innerHTML = `
+      <div class="chart-header">
+        <h3 class="chart-header-title"><strong>${shortName}</strong></h3>
+        <div class="chart-header-tag" title="${unit}">SPC 管制圖</div>
+      </div>
+      <canvas height="350"></canvas>
+    `;
+
+    document.getElementById('charts').appendChild(container);
+    const ctx = container.querySelector('canvas').getContext('2d');
+
+    new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'MEAN_VALUE',
+            data: meanValues,
+            borderColor: 'black',
+            backgroundColor: 'rgba(0,0,0,0.1)',
+            pointStyle: 'triangle',
+            fill: false,
+            tension: 0.2,
+            borderWidth: 2,
+            pointBackgroundColor: meanValueColors,
+            pointBorderColor: meanValueBorderColors,
+            pointRadius: meanValueRadius,
+            datalabels: { display: false }
+          },
+          {
+            label: 'UCL',
+            data: Array(labels.length).fill(uclValue),
+            borderColor: 'red',
+            borderDash: [4, 2],
+            fill: false,
+            pointRadius: 0,
+            borderWidth: 2,
+            datalabels: { display: false }
+          },
+          {
+            label: '一倍σ (XBAR+σ)',
+            data: oneSigma,
+            borderColor: '#1976d2',
+            borderDash: [2, 2],
+            fill: false,
+            pointRadius: 0,
+            borderWidth: 2,
+            datalabels: { display: false }
+          },
+          {
+            label: '兩倍σ (XBAR+2σ)',
+            data: twoSigma,
+            borderColor: 'orange',
+            borderDash: [6, 2],
+            fill: false,
+            pointRadius: 0,
+            borderWidth: 2,
+            datalabels: { display: false }
+          }
+        ]
+      },
+      options: {
+        responsive: false,
+        onClick: (evt, elements, chart) => {
+          const points = chart.getElementsAtEventForMode(
+            evt,
+            'nearest',
+            { intersect: true },
+            true
+          );
+          if (!points.length) return;
+          const first = points[0];
+          const datasetIndex = first.datasetIndex;
+          const index = first.index;
+          if (datasetIndex !== 0) return; // 只允許點 MEAN_VALUE
+          const row = rows[index];
+          const timeLabel = labels[index];
+          openParticleModal(row, unit, timeLabel);
+        },
+        plugins: {
+          legend: { display: true },
+          title: { display: false },
+          datalabels: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                const idx = context.dataIndex;
+                const raw = meanValuesRaw[idx];
+                if (context.dataset.label === 'MEAN_VALUE') return 'MEAN_VALUE: ' + raw;
+                if (context.dataset.label === 'UCL') return 'UCL: ' + uclValue;
+                if (context.dataset.label === '一倍σ (XBAR+σ)') return '一倍σ: ' + oneSigma[idx];
+                if (context.dataset.label === '兩倍σ (XBAR+2σ)') return '兩倍σ: ' + twoSigma[idx];
+              }
+            }
+          }
+        },
+        scales: {
+          x: { title: { display: true, text: '時間' } },
+          y: { title: { display: true, text: '測量值' }, min: 0, max: yMax }
+        }
+      },
+      plugins: [ChartDataLabels]
+    });
+  });
+}
+
+// 綁定表頭排序點擊 + 自動載入 data1.xlsx
+window.addEventListener('DOMContentLoaded', () => {
+  const thUnit = document.getElementById('th-unit');
+  const thScore = document.getElementById('th-score');
+
+  if (thUnit) {
+    thUnit.addEventListener('click', () => {
+      const currentOrder = thUnit.getAttribute('data-order') || 'asc';
+      const newOrder = currentOrder === 'asc' ? 'desc' : 'asc';
+      thUnit.setAttribute('data-order', newOrder);
+      thScore.setAttribute('data-order', 'asc');
+      sortScoreTableBy('unit', newOrder);
+    });
+  }
+
+  if (thScore) {
+    thScore.addEventListener('click', () => {
+      const currentOrder = thScore.getAttribute('data-order') || 'asc';
+      const newOrder = currentOrder === 'asc' ? 'desc' : 'asc';
+      thScore.setAttribute('data-order', newOrder);
+      thUnit.setAttribute('data-order', 'asc');
+      sortScoreTableBy('score', newOrder);
+    });
+  }
+
+  // ★ 開啟網頁就自動載入 data1.xlsx
+  loadDefaultExcel();
+});
+
+function buildParticleMapUrl(row) {
+  const chartId  = row.CHART_ID;
+  const chartSeq = row.CHART_SEQ;
+  const pointVal = row.MEAN_VALUE;
+  return (
+    `http://10.10.101.170/Project1/_Blob_ShowImage_4WebResultLoop.asp` +
+    `?site=12AP58` +
+    `&uchart_id=${encodeURIComponent(chartId)}` +
+    `&chart_seq=${encodeURIComponent(chartSeq)}` +
+    `&PointValue=${encodeURIComponent(pointVal)}`
+  );
+}
+
+function openParticleModal(row, unit, timeLabel) {
+  if (!row || row.CHART_ID === '' || row.CHART_SEQ === '') {
+    alert('找不到 CHART_ID / CHART_SEQ，無法開啟 particle map');
+    return;
+  }
+  const url = buildParticleMapUrl(row);
+  const modal = document.getElementById('particle-modal');
+  const iframe = document.getElementById('particle-iframe');
+  const title = document.getElementById('particle-title');
+  title.textContent = `Particle Map｜${getScoreTableDisplayName(unit)}｜${timeLabel}｜ID=${row.CHART_ID}｜SEQ=${row.CHART_SEQ}｜MEAN=${row.MEAN_VALUE}`;
+  iframe.src = url;
+  modal.style.display = 'block';
+}
+
+function closeParticleModal() {
+  const modal = document.getElementById('particle-modal');
+  const iframe = document.getElementById('particle-iframe');
+  modal.style.display = 'none';
+  iframe.src = 'about:blank';
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  const modal = document.getElementById('particle-modal');
+  const btnClose = document.getElementById('particle-close');
+  if (btnClose) btnClose.addEventListener('click', closeParticleModal);
+  // 點黑底關閉
+  if (modal) {
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closeParticleModal();
+    });
+  }
+  // ESC 關閉
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeParticleModal();
+  });
+});
+
+window.addEventListener('DOMContentLoaded', () => {
+  const btn = document.getElementById('back-to-top');
+  if (!btn) return;
+
+  function shouldShow() {
+    const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
+    return scrollY > 300;
+  }
+
+  function update() {
+    btn.style.display = shouldShow() ? 'inline-block' : 'none';
+  }
+
+  window.addEventListener('scroll', update, { passive: true });
+  window.addEventListener('resize', update);
+  update();
+
+  btn.addEventListener('click', () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+});
+</script>
+
+<!-- Particle Map Modal -->
+<div id="particle-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:9999;">
+  <div style="position:absolute; left:4vw; top:4vh; width:92vw; height:92vh; background:#fff; border-radius:10px; overflow:hidden; box-shadow:0 10px 30px rgba(0,0,0,.35);">
+    <div style="height:44px; display:flex; align-items:center; justify-content:space-between; padding:0 10px; background:#1565c0; color:#fff;">
+      <div id="particle-title" style="font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+        Particle Map
+      </div>
+      <button id="particle-close" class="btn-primary" style="background:#0d47a1; box-shadow:none;">關閉</button>
+    </div>
+    <iframe id="particle-iframe" src="about:blank" style="width:100%; height:calc(100% - 44px); border:0;"></iframe>
+  </div>
+</div>
+
+<button id="back-to-top" type="button" title="回到最上面">TOP</button>
+</body>
+</html>
