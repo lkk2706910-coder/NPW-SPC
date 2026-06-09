@@ -629,57 +629,30 @@ border-radius: 999px;
         <div class="settings-section-title">評分門檻</div>
         <div class="settings-grid">
           <div class="settings-field">
-            <label>TEOSPE：A 上限</label>
-            <input id="set-thr-teospe-a" type="number" step="0.1" />
+            <label>XFER（SACVD/NISACVD 含 XFER）：A 上限</label>
+            <input id="set-thr-xfer-a" type="number" step="0.1" />
           </div>
           <div class="settings-field">
-            <label>TEOSPE：B 上限</label>
-            <input id="set-thr-teospe-b" type="number" step="0.1" />
+            <label>XFER：B 上限</label>
+            <input id="set-thr-xfer-b" type="number" step="0.1" />
           </div>
 
           <div class="settings-field">
-            <label>ULKCVD：A 上限</label>
-            <input id="set-thr-ulkcvd-a" type="number" step="0.1" />
+            <label>SACVD（不含 XFER）：A 上限</label>
+            <input id="set-thr-sacvd-a" type="number" step="0.1" />
           </div>
           <div class="settings-field">
-            <label>ULKCVD：B 上限</label>
-            <input id="set-thr-ulkcvd-b" type="number" step="0.1" />
+            <label>SACVD：B 上限</label>
+            <input id="set-thr-sacvd-b" type="number" step="0.1" />
           </div>
 
           <div class="settings-field">
-            <label>OXSE：A 上限</label>
-            <input id="set-thr-oxse-a" type="number" step="0.1" />
+            <label>NISACVD（不含 XFER）：A 上限</label>
+            <input id="set-thr-nisacvd-a" type="number" step="0.1" />
           </div>
           <div class="settings-field">
-            <label>OXSE：B 上限</label>
-            <input id="set-thr-oxse-b" type="number" step="0.1" />
-          </div>
-
-          <div class="settings-field">
-            <label>APF：A 上限</label>
-            <input id="set-thr-apf-a" type="number" step="0.1" />
-          </div>
-          <div class="settings-field">
-            <label>APF：B 上限</label>
-            <input id="set-thr-apf-b" type="number" step="0.1" />
-          </div>
-
-                    <div class="settings-field">
-            <label>BLOKCVD：A 上限</label>
-            <input id="set-thr-blokcvd-a" type="number" step="0.1" />
-          </div>
-          <div class="settings-field">
-            <label>BLOKCVD：B 上限</label>
-            <input id="set-thr-blokcvd-b" type="number" step="0.1" />
-          </div>
-
-          <div class="settings-field">
-            <label>XFERX5：A 上限</label>
-            <input id="set-thr-xferx5-a" type="number" step="0.1" />
-          </div>
-          <div class="settings-field">
-            <label>XFERX5：B 上限</label>
-            <input id="set-thr-xferx5-b" type="number" step="0.1" />
+            <label>NISACVD：B 上限</label>
+            <input id="set-thr-nisacvd-b" type="number" step="0.1" />
           </div>
         </div>
 
@@ -885,7 +858,7 @@ const text = `更新時間：${t.getFullYear()}-${pad(t.getMonth()+1)}-${pad(t.g
 document.getElementById('page-time').textContent = text;
 })();
 // ====== 資料來源：DB（spc_data.aspx）======
-const SPC_API_URL = './spc_data_v5.aspx';
+const SPC_API_URL = './spc_data_tf2.aspx';
 let currentTab = 'ADDER'; // ADDER / PARTITION / U
 
 let currentProcessUnitGroup = 'ALL'; // ALL / NISACVD / SACVD
@@ -1258,12 +1231,9 @@ return (Date.now() - dateObj.getTime()) > days * 24 * 60 * 60 * 1000;
 // ====== 可設定的規則（localStorage）======
 const DEFAULT_RULES = {
     score: {
-    TEOSPE: { a: 2.1, b: 4.1 },
-    ULKCVD: { a: 2.1, b: 4.1 },
-    OXSE:   { a: 2.1, b: 4.1 },
-    APF:    { a: 2.1, b: 3.1 },
-    BLOKCVD:{ a: 2.1, b: 3.1 },
-    XFERX5: { a: 2.1, b: 4.1 }
+    XFER:    { a: 2,   b: 4.5 },
+    SACVD:   { a: 3,   b: 6   },
+    NISACVD: { a: 2,   b: 4.5 }
   },
   near2sigma: {
     diff: 1
@@ -1303,12 +1273,9 @@ function loadRules() {
       const sc = obj.score || {};
       RULES = {
         score: {
-          TEOSPE: { ...DEFAULT_RULES.score.TEOSPE, ...(sc.TEOSPE || {}) },
-          ULKCVD: { ...DEFAULT_RULES.score.ULKCVD, ...(sc.ULKCVD || {}) },
-          OXSE: { ...DEFAULT_RULES.score.OXSE, ...(sc.OXSE || {}) },
-          APF: { ...DEFAULT_RULES.score.APF, ...(sc.APF || {}) },
-          BLOKCVD: { ...DEFAULT_RULES.score.BLOKCVD, ...(sc.BLOKCVD || {}) },
-          XFERX5: { ...DEFAULT_RULES.score.XFERX5, ...(sc.XFERX5 || {}) }
+          XFER: { ...DEFAULT_RULES.score.XFER, ...(sc.XFER || {}) },
+          SACVD: { ...DEFAULT_RULES.score.SACVD, ...(sc.SACVD || {}) },
+          NISACVD: { ...DEFAULT_RULES.score.NISACVD, ...(sc.NISACVD || {}) }
     },
 
         scoring: { ...DEFAULT_RULES.scoring, ...(obj.scoring || {}) },
@@ -1327,19 +1294,13 @@ function saveRules() {
 }
 
 function rulesToForm() {
-  // score thresholds per tool
-  document.getElementById('set-thr-teospe-a').value = RULES.score.TEOSPE.a;
-  document.getElementById('set-thr-teospe-b').value = RULES.score.TEOSPE.b;
-  document.getElementById('set-thr-ulkcvd-a').value = RULES.score.ULKCVD.a;
-  document.getElementById('set-thr-ulkcvd-b').value = RULES.score.ULKCVD.b;
-  document.getElementById('set-thr-oxse-a').value = RULES.score.OXSE.a;
-  document.getElementById('set-thr-oxse-b').value = RULES.score.OXSE.b;
-  document.getElementById('set-thr-apf-a').value = RULES.score.APF.a;
-  document.getElementById('set-thr-apf-b').value = RULES.score.APF.b;
-    document.getElementById('set-thr-blokcvd-a').value = RULES.score.BLOKCVD.a;
-  document.getElementById('set-thr-blokcvd-b').value = RULES.score.BLOKCVD.b;
-  document.getElementById('set-thr-xferx5-a').value = RULES.score.XFERX5.a;
-  document.getElementById('set-thr-xferx5-b').value = RULES.score.XFERX5.b;
+  // score thresholds per 製程類型（TF2）
+  document.getElementById('set-thr-xfer-a').value = RULES.score.XFER.a;
+  document.getElementById('set-thr-xfer-b').value = RULES.score.XFER.b;
+  document.getElementById('set-thr-sacvd-a').value = RULES.score.SACVD.a;
+  document.getElementById('set-thr-sacvd-b').value = RULES.score.SACVD.b;
+  document.getElementById('set-thr-nisacvd-a').value = RULES.score.NISACVD.a;
+  document.getElementById('set-thr-nisacvd-b').value = RULES.score.NISACVD.b;
 
     document.getElementById('set-score-lastn').value = RULES.scoring.lastN;
 
@@ -1354,18 +1315,12 @@ function formToRules() {
   const f = id => parseFloat(document.getElementById(id).value);
   const fi = id => parseInt(document.getElementById(id).value, 10);
 
-  RULES.score.TEOSPE.a = f('set-thr-teospe-a');
-  RULES.score.TEOSPE.b = f('set-thr-teospe-b');
-  RULES.score.ULKCVD.a = f('set-thr-ulkcvd-a');
-  RULES.score.ULKCVD.b = f('set-thr-ulkcvd-b');
-  RULES.score.OXSE.a = f('set-thr-oxse-a');
-  RULES.score.OXSE.b = f('set-thr-oxse-b');
-  RULES.score.APF.a = f('set-thr-apf-a');
-  RULES.score.APF.b = f('set-thr-apf-b');
-    RULES.score.BLOKCVD.a = f('set-thr-blokcvd-a');
-  RULES.score.BLOKCVD.b = f('set-thr-blokcvd-b');
-  RULES.score.XFERX5.a = f('set-thr-xferx5-a');
-  RULES.score.XFERX5.b = f('set-thr-xferx5-b');
+  RULES.score.XFER.a = f('set-thr-xfer-a');
+  RULES.score.XFER.b = f('set-thr-xfer-b');
+  RULES.score.SACVD.a = f('set-thr-sacvd-a');
+  RULES.score.SACVD.b = f('set-thr-sacvd-b');
+  RULES.score.NISACVD.a = f('set-thr-nisacvd-a');
+  RULES.score.NISACVD.b = f('set-thr-nisacvd-b');
 
     RULES.scoring.lastN = Math.max(1, fi('set-score-lastn'));
 
@@ -1377,27 +1332,31 @@ function formToRules() {
 
 
 
-// 評分規則（套用可設定門檻）
+// 評分規則（TF2，套用設定面板可調門檻 RULES.score）
 function getScore(unit, value) {
   const name = String(unit).toUpperCase();
 
-  // NISACVD 或 SACVD 且有 XFER
+  const by = (thr) => {
+    if (!thr) return '-';
+    const a = Number(thr.a);
+    const b = Number(thr.b);
+    if (value <= a) return 'A';
+    if (value > a && value <= b) return 'B';
+    if (value > b) return 'C';
+    return '-';
+  };
+
+  // NISACVD 或 SACVD 且含 XFER
   if ((name.includes('SACVD') || name.includes('NISACVD')) && name.includes('XFER')) {
-    if (value <= 2) return 'A';
-    if (value > 2 && value <= 4.5) return 'B';
-    if (value > 4.5) return 'C';
+    return by(RULES.score.XFER);
   }
   // SACVD（不含 NISACVD、不含 XFER）
-  else if (name.includes('SACVD') && !name.includes('NISACVD') && !name.includes('XFER')) {
-    if (value <= 3) return 'A';
-    if (value > 3 && value <= 6) return 'B';
-    if (value > 6) return 'C';
+  if (name.includes('SACVD') && !name.includes('NISACVD') && !name.includes('XFER')) {
+    return by(RULES.score.SACVD);
   }
   // NISACVD（不含 XFER）
-  else if (name.includes('NISACVD') && !name.includes('XFER')) {
-    if (value <= 2) return 'A';
-    if (value > 2 && value <= 4.5) return 'B';
-    if (value > 4.5) return 'C';
+  if (name.includes('NISACVD') && !name.includes('XFER')) {
+    return by(RULES.score.NISACVD);
   }
   return '-';
 }
