@@ -743,8 +743,8 @@ border-radius: 999px;
 
         <span class="file-input-label" style="margin-left:6px;">群組：</span>
     <button id="btn-group-all" class="btn-primary" type="button" style="min-height:34px; padding:8px 12px;">ALL</button>
-    <button id="btn-group-tu" class="btn-primary btn-secondary" type="button" style="min-height:34px; padding:8px 12px;">T+U</button>
-    <button id="btn-group-abo" class="btn-primary btn-secondary" type="button" style="min-height:34px; padding:8px 12px;">A+B+O</button>
+    <button id="btn-group-tu" class="btn-primary btn-secondary" type="button" style="min-height:34px; padding:8px 12px;">NISACVD</button>
+    <button id="btn-group-abo" class="btn-primary btn-secondary" type="button" style="min-height:34px; padding:8px 12px;">SACVD</button>
 
 
     <span class="file-input-label" style="margin-left:6px;">分群(依 CHART_NAME)：</span>
@@ -877,7 +877,7 @@ document.getElementById('page-time').textContent = text;
 const SPC_API_URL = './spc_data_v5.aspx';
 let currentTab = 'ADDER'; // ADDER / PARTITION / U
 
-let currentProcessUnitGroup = 'ALL'; // ALL / TU / ABO
+let currentProcessUnitGroup = 'ALL'; // ALL / NISACVD / SACVD
 
 function setActiveTab(tab) {
   currentTab = tab;
@@ -937,18 +937,15 @@ function applyProcessUnitGroupFilter(data) {
   if (g === 'ALL') return data;
 
 
-  // 依 CHART_NAME 內的 tool type 判斷
-  const isTU = (name) => {
+  // 依 CHART_NAME 判斷製程類型（注意 NISACVD 字串含 SACVD，需先判 NISACVD）
+  const isNISACVD = (name) => String(name || '').toUpperCase().includes('NISACVD');
+  const isSACVD = (name) => {
     const u = String(name || '').toUpperCase();
-    return u.includes('TEOSPE') || u.includes('ULKCVD');
-  };
-  const isABO = (name) => {
-    const u = String(name || '').toUpperCase();
-    return u.includes('APF') || u.includes('BLOKCVD') || u.includes('OXSE');
+    return u.includes('SACVD') && !u.includes('NISACVD');
   };
 
-  if (g === 'TU') return (data || []).filter(r => isTU(r.CHART_NAME));
-  if (g === 'ABO') return (data || []).filter(r => isABO(r.CHART_NAME));
+  if (g === 'NISACVD') return (data || []).filter(r => isNISACVD(r.CHART_NAME));
+  if (g === 'SACVD') return (data || []).filter(r => isSACVD(r.CHART_NAME));
   return data;
 }
 
@@ -964,9 +961,9 @@ function setActiveProcessUnitGroup(group) {
   if (btnTU) btnTU.classList.add('btn-secondary');
   if (btnABO) btnABO.classList.add('btn-secondary');
 
-  if (group === 'TU') {
+  if (group === 'NISACVD') {
     if (btnTU) btnTU.classList.remove('btn-secondary');
-  } else if (group === 'ABO') {
+  } else if (group === 'SACVD') {
     if (btnABO) btnABO.classList.remove('btn-secondary');
   } else {
     if (btnALL) btnALL.classList.remove('btn-secondary');
@@ -1127,7 +1124,7 @@ document.getElementById('btn-group-all')?.addEventListener('click', () => {
   showOnlyBadScoreCharts();
 });
 document.getElementById('btn-group-tu')?.addEventListener('click', () => {
-    setActiveProcessUnitGroup('TU');
+    setActiveProcessUnitGroup('NISACVD');
   const filtered = applyProcessUnitSearchFilter(applyProcessUnitGroupFilter(applyChartNameFilter(rawJsonGlobal)));
   drawScoreTable(filtered);
   sortScoreTableBy('score', 'desc');
@@ -1135,7 +1132,7 @@ document.getElementById('btn-group-tu')?.addEventListener('click', () => {
   showOnlyBadScoreCharts();
 });
 document.getElementById('btn-group-abo')?.addEventListener('click', () => {
-    setActiveProcessUnitGroup('ABO');
+    setActiveProcessUnitGroup('SACVD');
   const filtered = applyProcessUnitSearchFilter(applyProcessUnitGroupFilter(applyChartNameFilter(rawJsonGlobal)));
   drawScoreTable(filtered);
   sortScoreTableBy('score', 'desc');
