@@ -593,9 +593,9 @@ border-radius: 999px;
 </head>
 <body>
 <header>
-<div class="title-block"><h1>SPC 管制圖儀表板（TF2_EQ1）</h1></div>
+<div class="title-block"><h1>SPC 管制圖儀表板</h1></div>
 <div class="meta">
-<div>版本：v5.0（TF2_EQ1）</div>
+<div>版本：v1.0</div>
 <div id="page-time"></div>
 </div>
 </header>
@@ -743,8 +743,8 @@ border-radius: 999px;
 
         <span class="file-input-label" style="margin-left:6px;">群組：</span>
     <button id="btn-group-all" class="btn-primary" type="button" style="min-height:34px; padding:8px 12px;">ALL</button>
-    <button id="btn-group-tu" class="btn-primary btn-secondary" type="button" style="min-height:34px; padding:8px 12px;">NISACVD</button>
-    <button id="btn-group-abo" class="btn-primary btn-secondary" type="button" style="min-height:34px; padding:8px 12px;">SACVD</button>
+    <button id="btn-group-tu" class="btn-primary btn-secondary" type="button" style="min-height:34px; padding:8px 12px;">T+U</button>
+    <button id="btn-group-abo" class="btn-primary btn-secondary" type="button" style="min-height:34px; padding:8px 12px;">A+B+O</button>
 
 
     <span class="file-input-label" style="margin-left:6px;">分群(依 CHART_NAME)：</span>
@@ -937,15 +937,18 @@ function applyProcessUnitGroupFilter(data) {
   if (g === 'ALL') return data;
 
 
-  // 依 CHART_NAME 判斷製程類型（注意 NISACVD 字串含 SACVD，需先判 NISACVD）
-  const isNISACVD = (name) => String(name || '').toUpperCase().includes('NISACVD');
-  const isSACVD = (name) => {
+  // 依 CHART_NAME 內的 tool type 判斷
+  const isTU = (name) => {
     const u = String(name || '').toUpperCase();
-    return u.includes('SACVD') && !u.includes('NISACVD');
+    return u.includes('TEOSPE') || u.includes('ULKCVD');
+  };
+  const isABO = (name) => {
+    const u = String(name || '').toUpperCase();
+    return u.includes('APF') || u.includes('BLOKCVD') || u.includes('OXSE');
   };
 
-  if (g === 'NISACVD') return (data || []).filter(r => isNISACVD(r.CHART_NAME));
-  if (g === 'SACVD') return (data || []).filter(r => isSACVD(r.CHART_NAME));
+  if (g === 'TU') return (data || []).filter(r => isTU(r.CHART_NAME));
+  if (g === 'ABO') return (data || []).filter(r => isABO(r.CHART_NAME));
   return data;
 }
 
@@ -961,9 +964,9 @@ function setActiveProcessUnitGroup(group) {
   if (btnTU) btnTU.classList.add('btn-secondary');
   if (btnABO) btnABO.classList.add('btn-secondary');
 
-  if (group === 'NISACVD') {
+  if (group === 'TU') {
     if (btnTU) btnTU.classList.remove('btn-secondary');
-  } else if (group === 'SACVD') {
+  } else if (group === 'ABO') {
     if (btnABO) btnABO.classList.remove('btn-secondary');
   } else {
     if (btnALL) btnALL.classList.remove('btn-secondary');
@@ -1074,8 +1077,6 @@ document.getElementById('tab-thk')?.addEventListener('click', () => {
       <option value="PA4">PA4</option>
       <option value="PA5">PA5</option>
       <option value="PA6">PA6</option>
-      <option value="PA7">PA7</option>
-      <option value="PA8">PA8</option>
     `;
     currentChartNameFilter = 'ALL';
     sel.value = 'ALL';
@@ -1126,7 +1127,7 @@ document.getElementById('btn-group-all')?.addEventListener('click', () => {
   showOnlyBadScoreCharts();
 });
 document.getElementById('btn-group-tu')?.addEventListener('click', () => {
-    setActiveProcessUnitGroup('NISACVD');
+    setActiveProcessUnitGroup('TU');
   const filtered = applyProcessUnitSearchFilter(applyProcessUnitGroupFilter(applyChartNameFilter(rawJsonGlobal)));
   drawScoreTable(filtered);
   sortScoreTableBy('score', 'desc');
@@ -1134,7 +1135,7 @@ document.getElementById('btn-group-tu')?.addEventListener('click', () => {
   showOnlyBadScoreCharts();
 });
 document.getElementById('btn-group-abo')?.addEventListener('click', () => {
-    setActiveProcessUnitGroup('SACVD');
+    setActiveProcessUnitGroup('ABO');
   const filtered = applyProcessUnitSearchFilter(applyProcessUnitGroupFilter(applyChartNameFilter(rawJsonGlobal)));
   drawScoreTable(filtered);
   sortScoreTableBy('score', 'desc');
@@ -1364,68 +1365,27 @@ function formToRules() {
 
 
 
-// ====== TF2 評分門檻：依製程(NISACVD/SACVD) + chart name(recipe) 比對 ======
-// 規則：值 <= a → A；a < 值 < c → B；值 >= c → C（小於 a 一律 A）
-// 比對採子字串，較長/較特定的 key 請排前面以優先命中
-const TF2_SCORE = {
-  NISACVD: [
-    { key: 'HTN4DCPA100', a: 3.2, c: 6.2 },
-    { key: 'FSHTN4DCPA',  a: 5.8, c: 7.9 },
-    { key: 'HTSIN130_11', a: 4.1, c: 10.5 },
-    { key: 'PEOX50A_PA',  a: 3.1, c: 8.1 },
-    { key: 'LTUSG250_20', a: 3.1, c: 8.1 },
-    { key: 'XFER',        a: 3.1, c: 4.6 },
-    { key: '-PA-',        a: 2.7, c: 3.9 }
-  ],
-  SACVD: [
-    { key: 'NOSCRBUSG2K', a: 7.5, c: 11.1 },
-    { key: 'NOSCRB7K',    a: 7.1, c: 13.1 },
-    { key: 'HTN120_20',   a: 4.1, c: 6.1 },
-    { key: 'USG50',       a: 5.1, c: 8.1 },
-    { key: 'SABOX',       a: 6.2, c: 8.8 },
-    { key: 'XFER',        a: 2.6, c: 3.9 }
-  ]
-};
-const TF2_SCORE_DEFAULT = { a: 20, c: 50 }; // 未特別定義的 recipe 一律套用
-
-function tf2ClassifyProcess(u) {
-  if (u.includes('NISACVD')) return 'NISACVD';
-  if (u.includes('SACVD')) return 'SACVD';
-  return null;
-}
-function tf2GetThreshold(proc, u) {
-  const list = TF2_SCORE[proc] || [];
-  for (const item of list) {
-    if (u.includes(String(item.key).toUpperCase())) return item;
-  }
-  return TF2_SCORE_DEFAULT;
-}
-function scoreByThreshold(value, a, c) {
-  if (value <= a) return 'A';
-  if (value < c) return 'B';
-  return 'C';
-}
-// U% / RANGE：依管制線 σ → 1σ:A, 2σ:B, >2σ:C
-function scoreBySigma(value, xbar, sigma) {
-  if (!isFinite(xbar) || !isFinite(sigma)) return '-';
-  if (value <= xbar + sigma) return 'A';
-  if (value <= xbar + 2 * sigma) return 'B';
-  return 'C';
-}
-
-// 評分規則（TF2）：ADDER/PARTITION 依 recipe 門檻；U%/RANGE 依 σ
-function getScore(unit, value, ctx) {
+// 評分規則（套用可設定門檻）
+function getScore(unit, value) {
   const u = String(unit || '').toUpperCase();
-  const tab = String((ctx && ctx.tab) || currentTab || 'ADDER').toUpperCase();
 
-  if (tab === 'U' || tab === 'UTHK' || tab === 'RANGE') {
-    return scoreBySigma(value, ctx && ctx.xbar, ctx && ctx.sigma);
+  function by(thr) {
+    if (!thr) return '-';
+    const a = Number(thr.a);
+    const b = Number(thr.b);
+    if (value <= a) return 'A';
+    if (value > a && value <= b) return 'B';
+    if (value > b) return 'C';
+    return '-';
   }
 
-  const proc = tf2ClassifyProcess(u);
-  if (!proc) return '-';
-  const thr = tf2GetThreshold(proc, u);
-  return scoreByThreshold(value, Number(thr.a), Number(thr.c));
+  if (u.includes('TEOSPE')) return by(RULES.score.TEOSPE);
+  if (u.includes('ULKCVD')) return by(RULES.score.ULKCVD);
+  if (u.includes('OXSE')) return by(RULES.score.OXSE);
+  if (u.includes('APF')) return by(RULES.score.APF);
+    if (u.includes('BLOKCVD')) return by(RULES.score.BLOKCVD);
+  if (u.includes('XFERX5')) return by(RULES.score.XFERX5);
+  return '-';
 }
 // 評分表格：計算並準備資料
 function drawScoreTable(data) {
@@ -1458,12 +1418,7 @@ getSortedUnits(groups).forEach(unit => {
   const lastNRows = rows.slice(-nAvg);
   const sum = lastNRows.reduce((acc, r) => acc + Number(r.MEAN_VALUE || 0), 0);
   const meanValue = sum / lastNRows.length;
-  // U%/RANGE 評分需要管制線：取整段 XBAR / SIGMA 平均
-  const xbarsAll = rows.map(r => Number(r.XBAR)).filter(Number.isFinite);
-  const sigmasAll = rows.map(r => Number(r.SIGMA)).filter(Number.isFinite);
-  const avgXbar = xbarsAll.length ? xbarsAll.reduce((a, b) => a + b, 0) / xbarsAll.length : NaN;
-  const avgSigma = sigmasAll.length ? sigmasAll.reduce((a, b) => a + b, 0) / sigmasAll.length : NaN;
-  const score = getScore(unit, meanValue, { tab: currentTab, xbar: avgXbar, sigma: avgSigma });
+  const score = getScore(unit, meanValue);
 
   scoreRows.push({ unit, score, recipe });
 });
@@ -2185,12 +2140,6 @@ if (ltChat) ltChat.addEventListener('click', () => {
 });
 if (ltSettings) ltSettings.addEventListener('click', () => {
   setLeftToolActive('lt-settings');
-  const ok = prompt('請輸入密碼：');
-  if (ok !== '42507') {
-    alert('密碼錯誤');
-    setLeftToolActive('lt-chat');
-    return;
-  }
   openSettings();
 });
 if (ltFav) ltFav.addEventListener('click', () => {
