@@ -2358,14 +2358,79 @@ const AI_PROXY_URL = './ai_proxy.aspx';
 const AI_USER_ID = '00042507';
 const AI_SYSTEM_PROMPT = '你是設備工程小助手,協助使用者查詢與整理 defect lesson learn。回答請精簡、條列重點。';
 
+function applyFilterByDisplayToken(token) {
+  const t = String(token || '').trim();
+  if (!t) return;
+
+  // AI 給的格式可能是：B-B06A1 / T-B01B1 / U-B021 ...
+  // 我們用「顯示名稱」去反查 unit(CHART_NAME)
+  const hit = (scoreRowsGlobal || []).find(r => getScoreTableDisplayName(r.unit) === t);
+  const unit = hit?.unit;
+
+  if (unit) {
+    // 只顯示該台 chart
+    showOnlyChart(unit);
+
+    // 同步把輸入框帶入（方便使用者看得懂自己篩了什麼）
+    const puInput = document.getElementById('processunit-search');
+    if (puInput) puInput.value = '';
+
+    // 捲到圖表區
+    const charts = document.getElementById('charts');
+    if (charts) charts.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+function aiRenderClickableText(text) {
+  // 把像 B-B06A1 / T-B01B1 / U-B021 這種 token 變成可點選 span
+  // 注意：不要用 innerHTML 注入不可信內容，所以採用拆段建立 text node + span
+  const frag = document.createDocumentFragment();
+  const s = String(text || '');
+
+  // token regex: 1~2 個大寫字母 + '-' + Bxx + [ABC] + wafer?（你現在 display name 是 T-B01B1 這種）
+  const re = /\b([A-Z]{1,2}-B\d{2}[A-Z]\d*)\b/g;
+  let last = 0;
+  let m;
+
+  while ((m = re.exec(s)) !== null) {
+    const start = m.index;
+    const end = start + m[0].length;
+
+    if (start > last) frag.appendChild(document.createTextNode(s.slice(last, start)));
+
+    const token = m[1];
+    const span = document.createElement('span');
+    span.textContent = token;
+    span.style.cursor = 'pointer';
+    span.style.color = '#1d4ed8';
+    span.style.fontWeight = '900';
+    span.style.textDecoration = 'underline';
+    span.addEventListener('click', () => applyFilterByDisplayToken(token));
+    frag.appendChild(span);
+
+    last = end;
+  }
+
+  if (last < s.length) frag.appendChild(document.createTextNode(s.slice(last)));
+  return frag;
+}
+
 function aiAppendBubble(role, text, extraClass) {
   const log = document.getElementById('ai-log');
   const div = document.createElement('div');
   div.className = `ai-bubble ${role}` + (extraClass ? ` ${extraClass}` : '');
-  div.textContent = text;
+
+  // assistant 的回覆：把 token 變可點選
+  if (role === 'assistant') {
+    div.appendChild(aiRenderClickableText(text));
+  } else {
+    div.textContent = text;
+  }
+
   log.appendChild(div);
   log.scrollTop = log.scrollHeight;
 }
+
 
 function aiAppendImage(role, imgUrl, caption) {
   const log = document.getElementById('ai-log');
