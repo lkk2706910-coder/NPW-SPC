@@ -81,8 +81,10 @@
         using (SqlCommand cmd = conn.CreateCommand()) {
           cmd.CommandType = CommandType.Text;
 
-          // mode=ADDER: PARAMETER='ADDER' AND RECIPE NOT LIKE 'PAR%'
-          // mode=PARTITION: PARAMETER='ADDER' AND RECIPE LIKE 'PAR%'
+          // 分頁分類依 CHART_NAME 關鍵字：
+          //   Partition = CHART_NAME 含 'LTPA' 或 'PAR_'（PAR[_] 為字面底線，避免誤中結尾的 [Partition...]）
+          //   ADDER     = 其餘（含 -PA-）
+          //   UTHK(U%)  = PARAMETER LIKE '%THK-U%'
           cmd.CommandText = @"
 WITH s AS (
   SELECT
@@ -111,8 +113,6 @@ WITH s AS (
     )
     AND (@chartName = 'ALL' OR CHART_NAME LIKE '%' + @chartName + '%')
     AND (
-      -- 分頁分類改依 CHART_NAME 關鍵字：LTPA / PAR_ 歸 Partition；其餘(含 -PA-)歸 ADDER
-      -- 註：用 PAR[_] 比對字面底線，避免誤中結尾的「[Partition...]」
       (@mode = 'ADDER' AND CHART_NAME NOT LIKE '%LTPA%' AND CHART_NAME NOT LIKE '%PAR[_]%')
       OR
       (@mode = 'PARTITION' AND (CHART_NAME LIKE '%LTPA%' OR CHART_NAME LIKE '%PAR[_]%'))
