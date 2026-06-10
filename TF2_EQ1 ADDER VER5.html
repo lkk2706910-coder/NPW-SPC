@@ -1333,33 +1333,71 @@ function formToRules() {
 
 
 
-// 評分規則（TF2，套用設定面板可調門檻 RULES.score）
-function getScore(unit, value) {
-  const name = String(unit).toUpperCase();
+// ====== TF2 評分門檻：依製程(NISACVD/SACVD) + spec recipe 比對 ======
+// 比對對象 = CHART_NAME + RECIPE（子字串；較特定的 key 排前面優先命中）
+// 規則：值<=a → A；a<值<c → B；值>=c → C（小於 a 一律 A）
+const TF2_SCORE = {
+  NISACVD: [
+    { key: 'HTN4DCPA100', a: 3.2, c: 6.2 },
+    { key: 'FSHTN4DCPA',  a: 5.8, c: 7.9 },
+    { key: 'HTSIN130_11', a: 4.1, c: 10.5 },
+    { key: 'PEOX50A_PA',  a: 3.1, c: 8.1 },
+    { key: 'LTUSG250_20', a: 3.1, c: 8.1 },
+    { key: 'XFER',        a: 3.1, c: 4.6 },
+    { key: '-PA-',        a: 2.7, c: 3.9 }
+  ],
+  SACVD: [
+    { key: 'NOSCRBUSG2K', a: 7.5, c: 11.1 },
+    { key: 'NOSCRB7K',    a: 7.1, c: 13.1 },
+    { key: 'HTN120_20',   a: 4.1, c: 6.1 },
+    { key: 'USG50',       a: 5.1, c: 8.1 },
+    { key: 'SABOX',       a: 6.2, c: 8.8 },
+    { key: 'XFER',        a: 2.6, c: 3.9 }
+  ]
+};
+const TF2_SCORE_DEFAULT = { a: 20, c: 50 }; // 未特別定義的 spec recipe 一律套用
 
-  const by = (thr) => {
-    if (!thr) return '-';
-    const a = Number(thr.a);
-    const b = Number(thr.b);
-    if (value <= a) return 'A';
-    if (value > a && value <= b) return 'B';
-    if (value > b) return 'C';
-    return '-';
-  };
+function tf2ClassifyProcess(hay) {
+  if (hay.includes('NISACVD')) return 'NISACVD'; // 含 SACVD，需先判 NISACVD
+  if (hay.includes('SACVD')) return 'SACVD';
+  return null;
+}
+function tf2GetThreshold(proc, hay) {
+  const list = TF2_SCORE[proc] || [];
+  for (let i = 0; i < list.length; i++) {
+    if (hay.indexOf(String(list[i].key).toUpperCase()) >= 0) return list[i];
+  }
+  return TF2_SCORE_DEFAULT;
+}
+function tf2ScoreByThreshold(value, a, c) {
+  if (value <= a) return 'A';
+  if (value < c) return 'B';
+  return 'C';
+}
+// U% / RANGE：依管制線 σ → 1σ:A, 2σ:B, >2σ:C
+function tf2ScoreBySigma(value, xbar, sigma) {
+  if (!isFinite(xbar) || !isFinite(sigma)) return '-';
+  if (value <= xbar + sigma) return 'A';
+  if (value <= xbar + 2 * sigma) return 'B';
+  return 'C';
+}
 
-  // NISACVD 或 SACVD 且含 XFER
-  if ((name.includes('SACVD') || name.includes('NISACVD')) && name.includes('XFER')) {
-    return by(RULES.score.XFER);
+// 評分規則（TF2）：ADDER/PARTITION 依 spec recipe 門檻；U%/RANGE 依 σ
+function getScore(unit, value, ctx) {
+  ctx = ctx || {};
+  const tab = String(ctx.tab || currentTab || 'ADDER').toUpperCase();
+
+  if (tab === 'U' || tab === 'UTHK' || tab === 'RANGE') {
+    return tf2ScoreBySigma(value, ctx.xbar, ctx.sigma);
   }
-  // SACVD（不含 NISACVD、不含 XFER）
-  if (name.includes('SACVD') && !name.includes('NISACVD') && !name.includes('XFER')) {
-    return by(RULES.score.SACVD);
-  }
-  // NISACVD（不含 XFER）
-  if (name.includes('NISACVD') && !name.includes('XFER')) {
-    return by(RULES.score.NISACVD);
-  }
-  return '-';
+
+  const idHay = (String(ctx.processunit || '') + ' ' + String(unit || '')).toUpperCase();
+  const proc = tf2ClassifyProcess(idHay);
+  if (!proc) return '-';
+
+  const recipeHay = (String(unit || '') + ' ' + String(ctx.recipe || '')).toUpperCase();
+  const thr = tf2GetThreshold(proc, recipeHay);
+  return tf2ScoreByThreshold(value, Number(thr.a), Number(thr.c));
 }
 // 評分表格：計算並準備資料
 function drawScoreTable(data) {
@@ -1392,7 +1430,18 @@ getSortedUnits(groups).forEach(unit => {
   const lastNRows = rows.slice(-nAvg);
   const sum = lastNRows.reduce((acc, r) => acc + Number(r.MEAN_VALUE || 0), 0);
   const meanValue = sum / lastNRows.length;
-  const score = getScore(unit, meanValue);
+  // U%/RANGE 評分需要管制線：取整段 XBAR / SIGMA 平均
+  const xbarsAll = rows.map(r => Number(r.XBAR)).filter(Number.isFinite);
+  const sigmasAll = rows.map(r => Number(r.SIGMA)).filter(Number.isFinite);
+  const avgXbar = xbarsAll.length ? xbarsAll.reduce((a, b) => a + b, 0) / xbarsAll.length : NaN;
+  const avgSigma = sigmasAll.length ? sigmasAll.reduce((a, b) => a + b, 0) / sigmasAll.length : NaN;
+  const score = getScore(unit, meanValue, {
+    tab: currentTab,
+    xbar: avgXbar,
+    sigma: avgSigma,
+    recipe: lastRow ? lastRow.RECIPE : '',
+    processunit: lastRow ? lastRow.PROCESSUNIT : ''
+  });
 
   scoreRows.push({ unit, score, recipe });
 });
