@@ -1355,7 +1355,7 @@ function formToRules() {
 
 // ====== TF2 評分門檻：依製程(NISACVD/SACVD) + spec recipe 比對 ======
 // 門檻值在設定面板可調（RULES.score[proc][recipeKey] = {a,c}），比對順序見 TF2_RECIPE_ORDER
-// 比對對象 = CHART_NAME + RECIPE（子字串）；規則：值<=a → A；a<值<c → B；值>=c → C
+// 比對對象 = CHART_NAME（不用 RECIPE 欄，因常為 *INCLUDE）；規則：值<=a → A；a<值<c → B；值>=c → C
 const TF2_SCORE_DEFAULT = { a: 20, c: 50 };
 
 function tf2ClassifyProcess(hay) {
@@ -1399,7 +1399,8 @@ function getScore(unit, value, ctx) {
   const proc = tf2ClassifyProcess(idHay);
   if (!proc) return '-';
 
-  const recipeHay = (String(unit || '') + ' ' + String(ctx.recipe || '')).toUpperCase();
+  // 只用 CHART_NAME 比對 recipe 關鍵字（不用 RECIPE 欄，因常為 *INCLUDE 會誤判）
+  const recipeHay = String(unit || '').toUpperCase();
   const thr = tf2GetThreshold(proc, recipeHay);
   return tf2ScoreByThreshold(value, Number(thr.a), Number(thr.c));
 }
