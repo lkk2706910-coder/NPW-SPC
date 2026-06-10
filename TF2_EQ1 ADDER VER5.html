@@ -695,10 +695,11 @@ border-radius: 999px;
 
 
     <span class="file-input-label" style="margin-left:6px;">分群(依 CHART_NAME)：</span>
-        <select id="chartname-filter" style="padding:6px 10px;font-size:13px;border-radius:4px;border:1px solid:#ccc;background:#fff;">
+                <select id="chartname-filter" style="padding:6px 10px;font-size:13px;border-radius:4px;border:1px solid:#ccc;background:#fff;">
       <option value="ALL">全部</option>
       <option value="-PA-">-PA-</option>
       <option value="HTSIN130_11">HTSIN130_11</option>
+
       <option value="PEOX50A">PEOX50A</option>
       <option value="XFER">XFER</option>
       <option value="HTN4DCPA">HTN4DCPA</option>
@@ -713,7 +714,10 @@ border-radius: 999px;
       <option value="OX50">OX50</option>
       <option value="HTSIN120_2.0">HTSIN120_2.0</option>
     </select>
-        <span id="partition-hint" class="file-input-label" style="display:none; color:#0f4aa8; font-weight:900;">（Partition 分群：PA1~PA6）</span>
+
+                <span id="partition-hint" class="file-input-label" style="display:none; color:#0f4aa8; font-weight:900;">（Partition 分群：PA1~PA6）</span>
+
+
 
         <span class="file-input-label" style="margin-left:6px;">機台：</span>
         <input id="processunit-search" type="text" placeholder="輸入 tool ID 按 enter" style="padding:6px 10px;font-size:13px;border-radius:8px;border:1px solid #cbd5e1;min-width:220px;" />
@@ -777,16 +781,18 @@ function applyChartNameFilter(data) {
   if (currentChartNameFilter === 'ALL') return data;
   const keyword = String(currentChartNameFilter || '').toUpperCase();
 
-    // Partition 分頁：分群改用 RECIPE 的 PA1~PA6
+        // Partition 分頁：分群改用 RECIPE 的 PA1~PA6
   if (String(currentTab || '').toUpperCase() === 'PARTITION') {
-    // RECIPE 範例："PA2-C"，下拉為 PA1..PA6
-    // 以 "PA2-" 精準比對
-    const target = keyword + '-';
-    return (data || []).filter(r => {
-      const rr = String(r.RECIPE || '').toUpperCase().trim();
-      return rr.startsWith(target);
-    });
+        // RECIPE 範例："PA2-C"，下拉為 PA1..PA6
+        // 以 "PA2-" 精準比對
+        const target = keyword + '-';
+        return (data || []).filter(r => {
+          const rr = String(r.RECIPE || '').toUpperCase().trim();
+          return rr.startsWith(target);
+        });
   }
+
+
 
     // U% 分頁：沿用 CHART_NAME contains
   if (String(currentTab || '').toUpperCase() === 'U') {
@@ -993,13 +999,14 @@ document.getElementById('chartname-filter').addEventListener('change', (e) => {
 document.getElementById('tab-adder')?.addEventListener('click', () => {
   setActiveTab('ADDER');
 
-  // ADDER 分群回復原本清單
-  const sel = document.getElementById('chartname-filter');
-  if (sel) {
-    sel.innerHTML = `
-      <option value="ALL">全部</option>
-      <option value="-PA-">-PA-</option>
-      <option value="HTSIN130_11">HTSIN130_11</option>
+    // ADDER 分群回復原本清單（包含 -PA-）
+    const sel = document.getElementById('chartname-filter');
+    if (sel) {
+      sel.innerHTML = `
+        <option value="ALL">全部</option>
+        <option value="-PA-">-PA-</option>
+        <option value="HTSIN130_11">HTSIN130_11</option>
+
       <option value="PEOX50A">PEOX50A</option>
       <option value="XFER">XFER</option>
       <option value="HTN4DCPA">HTN4DCPA</option>
@@ -1018,6 +1025,7 @@ document.getElementById('tab-adder')?.addEventListener('click', () => {
     sel.value = 'ALL';
   }
 
+
   // 分頁切換時：載入該分頁的設定
   loadRules();
   rulesToForm();
@@ -1026,21 +1034,24 @@ document.getElementById('tab-adder')?.addEventListener('click', () => {
 document.getElementById('tab-thk')?.addEventListener('click', () => {
   setActiveTab('PARTITION');
 
-  // Partition 分群改成 PA1~PA6
-  const sel = document.getElementById('chartname-filter');
-  if (sel) {
-    sel.innerHTML = `
-      <option value="ALL">全部</option>
-      <option value="PA1">PA1</option>
-      <option value="PA2">PA2</option>
-      <option value="PA3">PA3</option>
-      <option value="PA4">PA4</option>
-      <option value="PA5">PA5</option>
-      <option value="PA6">PA6</option>
-    `;
-    currentChartNameFilter = 'ALL';
-    sel.value = 'ALL';
-  }
+    // Partition 分群改成 PA1~PA6（-PA- 歸到 ADDER 分群，不在此顯示）
+    const sel = document.getElementById('chartname-filter');
+    if (sel) {
+      sel.innerHTML = `
+        <option value="ALL">全部</option>
+        <option value="PA1">PA1</option>
+        <option value="PA2">PA2</option>
+        <option value="PA3">PA3</option>
+        <option value="PA4">PA4</option>
+        <option value="PA5">PA5</option>
+        <option value="PA6">PA6</option>
+      `;
+      currentChartNameFilter = 'ALL';
+      sel.value = 'ALL';
+    }
+
+
+
 
   // 分頁切換時：載入該分頁的設定
   loadRules();
@@ -1209,6 +1220,8 @@ const TF2_RECIPE_ORDER = {
   NISACVD: ['HTN4DCPA100', 'FSHTN4DCPA', 'HTSIN130_11', 'PEOX50A_PA', 'LTUSG250_20', 'XFER', '-PA-'],
   SACVD:   ['NOSCRBUSG2K', 'NOSCRB7K', 'HTN120_20', 'USG50', 'SABOX', 'XFER']
 };
+
+
 const DEFAULT_RULES = {
   score: {
     NISACVD: {
@@ -1217,9 +1230,11 @@ const DEFAULT_RULES = {
       'HTSIN130_11': { a: 4.1, c: 10.5 },
       'PEOX50A_PA':  { a: 3.1, c: 8.1 },
       'LTUSG250_20': { a: 3.1, c: 8.1 },
-      'XFER':        { a: 3.1, c: 4.6 },
-      '-PA-':        { a: 2.7, c: 3.9 },
-      'DEFAULT':     { a: 20,  c: 50 }
+            'XFER':        { a: 3.1, c: 4.6 },
+            '-PA-':        { a: 2.7, c: 3.9 },
+            'DEFAULT':     { a: 20,  c: 50 }
+
+
     },
     SACVD: {
       'NOSCRBUSG2K': { a: 7.5, c: 11.1 },
@@ -1396,8 +1411,10 @@ function tf2MatchedRecipeKey(unit, processunit) {
   for (let i = 0; i < order.length; i++) {
     if (hay.indexOf(String(order[i]).toUpperCase()) >= 0) return order[i];
   }
-  return '其他';
+  // 比對不到就回空字串：由外層 fallback 顯示 DB 原始 RECIPE（不顯示「其他」）
+  return '';
 }
+
 
 // 評分規則（TF2）：ADDER/PARTITION 依 spec recipe 門檻；U%/RANGE 依 σ
 function getScore(unit, value, ctx) {
@@ -1438,13 +1455,15 @@ getSortedUnits(groups).forEach(unit => {
     return new Date(ta) - new Date(tb);
   });
 
-    const lastRow = rows[rows.length - 1];
-  // RECIPE 欄改顯示「在 CHART_NAME 比對到的 chart 關鍵字」（與評分一致，不顯示 *INCLUDE）
+        const lastRow = rows[rows.length - 1];
+
+  // RECIPE 欄顯示規則：
+  // 1) 優先顯示：在 CHART_NAME 比對到的 recipe key（例如 HTSIN130_11）
+  // 2) 比對不到：改顯示 DB 原始 RECIPE（去掉結尾 -A/-B/-C），不要顯示「其他」
+  const dbRecipe = lastRow ? String(lastRow.RECIPE || '').replace(/-[ABC].*$/i, '') : '';
   let recipe = tf2MatchedRecipeKey(unit, lastRow ? lastRow.PROCESSUNIT : '');
-  if (!recipe) {
-    // 無法分類製程時退回原 RECIPE（去掉結尾 -A/-B/-C）
-    recipe = lastRow ? String(lastRow.RECIPE || '').replace(/-[ABC].*$/i, '') : '';
-  }
+  if (!recipe) recipe = dbRecipe;
+
 
 
     const nAvg = Math.max(1, parseInt(RULES?.scoring?.lastN ?? 4, 10));
