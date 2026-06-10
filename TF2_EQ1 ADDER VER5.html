@@ -1386,6 +1386,19 @@ function tf2ScoreBySigma(value, xbar, sigma) {
   return 'C';
 }
 
+// 取得在 CHART_NAME 比對到的 recipe 關鍵字（與評分一致）；用於評分表顯示
+function tf2MatchedRecipeKey(unit, processunit) {
+  const idHay = (String(processunit || '') + ' ' + String(unit || '')).toUpperCase();
+  const proc = tf2ClassifyProcess(idHay);
+  if (!proc) return '';
+  const hay = String(unit || '').toUpperCase();
+  const order = TF2_RECIPE_ORDER[proc] || [];
+  for (let i = 0; i < order.length; i++) {
+    if (hay.indexOf(String(order[i]).toUpperCase()) >= 0) return order[i];
+  }
+  return '其他';
+}
+
 // 評分規則（TF2）：ADDER/PARTITION 依 spec recipe 門檻；U%/RANGE 依 σ
 function getScore(unit, value, ctx) {
   ctx = ctx || {};
@@ -1426,9 +1439,12 @@ getSortedUnits(groups).forEach(unit => {
   });
 
     const lastRow = rows[rows.length - 1];
-  let recipe = lastRow ? String(lastRow.RECIPE || '') : '';
-  // 顯示時去掉結尾的 -A / -B / -C（含其後所有字）
-  recipe = recipe.replace(/-[ABC].*$/i, '');
+  // RECIPE 欄改顯示「在 CHART_NAME 比對到的 chart 關鍵字」（與評分一致，不顯示 *INCLUDE）
+  let recipe = tf2MatchedRecipeKey(unit, lastRow ? lastRow.PROCESSUNIT : '');
+  if (!recipe) {
+    // 無法分類製程時退回原 RECIPE（去掉結尾 -A/-B/-C）
+    recipe = lastRow ? String(lastRow.RECIPE || '').replace(/-[ABC].*$/i, '') : '';
+  }
 
 
     const nAvg = Math.max(1, parseInt(RULES?.scoring?.lastN ?? 4, 10));
