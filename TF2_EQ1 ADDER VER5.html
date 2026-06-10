@@ -627,34 +627,8 @@ border-radius: 999px;
     <div class="body">
             <div class="settings-section">
         <div class="settings-section-title">評分門檻</div>
-        <div class="settings-grid">
-          <div class="settings-field">
-            <label>XFER（SACVD/NISACVD 含 XFER）：A 上限</label>
-            <input id="set-thr-xfer-a" type="number" step="0.1" />
-          </div>
-          <div class="settings-field">
-            <label>XFER：B 上限</label>
-            <input id="set-thr-xfer-b" type="number" step="0.1" />
-          </div>
-
-          <div class="settings-field">
-            <label>SACVD（不含 XFER）：A 上限</label>
-            <input id="set-thr-sacvd-a" type="number" step="0.1" />
-          </div>
-          <div class="settings-field">
-            <label>SACVD：B 上限</label>
-            <input id="set-thr-sacvd-b" type="number" step="0.1" />
-          </div>
-
-          <div class="settings-field">
-            <label>NISACVD（不含 XFER）：A 上限</label>
-            <input id="set-thr-nisacvd-a" type="number" step="0.1" />
-          </div>
-          <div class="settings-field">
-            <label>NISACVD：B 上限</label>
-            <input id="set-thr-nisacvd-b" type="number" step="0.1" />
-          </div>
-        </div>
+        <div class="settings-hint" style="margin-bottom:8px;">依製程（NISACVD/SACVD）+ spec recipe 設定門檻：值≤A→A、A&lt;值&lt;C→B、值≥C→C。未列到的 recipe 走「其他(預設)」。</div>
+        <div id="score-thr-container" class="settings-grid"></div>
 
                 <div class="settings-grid" style="grid-template-columns: 1fr; margin-top:10px;">
           <div class="settings-field">
@@ -1230,23 +1204,36 @@ if (!dateObj) return false;
 return (Date.now() - dateObj.getTime()) > days * 24 * 60 * 60 * 1000;
 }
 // ====== 可設定的規則（localStorage）======
+// recipe 比對優先順序（較特定的排前面）；門檻值改在設定面板可調（存 RULES.score）
+const TF2_RECIPE_ORDER = {
+  NISACVD: ['HTN4DCPA100', 'FSHTN4DCPA', 'HTSIN130_11', 'PEOX50A_PA', 'LTUSG250_20', 'XFER', '-PA-'],
+  SACVD:   ['NOSCRBUSG2K', 'NOSCRB7K', 'HTN120_20', 'USG50', 'SABOX', 'XFER']
+};
 const DEFAULT_RULES = {
-    score: {
-    XFER:    { a: 2,   b: 4.5 },
-    SACVD:   { a: 3,   b: 6   },
-    NISACVD: { a: 2,   b: 4.5 }
+  score: {
+    NISACVD: {
+      'HTN4DCPA100': { a: 3.2, c: 6.2 },
+      'FSHTN4DCPA':  { a: 5.8, c: 7.9 },
+      'HTSIN130_11': { a: 4.1, c: 10.5 },
+      'PEOX50A_PA':  { a: 3.1, c: 8.1 },
+      'LTUSG250_20': { a: 3.1, c: 8.1 },
+      'XFER':        { a: 3.1, c: 4.6 },
+      '-PA-':        { a: 2.7, c: 3.9 },
+      'DEFAULT':     { a: 20,  c: 50 }
+    },
+    SACVD: {
+      'NOSCRBUSG2K': { a: 7.5, c: 11.1 },
+      'NOSCRB7K':    { a: 7.1, c: 13.1 },
+      'HTN120_20':   { a: 4.1, c: 6.1 },
+      'USG50':       { a: 5.1, c: 8.1 },
+      'SABOX':       { a: 6.2, c: 8.8 },
+      'XFER':        { a: 2.6, c: 3.9 },
+      'DEFAULT':     { a: 20,  c: 50 }
+    }
   },
-  near2sigma: {
-    diff: 1
-  },
-    scoring: {
-    lastN: 4
-  },
-  liftup: {
-    lastN: 3,
-    compareM: 10,
-    band: 2
-  }
+  near2sigma: { diff: 1 },
+  scoring: { lastN: 4 },
+  liftup: { lastN: 3, compareM: 10, band: 2 }
 };
 
 
@@ -1272,13 +1259,17 @@ function loadRules() {
     const obj = JSON.parse(raw);
     if (obj && typeof obj === 'object') {
       const sc = obj.score || {};
+      // 以預設為底，深層併入已存的 recipe 門檻（proc -> recipe -> {a,c}）
+      const mergedScore = JSON.parse(JSON.stringify(DEFAULT_RULES.score));
+      ['NISACVD', 'SACVD'].forEach(proc => {
+        if (sc[proc] && typeof sc[proc] === 'object') {
+          Object.keys(sc[proc]).forEach(key => {
+            mergedScore[proc][key] = { ...(mergedScore[proc][key] || {}), ...sc[proc][key] };
+          });
+        }
+      });
       RULES = {
-        score: {
-          XFER: { ...DEFAULT_RULES.score.XFER, ...(sc.XFER || {}) },
-          SACVD: { ...DEFAULT_RULES.score.SACVD, ...(sc.SACVD || {}) },
-          NISACVD: { ...DEFAULT_RULES.score.NISACVD, ...(sc.NISACVD || {}) }
-    },
-
+        score: mergedScore,
         scoring: { ...DEFAULT_RULES.scoring, ...(obj.scoring || {}) },
         near2sigma: { ...DEFAULT_RULES.near2sigma, ...(obj.near2sigma || {}) },
         liftup: { ...DEFAULT_RULES.liftup, ...(obj.liftup || {}) }
@@ -1294,17 +1285,43 @@ function saveRules() {
   localStorage.setItem(key, JSON.stringify(RULES));
 }
 
+// 依 RULES.score 動態產生 recipe 門檻欄位（NISACVD/SACVD 各 recipe + 其他預設）
+function renderScoreThresholdFields() {
+  const cont = document.getElementById('score-thr-container');
+  if (!cont) return;
+  cont.innerHTML = '';
+  ['NISACVD', 'SACVD'].forEach(proc => {
+    const map = (RULES.score && RULES.score[proc]) || {};
+    const head = document.createElement('div');
+    head.style.cssText = 'grid-column:1/-1;font-weight:800;color:#0f4aa8;margin-top:6px;';
+    head.textContent = proc;
+    cont.appendChild(head);
+    (TF2_RECIPE_ORDER[proc] || []).concat(['DEFAULT']).forEach(key => {
+      const thr = map[key] || {};
+      [['a', 'A 上限'], ['c', 'C 下限']].forEach(pair => {
+        const ac = pair[0], lab = pair[1];
+        const field = document.createElement('div');
+        field.className = 'settings-field';
+        const label = document.createElement('label');
+        label.textContent = (key === 'DEFAULT' ? '其他(預設)' : key) + '：' + lab;
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.step = '0.1';
+        input.value = (thr[ac] != null ? thr[ac] : '');
+        input.setAttribute('data-proc', proc);
+        input.setAttribute('data-key', key);
+        input.setAttribute('data-ac', ac);
+        field.appendChild(label);
+        field.appendChild(input);
+        cont.appendChild(field);
+      });
+    });
+  });
+}
+
 function rulesToForm() {
-  // score thresholds per 製程類型（TF2）
-  document.getElementById('set-thr-xfer-a').value = RULES.score.XFER.a;
-  document.getElementById('set-thr-xfer-b').value = RULES.score.XFER.b;
-  document.getElementById('set-thr-sacvd-a').value = RULES.score.SACVD.a;
-  document.getElementById('set-thr-sacvd-b').value = RULES.score.SACVD.b;
-  document.getElementById('set-thr-nisacvd-a').value = RULES.score.NISACVD.a;
-  document.getElementById('set-thr-nisacvd-b').value = RULES.score.NISACVD.b;
-
-    document.getElementById('set-score-lastn').value = RULES.scoring.lastN;
-
+  renderScoreThresholdFields(); // 依 RULES.score 產生 recipe 門檻欄位
+  document.getElementById('set-score-lastn').value = RULES.scoring.lastN;
   document.getElementById('set-near2-diff').value = RULES.near2sigma.diff;
   document.getElementById('set-rise-lastn').value = RULES.liftup.lastN;
   document.getElementById('set-rise-compare').value = RULES.liftup.compareM;
@@ -1316,15 +1333,18 @@ function formToRules() {
   const f = id => parseFloat(document.getElementById(id).value);
   const fi = id => parseInt(document.getElementById(id).value, 10);
 
-  RULES.score.XFER.a = f('set-thr-xfer-a');
-  RULES.score.XFER.b = f('set-thr-xfer-b');
-  RULES.score.SACVD.a = f('set-thr-sacvd-a');
-  RULES.score.SACVD.b = f('set-thr-sacvd-b');
-  RULES.score.NISACVD.a = f('set-thr-nisacvd-a');
-  RULES.score.NISACVD.b = f('set-thr-nisacvd-b');
+  // 讀回 recipe 門檻（proc -> recipe -> {a,c}）
+  document.querySelectorAll('#score-thr-container input[data-proc]').forEach(inp => {
+    const proc = inp.getAttribute('data-proc');
+    const key = inp.getAttribute('data-key');
+    const ac = inp.getAttribute('data-ac');
+    const v = parseFloat(inp.value);
+    if (!RULES.score[proc]) RULES.score[proc] = {};
+    if (!RULES.score[proc][key]) RULES.score[proc][key] = {};
+    if (Number.isFinite(v)) RULES.score[proc][key][ac] = v;
+  });
 
-    RULES.scoring.lastN = Math.max(1, fi('set-score-lastn'));
-
+  RULES.scoring.lastN = Math.max(1, fi('set-score-lastn'));
   RULES.near2sigma.diff = f('set-near2-diff');
   RULES.liftup.lastN = fi('set-rise-lastn');
   RULES.liftup.compareM = fi('set-rise-compare');
@@ -1334,28 +1354,9 @@ function formToRules() {
 
 
 // ====== TF2 評分門檻：依製程(NISACVD/SACVD) + spec recipe 比對 ======
-// 比對對象 = CHART_NAME + RECIPE（子字串；較特定的 key 排前面優先命中）
-// 規則：值<=a → A；a<值<c → B；值>=c → C（小於 a 一律 A）
-const TF2_SCORE = {
-  NISACVD: [
-    { key: 'HTN4DCPA100', a: 3.2, c: 6.2 },
-    { key: 'FSHTN4DCPA',  a: 5.8, c: 7.9 },
-    { key: 'HTSIN130_11', a: 4.1, c: 10.5 },
-    { key: 'PEOX50A_PA',  a: 3.1, c: 8.1 },
-    { key: 'LTUSG250_20', a: 3.1, c: 8.1 },
-    { key: 'XFER',        a: 3.1, c: 4.6 },
-    { key: '-PA-',        a: 2.7, c: 3.9 }
-  ],
-  SACVD: [
-    { key: 'NOSCRBUSG2K', a: 7.5, c: 11.1 },
-    { key: 'NOSCRB7K',    a: 7.1, c: 13.1 },
-    { key: 'HTN120_20',   a: 4.1, c: 6.1 },
-    { key: 'USG50',       a: 5.1, c: 8.1 },
-    { key: 'SABOX',       a: 6.2, c: 8.8 },
-    { key: 'XFER',        a: 2.6, c: 3.9 }
-  ]
-};
-const TF2_SCORE_DEFAULT = { a: 20, c: 50 }; // 未特別定義的 spec recipe 一律套用
+// 門檻值在設定面板可調（RULES.score[proc][recipeKey] = {a,c}），比對順序見 TF2_RECIPE_ORDER
+// 比對對象 = CHART_NAME + RECIPE（子字串）；規則：值<=a → A；a<值<c → B；值>=c → C
+const TF2_SCORE_DEFAULT = { a: 20, c: 50 };
 
 function tf2ClassifyProcess(hay) {
   if (hay.includes('NISACVD')) return 'NISACVD'; // 含 SACVD，需先判 NISACVD
@@ -1363,11 +1364,14 @@ function tf2ClassifyProcess(hay) {
   return null;
 }
 function tf2GetThreshold(proc, hay) {
-  const list = TF2_SCORE[proc] || [];
-  for (let i = 0; i < list.length; i++) {
-    if (hay.indexOf(String(list[i].key).toUpperCase()) >= 0) return list[i];
+  const map = (RULES.score && RULES.score[proc]) || {};
+  const order = TF2_RECIPE_ORDER[proc] || [];
+  for (let i = 0; i < order.length; i++) {
+    if (hay.indexOf(String(order[i]).toUpperCase()) >= 0) {
+      return map[order[i]] || map.DEFAULT || TF2_SCORE_DEFAULT;
+    }
   }
-  return TF2_SCORE_DEFAULT;
+  return map.DEFAULT || TF2_SCORE_DEFAULT;
 }
 function tf2ScoreByThreshold(value, a, c) {
   if (value <= a) return 'A';
