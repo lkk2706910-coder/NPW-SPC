@@ -715,7 +715,7 @@ border-radius: 999px;
       <option value="HTSIN120_2.0">HTSIN120_2.0</option>
     </select>
 
-                <span id="partition-hint" class="file-input-label" style="display:none; color:#0f4aa8; font-weight:900;">（Partition 分群：PA1~PA6）</span>
+                <span id="partition-hint" class="file-input-label" style="display:none; color:#0f4aa8; font-weight:900;">（Partition 分群：LTPA / PAR_）</span>
 
 
 
@@ -781,15 +781,9 @@ function applyChartNameFilter(data) {
   if (currentChartNameFilter === 'ALL') return data;
   const keyword = String(currentChartNameFilter || '').toUpperCase();
 
-        // Partition 分頁：分群改用 RECIPE 的 PA1~PA6
+        // Partition 分頁：分群改用 CHART_NAME 關鍵字（LTPA / PAR_，與後端分類一致）
   if (String(currentTab || '').toUpperCase() === 'PARTITION') {
-        // RECIPE 範例："PA2-C"，下拉為 PA1..PA6
-        // 以 "PA2-" 精準比對
-        const target = keyword + '-';
-        return (data || []).filter(r => {
-          const rr = String(r.RECIPE || '').toUpperCase().trim();
-          return rr.startsWith(target);
-        });
+        return (data || []).filter(r => String(r.CHART_NAME || '').toUpperCase().includes(keyword));
   }
 
 
@@ -981,7 +975,7 @@ async function loadDataFromDb() {
 document.getElementById('chartname-filter').addEventListener('change', (e) => {
   currentChartNameFilter = e.target.value;
 
-  // Partition 的 PA1~PA6 只需要前端用 RECIPE 過濾即可（不需要再打 API）
+  // Partition 的 LTPA/PAR_ 只需前端用 CHART_NAME 過濾即可（不需再打 API）
     if (String(currentTab || '').toUpperCase() === 'PARTITION') {
     const filtered = applyProcessUnitSearchFilter(applyProcessUnitGroupFilter(applyChartNameFilter(rawJsonGlobal)));
     drawScoreTable(filtered);
@@ -1034,17 +1028,13 @@ document.getElementById('tab-adder')?.addEventListener('click', () => {
 document.getElementById('tab-thk')?.addEventListener('click', () => {
   setActiveTab('PARTITION');
 
-    // Partition 分群改成 PA1~PA6（-PA- 歸到 ADDER 分群，不在此顯示）
+    // Partition 分群改成 CHART_NAME 關鍵字 LTPA / PAR_（與後端分類一致）
     const sel = document.getElementById('chartname-filter');
     if (sel) {
       sel.innerHTML = `
         <option value="ALL">全部</option>
-        <option value="PA1">PA1</option>
-        <option value="PA2">PA2</option>
-        <option value="PA3">PA3</option>
-        <option value="PA4">PA4</option>
-        <option value="PA5">PA5</option>
-        <option value="PA6">PA6</option>
+        <option value="LTPA">LTPA</option>
+        <option value="PAR_">PAR_</option>
       `;
       currentChartNameFilter = 'ALL';
       sel.value = 'ALL';
