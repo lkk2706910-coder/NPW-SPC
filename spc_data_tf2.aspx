@@ -111,9 +111,11 @@ WITH s AS (
     )
     AND (@chartName = 'ALL' OR CHART_NAME LIKE '%' + @chartName + '%')
     AND (
-      (@mode = 'ADDER' AND (RECIPE IS NULL OR RECIPE NOT LIKE 'PA%'))
+      -- 分頁分類改依 CHART_NAME 關鍵字：LTPA / PAR_ 歸 Partition；其餘(含 -PA-)歸 ADDER
+      -- 註：用 PAR[_] 比對字面底線，避免誤中結尾的「[Partition...]」
+      (@mode = 'ADDER' AND CHART_NAME NOT LIKE '%LTPA%' AND CHART_NAME NOT LIKE '%PAR[_]%')
       OR
-      (@mode = 'PARTITION' AND RECIPE LIKE 'PA%')
+      (@mode = 'PARTITION' AND (CHART_NAME LIKE '%LTPA%' OR CHART_NAME LIKE '%PAR[_]%'))
       OR
       (@mode = 'UTHK')
     )
