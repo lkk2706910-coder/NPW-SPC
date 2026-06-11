@@ -1237,13 +1237,20 @@ function uRangeParse(fullName) {
     recipeStart = base + 2;        // 分開：跳過 process、chamber
   }
 
-  // 尾段標記：THK / U% / RANGE 最先出現者
-  let tailIdx = parts.findIndex(p => /^(THK|U%|RANGE)$/i.test(String(p)));
-  if (tailIdx < 0) tailIdx = parts.length;
-  const groupWafer = parts[tailIdx - 1] || '';            // 群組+wafer（尾段前一段）
-  const recipe = parts.slice(recipeStart, tailIdx - 1)    // recipe 段 ~ groupWafer 前
-    .filter(s => URANGE_RECIPE_EXCLUDE.indexOf(String(s).toUpperCase()) < 0)
-    .join('-');
+  // 尾段：末端為 U% 或 RANGE，其前可有 THK / OUT / IN 等修飾段（如 OUT-RANGE、IN-RANGE、THK-U%）
+  const TAIL_PREFIX = /^(THK|OUT|IN)$/i;
+  let endIdx = parts.findIndex(p => /^(U%|RANGE)$/i.test(String(p)));
+  if (endIdx < 0) endIdx = parts.length;
+  // 從末端往前略過 THK/OUT/IN，找出群組+wafer 段
+  let gwIdx = endIdx - 1;
+  while (gwIdx > recipeStart && TAIL_PREFIX.test(String(parts[gwIdx] || ''))) gwIdx--;
+  const groupWafer = parts[gwIdx] || '';                  // 群組+wafer
+  // recipe = 腔體後~groupWafer 前(排除 Aleris/SIN) + 尾段的 OUT/IN(不含 THK)
+  const baseSegs = parts.slice(recipeStart, gwIdx)
+    .filter(s => URANGE_RECIPE_EXCLUDE.indexOf(String(s).toUpperCase()) < 0);
+  const tailMods = parts.slice(gwIdx + 1, endIdx)
+    .filter(s => /^(OUT|IN)$/i.test(String(s)));
+  const recipe = baseSegs.concat(tailMods).join('-');
   return { process, chamber, groupWafer, recipe };
 }
 function uRangeMachineName(fullName) {
