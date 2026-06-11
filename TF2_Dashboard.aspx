@@ -1223,13 +1223,25 @@ function uRangeParse(fullName) {
   const parts = String(fullName || '').split('-');
   const isNT = parts[0] && parts[0].toUpperCase() === 'NT';
   const base = isNT ? 1 : 0;
-  const process = parts[base] || '';
-  const chamber = parts[base + 1] || '';
+
+  // 製程/腔體：可能分開(SACVD-B01) 或相連(SACVDB01)
+  let process, chamber, recipeStart;
+  const joined = /^(NISACVD|SACVD)(B\d+\w*)$/i.exec(String(parts[base] || ''));
+  if (joined) {
+    process = joined[1];
+    chamber = joined[2];
+    recipeStart = base + 1;        // 相連：recipe 緊接其後
+  } else {
+    process = parts[base] || '';
+    chamber = parts[base + 1] || '';
+    recipeStart = base + 2;        // 分開：跳過 process、chamber
+  }
+
   // 尾段標記：THK / U% / RANGE 最先出現者
-  let tailIdx = parts.findIndex((p, i) => i > base + 1 && /^(THK|U%|RANGE)$/i.test(String(p)));
+  let tailIdx = parts.findIndex(p => /^(THK|U%|RANGE)$/i.test(String(p)));
   if (tailIdx < 0) tailIdx = parts.length;
-  const groupWafer = parts[tailIdx - 1] || '';          // 群組+wafer（尾段前一段）
-  const recipe = parts.slice(base + 2, tailIdx - 1)     // 腔體後 ~ groupWafer 前
+  const groupWafer = parts[tailIdx - 1] || '';            // 群組+wafer（尾段前一段）
+  const recipe = parts.slice(recipeStart, tailIdx - 1)    // recipe 段 ~ groupWafer 前
     .filter(s => URANGE_RECIPE_EXCLUDE.indexOf(String(s).toUpperCase()) < 0)
     .join('-');
   return { process, chamber, groupWafer, recipe };
@@ -1240,7 +1252,10 @@ function uRangeMachineName(fullName) {
 }
 function uRangeRecipe(fullName) { return uRangeParse(fullName).recipe; }
 function uRangeShortName(fullName) {
-  return String(fullName || '').replace(/^NT-/i, '').replace(/-\[Partition/i, '[Partition');
+  let s = String(fullName || '').replace(/^NT-/i, '').replace(/-\[Partition/i, '[Partition');
+  // STIUSG5.5K / STIUSG5.6K：圖名結尾不需要 -U%
+  if (/STIUSG5\.[56]K/i.test(s)) s = s.replace(/-U%(?=$|\[Partition)/i, '');
+  return s;
 }
 
 function getShortUnitName(fullName) {
