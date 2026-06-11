@@ -2107,25 +2107,24 @@ let minus2Sigma = [];
 
 
 
-// Y 軸自動範圍（避免固定 ucl+5 比例怪）
-const yCandidates = []
-  .concat(meanValuesRaw)
-  .concat(cl)
-    .concat(plus1Sigma, plus2Sigma)
+// Y 軸範圍：以管制線(UCL/+2σ/CL) 與資料的穩健上界(排除單一尖峰)為準，
+// 避免單一極端尖峰把比例撐爆而壓掉 limit，導致管制線看不見
+const limitVals = [].concat(cl, plus1Sigma, plus2Sigma)
+  .concat(Number.isFinite(uclValue) ? [uclValue] : [])
+  .filter(Number.isFinite);
+const meanFinite = meanValuesRaw.filter(Number.isFinite).slice().sort((a, b) => a - b);
+const p90 = meanFinite.length ? meanFinite[Math.floor((meanFinite.length - 1) * 0.9)] : 0;
+const upperRef = Math.max.apply(null, limitVals.concat([p90, 1]));
+const pad = Math.max(0.5, upperRef * 0.12);
+const yMin = 0;
+const yMax = upperRef + pad;
 
-  .concat(Number.isFinite(uclValue) ? [uclValue] : []);
-const finiteY = yCandidates.filter(v => Number.isFinite(v));
-const yMinRaw = finiteY.length ? Math.min.apply(null, finiteY) : 0;
-const yMaxRaw = finiteY.length ? Math.max.apply(null, finiteY) : 1;
-
-const pad = Math.max(0.2, (yMaxRaw - yMinRaw) * 0.08);
-const yMin = Math.max(0, yMinRaw - pad);
-const yMax = Math.max(1, yMaxRaw + pad);
-
-const meanValues = meanValuesRaw;
-const meanValueColors = meanValuesRaw.map(_ => 'black');
-const meanValueBorderColors = meanValuesRaw.map(_ => 'black');
-const meanValueRadius = meanValuesRaw.map(_ => 4);
+// 超過 yMax 的點裁切到頂端並標紅（tooltip 仍顯示真實值），確保 limit 看得見
+const overTop = meanValuesRaw.map(v => Number.isFinite(v) && v > yMax);
+const meanValues = meanValuesRaw.map((v, i) => overTop[i] ? yMax : v);
+const meanValueColors = overTop.map(o => o ? 'red' : 'black');
+const meanValueBorderColors = meanValueColors.slice();
+const meanValueRadius = overTop.map(o => o ? 6 : 4);
 
 const container = document.createElement('div');
 container.className = 'chart-container';
