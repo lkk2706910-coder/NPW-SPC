@@ -2131,13 +2131,7 @@ const container = document.createElement('div');
 container.className = 'chart-container';
 container.setAttribute('data-unit', unit);
 let shortName = getShortUnitNameWithTokens(unit);
-// U% 分頁：標題補上 U%，方便辨識
-if (String(currentTab || '').toUpperCase() === 'U') {
-  // 先把重複的 -U% 收斂成一個
-  shortName = shortName.replace(/(?:-U%)+$/i, '-U%');
-  // 若尾端沒有 U% 才補上
-  if (!/-U%$/i.test(shortName)) shortName = `${shortName}-U%`;
-}
+// 圖名直接用 CHART_NAME 推得的短名（保有其真實 -THK-U% / -THK-RANGE 後綴），不再強制補 -U%
 container.innerHTML = `
 <div class="chart-header">
 <h3 class="chart-header-title"><strong>${shortName}</strong></h3>
