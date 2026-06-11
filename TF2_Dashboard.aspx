@@ -768,7 +768,7 @@ border-radius: 999px;
 const SPC_API_URL = location.pathname; // 指回自己這支 .aspx（帶 ?tab= 時 code-behind 回 JSON）
 
 // ---- AI 助手（前端不放金鑰，由 ai_proxy.aspx 從 web.config 取用）----
-const AI_PROXY_URL = './ai_proxy.aspx';
+const AI_PROXY_URL = location.pathname + '?ai=1'; // 指回自己這支 .aspx（code-behind 代理 AI）
 const AI_USER_ID = '00042507';
 const AI_SYSTEM_PROMPT = '你是設備工程小助手,協助使用者查詢與整理 defect lesson learn。回答請精簡、條列重點。';
 
