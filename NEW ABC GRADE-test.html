@@ -759,6 +759,59 @@ border-radius: 999px;
 </div>
 </div>
 <script>
+/* =========================================================================
+ *  設定區（CONFIG）— 規則與參數集中於此，方便修改
+ * ========================================================================= */
+
+// ---- 資料來源 / 後端 API ----
+const SPC_API_URL = './spc_data_tf2.aspx';
+
+// ---- AI 助手（前端不放金鑰，由 ai_proxy.aspx 從 web.config 取用）----
+const AI_PROXY_URL = './ai_proxy.aspx';
+const AI_USER_ID = '00042507';
+const AI_SYSTEM_PROMPT = '你是設備工程小助手,協助使用者查詢與整理 defect lesson learn。回答請精簡、條列重點。';
+
+// ---- 評分：recipe 比對優先順序（較特定的排前面）----
+const TF2_RECIPE_ORDER = {
+  NISACVD: ['HTN4DCPA100', 'FSHTN4DCPA', 'HTSIN130_11', 'PEOX50A_PA', 'LTUSG250_20', 'XFER', '-PA-'],
+  SACVD:   ['NOSCRBUSG2K', 'NOSCRB7K', 'HTN120_20', 'USG50', 'SABOX', 'XFER']
+};
+
+// ---- 評分：未定義 recipe 的預設門檻 ----
+const TF2_SCORE_DEFAULT = { a: 20, c: 50 };
+
+// ---- 評分門檻 / 規則預設值（可在設定面板調整，存 localStorage）----
+// 規則：值<=a → A；a<值<c → B；值>=c → C
+const DEFAULT_RULES = {
+  score: {
+    NISACVD: {
+      'HTN4DCPA100': { a: 3.2, c: 6.2 },
+      'FSHTN4DCPA':  { a: 5.8, c: 7.9 },
+      'HTSIN130_11': { a: 4.1, c: 10.5 },
+      'PEOX50A_PA':  { a: 3.1, c: 8.1 },
+      'LTUSG250_20': { a: 3.1, c: 8.1 },
+      'XFER':        { a: 3.1, c: 4.6 },
+      '-PA-':        { a: 2.7, c: 3.9 },
+      'DEFAULT':     { a: 20,  c: 50 }
+    },
+    SACVD: {
+      'NOSCRBUSG2K': { a: 7.5, c: 11.1 },
+      'NOSCRB7K':    { a: 7.1, c: 13.1 },
+      'HTN120_20':   { a: 4.1, c: 6.1 },
+      'USG50':       { a: 5.1, c: 8.1 },
+      'SABOX':       { a: 6.2, c: 8.8 },
+      'XFER':        { a: 2.6, c: 3.9 },
+      'DEFAULT':     { a: 20,  c: 50 }
+    }
+  },
+  near2sigma: { diff: 1 },
+  scoring: { lastN: 4 },
+  liftup: { lastN: 3, compareM: 10, band: 2 }
+};
+let RULES = JSON.parse(JSON.stringify(DEFAULT_RULES));
+
+/* ===================== 設定區結束 ===================== */
+
 let lastNear2SigmaUnits = [];
 let globalGroups = {};
 let scoreRowsGlobal = [];
@@ -834,8 +887,7 @@ const pad = n => String(n).padStart(2, '0');
 const text = `更新時間：${t.getFullYear()}-${pad(t.getMonth()+1)}-${pad(t.getDate())} ${pad(t.getHours())}:${pad(t.getMinutes())}`;
 document.getElementById('page-time').textContent = text;
 })();
-// ====== 資料來源：DB（spc_data.aspx）======
-const SPC_API_URL = './spc_data_tf2.aspx';
+// ====== 執行狀態（SPC_API_URL 等設定見上方設定區）======
 let currentTab = 'ADDER'; // ADDER / PARTITION / U
 
 let currentProcessUnitGroup = 'ALL'; // ALL / NISACVD / SACVD
@@ -1280,45 +1332,7 @@ function isOverDaysFromNow(dateObj, days) {
 if (!dateObj) return false;
 return (Date.now() - dateObj.getTime()) > days * 24 * 60 * 60 * 1000;
 }
-// ====== 可設定的規則（localStorage）======
-// recipe 比對優先順序（較特定的排前面）；門檻值改在設定面板可調（存 RULES.score）
-const TF2_RECIPE_ORDER = {
-  NISACVD: ['HTN4DCPA100', 'FSHTN4DCPA', 'HTSIN130_11', 'PEOX50A_PA', 'LTUSG250_20', 'XFER', '-PA-'],
-  SACVD:   ['NOSCRBUSG2K', 'NOSCRB7K', 'HTN120_20', 'USG50', 'SABOX', 'XFER']
-};
-
-
-const DEFAULT_RULES = {
-  score: {
-    NISACVD: {
-      'HTN4DCPA100': { a: 3.2, c: 6.2 },
-      'FSHTN4DCPA':  { a: 5.8, c: 7.9 },
-      'HTSIN130_11': { a: 4.1, c: 10.5 },
-      'PEOX50A_PA':  { a: 3.1, c: 8.1 },
-      'LTUSG250_20': { a: 3.1, c: 8.1 },
-            'XFER':        { a: 3.1, c: 4.6 },
-            '-PA-':        { a: 2.7, c: 3.9 },
-            'DEFAULT':     { a: 20,  c: 50 }
-
-
-    },
-    SACVD: {
-      'NOSCRBUSG2K': { a: 7.5, c: 11.1 },
-      'NOSCRB7K':    { a: 7.1, c: 13.1 },
-      'HTN120_20':   { a: 4.1, c: 6.1 },
-      'USG50':       { a: 5.1, c: 8.1 },
-      'SABOX':       { a: 6.2, c: 8.8 },
-      'XFER':        { a: 2.6, c: 3.9 },
-      'DEFAULT':     { a: 20,  c: 50 }
-    }
-  },
-  near2sigma: { diff: 1 },
-  scoring: { lastN: 4 },
-  liftup: { lastN: 3, compareM: 10, band: 2 }
-};
-
-
-let RULES = JSON.parse(JSON.stringify(DEFAULT_RULES));
+// ====== 評分規則／門檻（TF2_RECIPE_ORDER / DEFAULT_RULES / RULES）已移至上方設定區 ======
 
 function getRulesStorageKey() {
   // 各分頁分開存
@@ -1434,11 +1448,8 @@ function formToRules() {
 
 
 
-// ====== TF2 評分門檻：依製程(NISACVD/SACVD) + spec recipe 比對 ======
-// 門檻值在設定面板可調（RULES.score[proc][recipeKey] = {a,c}），比對順序見 TF2_RECIPE_ORDER
+// ====== TF2 評分判定函式（門檻/順序/預設值見上方設定區）======
 // 比對對象 = CHART_NAME（不用 RECIPE 欄，因常為 *INCLUDE）；規則：值<=a → A；a<值<c → B；值>=c → C
-const TF2_SCORE_DEFAULT = { a: 20, c: 50 };
-
 function tf2ClassifyProcess(hay) {
   if (hay.includes('NISACVD')) return 'NISACVD'; // 含 SACVD，需先判 NISACVD
   if (hay.includes('SACVD')) return 'SACVD';
@@ -2552,12 +2563,7 @@ Particle Map
 
 <script>
 // ========== AI Dock 設定（請改成你的後端 proxy） ==========
-// 你提供的 web.config 是 IIS/ASP.NET 的 appSettings。
-// 前端不能讀 web.config，因此這裡用「相對路徑」呼叫同站台的 proxy：
-// 例：POST /api/ai/chat 由後端帶 AiApiKey 轉呼叫 AiGatewayUrl。
-const AI_PROXY_URL = './ai_proxy.aspx';
-const AI_USER_ID = '00042507';
-const AI_SYSTEM_PROMPT = '你是設備工程小助手,協助使用者查詢與整理 defect lesson learn。回答請精簡、條列重點。';
+// AI 設定（AI_PROXY_URL / AI_USER_ID / AI_SYSTEM_PROMPT）已移至上方主 script 的設定區
 
 // 點 AI 回覆中的機台代號 → 跳到該台 chart
 function applyFilterByDisplayToken(token) {
