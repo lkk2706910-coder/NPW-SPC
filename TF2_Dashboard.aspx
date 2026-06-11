@@ -1101,13 +1101,6 @@ document.getElementById('tab-thk')?.addEventListener('click', () => {
           <option value="PAR_7">PAR_7</option>
           <option value="PAR_8">PAR_8</option>
         </optgroup>
-        <optgroup label="PA">
-          <option value="PAR_1">PA1</option>
-          <option value="PAR_2">PA2</option>
-          <option value="PAR_3">PA3</option>
-          <option value="PAR_4">PA4</option>
-          <option value="PAR_5">PA5</option>
-        </optgroup>
         <optgroup label="LTPA">
           <option value="LTPA1">LTPA1</option>
           <option value="LTPA2">LTPA2</option>
