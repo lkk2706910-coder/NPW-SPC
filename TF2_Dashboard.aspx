@@ -778,6 +778,9 @@ const TF2_RECIPE_ORDER = {
   SACVD:   ['NOSCRBUSG2K', 'NOSCRB7K', 'HTN120_20', 'USG50', 'SABOX', 'XFER']
 };
 
+// ---- U%/Range：多段 recipe 時要排除的 token（大寫比對）----
+const URANGE_RECIPE_EXCLUDE = ['ALERIS', 'SIN'];
+
 // ---- 評分：未定義 recipe 的預設門檻 ----
 const TF2_SCORE_DEFAULT = { a: 20, c: 50 };
 
@@ -1214,9 +1217,36 @@ function partitionShortName(fullName) {
     .replace(/-\[Partition/i, '[Partition');
 }
 
+// ===== U%/Range 分頁專用：CHART_NAME 拆解規則 =====
+// 結構：NT-{製程}-{腔體}-{recipe...}-{群組+wafer}-THK-{U%|RANGE}[-[Partition Eng]]（THK 可省略）
+function uRangeParse(fullName) {
+  const parts = String(fullName || '').split('-');
+  const isNT = parts[0] && parts[0].toUpperCase() === 'NT';
+  const base = isNT ? 1 : 0;
+  const process = parts[base] || '';
+  const chamber = parts[base + 1] || '';
+  // 尾段標記：THK / U% / RANGE 最先出現者
+  let tailIdx = parts.findIndex((p, i) => i > base + 1 && /^(THK|U%|RANGE)$/i.test(String(p)));
+  if (tailIdx < 0) tailIdx = parts.length;
+  const groupWafer = parts[tailIdx - 1] || '';          // 群組+wafer（尾段前一段）
+  const recipe = parts.slice(base + 2, tailIdx - 1)     // 腔體後 ~ groupWafer 前
+    .filter(s => URANGE_RECIPE_EXCLUDE.indexOf(String(s).toUpperCase()) < 0)
+    .join('-');
+  return { process, chamber, groupWafer, recipe };
+}
+function uRangeMachineName(fullName) {
+  const p = uRangeParse(fullName);
+  return `${p.process}-${p.chamber}${p.groupWafer}`;
+}
+function uRangeRecipe(fullName) { return uRangeParse(fullName).recipe; }
+function uRangeShortName(fullName) {
+  return String(fullName || '').replace(/^NT-/i, '').replace(/-\[Partition/i, '[Partition');
+}
+
 function getShortUnitName(fullName) {
 if (!fullName) return '';
 if (String(currentTab || '').toUpperCase() === 'PARTITION') return partitionShortName(fullName);
+if (/^(U|UTHK|RANGE)$/.test(String(currentTab || '').toUpperCase())) return uRangeShortName(fullName);
 const parts = fullName.split('-');
 const toolType   = parts[1] || '';
 const chamber    = parts[2] || '';
@@ -1245,6 +1275,7 @@ function extractExtraTokensFromChartName(fullName) {
 
 function getShortUnitNameWithTokens(fullName) {
   if (String(currentTab || '').toUpperCase() === 'PARTITION') return partitionShortName(fullName);
+  if (/^(U|UTHK|RANGE)$/.test(String(currentTab || '').toUpperCase())) return uRangeShortName(fullName);
   const base = getShortUnitName(fullName);
   const tokens = extractExtraTokensFromChartName(fullName);
   return tokens.length ? `${base} (${tokens.join(',')})` : base;
@@ -1254,6 +1285,7 @@ function getShortUnitNameWithTokens(fullName) {
 function getScoreTableDisplayName(fullName) {
   if (!fullName) return '';
   if (String(currentTab || '').toUpperCase() === 'PARTITION') return partitionMachineName(fullName);
+  if (/^(U|UTHK|RANGE)$/.test(String(currentTab || '').toUpperCase())) return uRangeMachineName(fullName);
 
   // 目標顯示格式：
   // APF-B01-A-900PURG-W1  => A-B01A1
@@ -1563,23 +1595,9 @@ getSortedUnits(groups).forEach(unit => {
   const dbRecipe = lastRow ? String(lastRow.RECIPE || '').replace(/-[ABC].*$/i, '') : '';
 
   let recipe = '';
-    if (tabUpper === 'U') {
-      // U%：DB 的 RECIPE 常為 "*INCLUDE"；用 CHART_NAME，但去掉前綴：
-      // 例：NT-NISACVD-B01-HTSIN500_11-A1-THK-U%  => HTSIN500_11-A1-THK-U%
-      //     NT-SACVD-B02-USG2K-SIN-B1-THK-U%      => USG2K-SIN-B1-THK-U%
-      // 其他同格式皆套用此邏輯
-      const parts = String(unit || '').split('-');
-
-      // 規則：優先找第一個像 B01/B02... 的段落，從它「下一段」開始顯示
-      const bIdx = parts.findIndex(p => /^B\d{1,3}$/i.test(String(p || '')));
-      if (bIdx >= 0 && parts.length > bIdx + 1) {
-        recipe = parts.slice(bIdx + 1).join('-');
-      } else if (parts.length > 3) {
-        // fallback：舊邏輯（去掉前三段）
-        recipe = parts.slice(3).join('-');
-      } else {
-        recipe = String(unit || '');
-      }
+    if (tabUpper === 'U' || tabUpper === 'UTHK' || tabUpper === 'RANGE') {
+      // U%/Range：腔體後 ~ 群組wafer 前的 recipe 段（排除 URANGE_RECIPE_EXCLUDE）
+      recipe = uRangeRecipe(unit);
     } else if (tabUpper === 'PARTITION') {
       // Partition：PA + recipe token 結尾數字（PAR_5/LTPA5 -> PA5）
       recipe = partitionRecipe(unit);
