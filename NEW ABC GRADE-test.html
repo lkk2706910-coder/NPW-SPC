@@ -1130,8 +1130,40 @@ liftup: '最近 3 點上升：最近3點平均高於最近10點平均 + 最近3�
 // 已移除 Excel 匯入/讀取流程（改由 DB API 提供資料）
 
 // 依你的命名規則，把完整 CHART_NAME 精簡成短名稱
+// ===== Partition 分頁專用：CHART_NAME 拆解規則 =====
+// 結構：NT-{製程}-{腔體}-{群組}-{recipe token}-{PAxxx}-ADDER-W{n}[-[Partition Eng]]
+function partitionParse(fullName) {
+  const parts = String(fullName || '').split('-');
+  const isNT = parts[0] && parts[0].toUpperCase() === 'NT';
+  const process = (isNT ? parts[1] : parts[0]) || '';
+  const chamber = (isNT ? parts[2] : parts[1]) || '';      // 例 B01
+  const group   = (isNT ? parts[3] : parts[2]) || '';      // A / B
+  const recipeToken = (isNT ? parts[4] : parts[3]) || '';  // PAR_5 / LTPA5
+  const waferRaw = parts.find(p => /^W\d+$/i.test(p)) || '';
+  const wafer = waferRaw ? waferRaw.replace(/^W/i, '') : '';
+  return { process, chamber, group, recipeToken, wafer };
+}
+// 機台：{製程}-{腔體}{群組}{W數字}  例 NISACVD-B01A1
+function partitionMachineName(fullName) {
+  const p = partitionParse(fullName);
+  return `${p.process}-${p.chamber}${p.group}${p.wafer}`;
+}
+// Recipe：PA + recipe token 結尾數字  例 PAR_5/LTPA5 -> PA5
+function partitionRecipe(fullName) {
+  const m = String(partitionParse(fullName).recipeToken).match(/(\d+)$/);
+  return m ? ('PA' + m[1]) : '';
+}
+// 圖名：去開頭 NT-、去 -ADDER-、[Partition Eng] 前的 - 拿掉
+function partitionShortName(fullName) {
+  return String(fullName || '')
+    .replace(/^NT-/i, '')
+    .replace(/-ADDER-/i, '-')
+    .replace(/-\[Partition/i, '[Partition');
+}
+
 function getShortUnitName(fullName) {
 if (!fullName) return '';
+if (String(currentTab || '').toUpperCase() === 'PARTITION') return partitionShortName(fullName);
 const parts = fullName.split('-');
 const toolType   = parts[1] || '';
 const chamber    = parts[2] || '';
@@ -1159,6 +1191,7 @@ function extractExtraTokensFromChartName(fullName) {
 }
 
 function getShortUnitNameWithTokens(fullName) {
+  if (String(currentTab || '').toUpperCase() === 'PARTITION') return partitionShortName(fullName);
   const base = getShortUnitName(fullName);
   const tokens = extractExtraTokensFromChartName(fullName);
   return tokens.length ? `${base} (${tokens.join(',')})` : base;
@@ -1167,6 +1200,7 @@ function getShortUnitNameWithTokens(fullName) {
 // 例：NT-TEOSPE-B08-A-TEOS0.5K-PA009-ADDER-W1 → B08A1
 function getScoreTableDisplayName(fullName) {
   if (!fullName) return '';
+  if (String(currentTab || '').toUpperCase() === 'PARTITION') return partitionMachineName(fullName);
 
   // 目標顯示格式：
   // APF-B01-A-900PURG-W1  => A-B01A1
@@ -1534,6 +1568,9 @@ getSortedUnits(groups).forEach(unit => {
       } else {
         recipe = String(unit || '');
       }
+    } else if (tabUpper === 'PARTITION') {
+      // Partition：PA + recipe token 結尾數字（PAR_5/LTPA5 -> PA5）
+      recipe = partitionRecipe(unit);
     } else {
     recipe = tf2MatchedRecipeKey(unit, lastRow ? lastRow.PROCESSUNIT : '');
     if (!recipe) recipe = dbRecipe;
