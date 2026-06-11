@@ -200,7 +200,7 @@ public partial class TF2_Dashboard : Page
                         // 分頁分類依 CHART_NAME 關鍵字：
                         //   Partition = CHART_NAME 含 'LTPA' 或 'PAR_'（PAR[_] 為字面底線，避免誤中結尾的 [Partition...]）
                         //   ADDER     = 其餘（含 -PA-）
-                        //   UTHK(U%)  = PARAMETER LIKE '%THK-U%'
+                        //   UTHK(U%/Range) = PARAMETER LIKE '%THK-U%' 或 '%RANGE%'
                         cmd.CommandText = @"
 WITH s AS (
   SELECT
@@ -219,7 +219,7 @@ WITH s AS (
   FROM GPTDB_USPC.dbo.TF2_NPW_CHART WITH (NOLOCK)
   WHERE
     (
-      (@mode = 'UTHK' AND PARAMETER LIKE '%THK-U%')
+      (@mode = 'UTHK' AND (PARAMETER LIKE '%THK-U%' OR PARAMETER LIKE '%RANGE%'))
       OR
       (@mode <> 'UTHK' AND PARAMETER = 'ADDER')
     )
