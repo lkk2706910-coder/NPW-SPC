@@ -2376,17 +2376,15 @@ plugins: [ChartDataLabels]
 }));
 container._chartBuilt = true;
 };
-// 延後建圖：預設只建立會顯示的 B/C 圖，其餘存 builder，待「顯示全部／點選」時才建
-const __scoreForUnit = scoreMap[unit] || '-';
-if (__scoreForUnit === 'B' || __scoreForUnit === 'C') {
-  buildChart();
-} else {
-  container._buildChart = buildChart;
-}
+// 一律先存 builder，待容器進 DOM 後再建（確保 responsive 量到正確尺寸：清晰且不空白）
+container._buildChart = buildChart;
 });
-chartsEl.appendChild(chartsFrag);  // 一次插入所有圖卡容器
-// 進入 DOM 後重算尺寸，讓 canvas 以正確顯示寬度×螢幕 DPR 渲染（避免模糊）
-chartInstances.forEach(c => { try { c.resize(); } catch (e) {} });
+chartsEl.appendChild(chartsFrag);  // 先一次插入所有圖卡容器
+// 容器進 DOM 後，才建立預設要顯示的 B/C 圖（此時尺寸正確）
+chartsEl.querySelectorAll('.chart-container').forEach(div => {
+  const s = scoreMap[div.getAttribute('data-unit')] || '-';
+  if ((s === 'B' || s === 'C') && div._buildChart) div._buildChart();
+});
 }
 
 // 綁定表頭排序點擊 + 自動載入 DB (預設 ADDER)
