@@ -1193,9 +1193,16 @@ function partitionParse(fullName) {
   return { process, chamber, group, recipeToken, wafer };
 }
 // 機台：{製程}-{腔體}{群組}{W數字}  例 NISACVD-B01A1
+// 製程縮寫：NISACVD→NI、SACVD→SA（NISACVD 含 SACVD，需先判 NI）
+function procAbbr(process) {
+  const p = String(process || '').toUpperCase();
+  if (p.indexOf('NISACVD') >= 0) return 'NI';
+  if (p.indexOf('SACVD') >= 0) return 'SA';
+  return process;
+}
 function partitionMachineName(fullName) {
   const p = partitionParse(fullName);
-  return `${p.process}-${p.chamber}${p.group}${p.wafer}`;
+  return `${procAbbr(p.process)}-${p.chamber}${p.group}${p.wafer}`;
 }
 // Recipe：PA + recipe token 結尾數字  例 PAR_5/LTPA5 -> PA5
 function partitionRecipe(fullName) {
@@ -1248,7 +1255,7 @@ function uRangeParse(fullName) {
 }
 function uRangeMachineName(fullName) {
   const p = uRangeParse(fullName);
-  return `${p.process}-${p.chamber}${p.groupWafer}`;
+  return `${procAbbr(p.process)}-${p.chamber}${p.groupWafer}`;
 }
 function uRangeRecipe(fullName) { return uRangeParse(fullName).recipe; }
 function uRangeShortName(fullName) {
