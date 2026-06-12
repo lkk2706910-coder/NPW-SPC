@@ -819,6 +819,7 @@ let RULES = JSON.parse(JSON.stringify(DEFAULT_RULES));
 let lastNear2SigmaUnits = [];
 let globalGroups = {};
 let scoreRowsGlobal = [];
+let allScoreRowsGlobal = []; // 全部機台明細(未過濾 A/B/C)，供 AI context 讀取整頁資料
 // 新增：保留原始匯入資料 + CHART_NAME 分群過濾
 let rawJsonGlobal = [];
 let chartInstances = []; // 追蹤已建立的 Chart.js 實例，重繪前先 destroy 避免記憶體洩漏
@@ -1707,8 +1708,16 @@ getSortedUnits(groups).forEach(unit => {
     processunit: lastRow ? lastRow.PROCESSUNIT : ''
   });
 
-  scoreRows.push({ unit, score, recipe });
+  const r3 = v => Number.isFinite(v) ? Number(v.toFixed(3)) : null;
+  scoreRows.push({
+    unit, score, recipe,
+    display: getScoreTableDisplayName(unit),
+    value: r3(meanValue),            // 最近 N 筆 MEAN_VALUE 平均
+    ucl: r3(avgUcl), xbar: r3(avgXbar), sigma: r3(avgSigma),
+    points: rows.length
+  });
 });
+allScoreRowsGlobal = scoreRows;     // 全部機台明細（供 AI 讀取整頁資料）
 // 預設評分表只顯示 B/C（A 不顯示）
 scoreRowsGlobal = scoreRows.filter(r => r.score === 'B' || r.score === 'C');
 renderScoreTable(scoreRowsGlobal);
@@ -1804,7 +1813,9 @@ groups[unit].push(row);
 // 重繪前銷毀舊圖表，避免 Chart.js 實例累積造成卡頓／記憶體洩漏
 chartInstances.forEach(c => { try { c.destroy(); } catch (e) {} });
 chartInstances = [];
-document.getElementById('charts').innerHTML = '';
+const chartsEl = document.getElementById('charts');
+chartsEl.innerHTML = '';
+const chartsFrag = document.createDocumentFragment();  // 批次插入，減少多次 reflow
 const near2SigmaUnits = [];
 const liftUpUnits = [];
 
@@ -2201,7 +2212,7 @@ container.innerHTML = `
 </div>
 <canvas height="350"></canvas>
 `;
-document.getElementById('charts').appendChild(container);
+chartsFrag.appendChild(container);
 const buildChart = () => {
 if (container._chartBuilt) return;
 const ctx = container.querySelector('canvas').getContext('2d');
@@ -2366,6 +2377,7 @@ if (__scoreForUnit === 'B' || __scoreForUnit === 'C') {
   container._buildChart = buildChart;
 }
 });
+chartsEl.appendChild(chartsFrag);  // 一次插入所有圖卡容器
 }
 
 // 綁定表頭排序點擊 + 自動載入 DB (預設 ADDER)
@@ -2774,27 +2786,28 @@ function aiSetStatus(text) {
 }
 
 function aiGetContextSnapshot() {
-  // 把目前頁面的「篩選條件、分數統計、重點提示」帶給 AI，回答會更貼近你現在看的畫面
+  // 把「目前分頁載入的全部機台明細」帶給 AI，讓它讀得到整個頁面的資料
   const chartFilter = document.getElementById('chartname-filter')?.value || 'ALL';
+  const all = allScoreRowsGlobal || [];
 
   const scoreCounts = { A: 0, B: 0, C: 0, '-': 0 };
-  (scoreRowsGlobal || []).forEach(r => {
-    const k = (r.score in scoreCounts) ? r.score : '-';
-    scoreCounts[k]++;
-  });
+  all.forEach(r => { const k = (r.score in scoreCounts) ? r.score : '-'; scoreCounts[k]++; });
 
-  const topBC = (scoreRowsGlobal || [])
-    .filter(r => r.score === 'C' || r.score === 'B')
-    .slice(0, 30)
-    .map(r => ({ unit: r.unit, display: getScoreTableDisplayName(r.unit), score: r.score }));
+  // 全部機台明細：機台/recipe/評分/最近平均值/管制線(UCL,XBAR,σ)/點數
+  const units = all.map(r => ({
+    machine: r.display, recipe: r.recipe, score: r.score,
+    value: r.value, ucl: r.ucl, xbar: r.xbar, sigma: r.sigma, points: r.points
+  }));
 
   return {
-    page: 'SPC 管制圖儀表板 (ABC GRADE.html)',
+    page: 'SPC 管制圖儀表板 (TF2_Dashboard)',
+    tab: String(currentTab || ''),
     chartNameFilter: chartFilter,
-    showOldUnitsInHighlight,
+    totalUnits: all.length,
     scoreCounts,
-    topBC,
-    near2sigma: (lastNear2SigmaUnits || []).slice(0, 30).map(u => ({ unit: u, display: getScoreTableDisplayName(u) })),
+    columns: ['machine', 'recipe', 'score', 'value', 'ucl', 'xbar', 'sigma', 'points'],
+    units,   // ← 整頁所有機台的資料
+    near2sigma: (lastNear2SigmaUnits || []).map(u => getScoreTableDisplayName(u)),
   };
 }
 
