@@ -458,7 +458,8 @@ border: 1px solid rgba(148,163,184,.35);
 padding: 3px 8px;
 border-radius: 999px;
 }
-.chart-container canvas { margin-top: 4px; width: 100% !important; display: block; }
+.chart-canvas-box { position: relative; height: 340px; margin-top: 4px; }
+.chart-container canvas { display: block; }
 /* RWD */
 @media (max-width: 1024px) {
 #main-layout { flex-direction: column; }
@@ -1772,8 +1773,8 @@ showOnlyChart(unit);
 function showOnlyChart(unit) {
 document.querySelectorAll('.chart-container').forEach(div => {
 const match = div.getAttribute('data-unit') === unit;
-if (match && div._buildChart) div._buildChart(); // 延後建立的圖：點選時才建
 div.style.display = match ? '' : 'none';
+if (match && div._buildChart) div._buildChart(); // 先顯示再建，確保 canvas 尺寸正確不模糊
 });
 document.getElementById('show-all-btn').style.display = 'inline-block';
 }
@@ -1796,8 +1797,8 @@ function showOnlyBadScoreCharts() {
 }
 function showAllCharts() {
 document.querySelectorAll('.chart-container').forEach(div => {
-if (div._buildChart) div._buildChart(); // 延後建立的圖：顯示全部時才建
 div.style.display = '';
+if (div._buildChart) div._buildChart(); // 先顯示再建，確保 canvas 尺寸正確不模糊
 });
 const btn = document.getElementById('show-all-btn');
 if (btn) btn.style.display = 'none';
@@ -2210,7 +2211,7 @@ container.innerHTML = `
 <h3 class="chart-header-title"><strong>${shortName}</strong></h3>
 <div class="chart-header-tag" title="${unit}">SPC 管制圖</div>
 </div>
-<canvas height="350"></canvas>
+<div class="chart-canvas-box"><canvas></canvas></div>
 `;
 chartsFrag.appendChild(container);
 const buildChart = () => {
@@ -2286,7 +2287,8 @@ datalabels: { display: false }
 },
 options: {
 animation: false,
-responsive: false,
+responsive: true,
+maintainAspectRatio: false,
 layout: { padding: { top: 16 } },
 
 
@@ -2378,6 +2380,8 @@ if (__scoreForUnit === 'B' || __scoreForUnit === 'C') {
 }
 });
 chartsEl.appendChild(chartsFrag);  // 一次插入所有圖卡容器
+// 進入 DOM 後重算尺寸，讓 canvas 以正確顯示寬度×螢幕 DPR 渲染（避免模糊）
+chartInstances.forEach(c => { try { c.resize(); } catch (e) {} });
 }
 
 // 綁定表頭排序點擊 + 自動載入 DB (預設 ADDER)
