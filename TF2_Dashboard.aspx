@@ -1265,10 +1265,60 @@ function uRangeShortName(fullName) {
   return s;
 }
 
+// ===== ADDER 分頁專用：CHART_NAME 拆解規則 =====
+// 結構：NT-{製程}-{腔體}-{group}-{recipe}-{PAxxx|BSxxx}?-ADDER-W{n}[-[...Eng]]
+// 變體：recipe 先、group_BS 後(如 NOSCRBUSG2K-C_BS050)；XFER(無 group，機台群組顯示 ' S')
+function adderParse(fullName) {
+  const parts = String(fullName || '').split('-');
+  const isNT = parts[0] && parts[0].toUpperCase() === 'NT';
+  const base = isNT ? 1 : 0;
+  const process = parts[base] || '';
+  const chamber = parts[base + 1] || '';
+
+  let adderIdx = parts.findIndex(p => /^ADDER$/i.test(String(p)));
+  if (adderIdx < 0) adderIdx = parts.length;
+  let wafer = '';
+  for (let i = adderIdx + 1; i < parts.length; i++) {
+    const m = /^W(\d+)$/i.exec(String(parts[i]));
+    if (m) { wafer = m[1]; break; }
+  }
+  const core = parts.slice(base + 2, adderIdx);  // chamber 之後 ~ ADDER 之前
+
+  let group = '', recipeToken = '', mod = '';
+  const xferIdx = core.findIndex(s => /^XFER\d*$/i.test(String(s)));
+  if (xferIdx >= 0) {
+    group = ' S'; recipeToken = 'XFER';          // XFER：機台群組顯示 ' S'
+  } else {
+    const gmIdx = core.findIndex(s => /^([ABC]{1,2})_(.+)$/i.test(String(s)));
+    if (gmIdx >= 0) {                            // group_mod 形式（C_BS050 / B_PA006）
+      const gm = /^([ABC]{1,2})_(.+)$/i.exec(String(core[gmIdx]));
+      group = gm[1].toUpperCase(); mod = gm[2];
+      recipeToken = core.slice(0, gmIdx).join('-');
+    } else if (/^[ABC]{1,2}$/i.test(String(core[0] || ''))) {   // 標準：group, recipe, mod?
+      group = String(core[0]).toUpperCase();
+      recipeToken = core[1] || ''; mod = core[2] || '';
+    } else {
+      recipeToken = core[0] || ''; mod = core[1] || '';
+    }
+  }
+  let recipe = String(recipeToken).replace(/_PA$/i, '');  // 去尾端 _PA（PEOX50A_PA → PEOX50A）
+  if (/^BS/i.test(String(mod))) recipe = recipe + '_' + mod;  // BS 後綴併入 recipe；PA 後綴略過
+  return { process, chamber, group, wafer, recipe };
+}
+function adderMachineName(fullName) {
+  const p = adderParse(fullName);
+  return `${procAbbr(p.process)}-${p.chamber}${p.group}${p.wafer}`;
+}
+function adderRecipe(fullName) { return adderParse(fullName).recipe; }
+function adderShortName(fullName) {
+  return String(fullName || '').replace(/^NT-/i, '').replace(/-\[/g, '[');
+}
+
 function getShortUnitName(fullName) {
 if (!fullName) return '';
 if (String(currentTab || '').toUpperCase() === 'PARTITION') return partitionShortName(fullName);
 if (/^(U|UTHK|RANGE)$/.test(String(currentTab || '').toUpperCase())) return uRangeShortName(fullName);
+if (String(currentTab || '').toUpperCase() === 'ADDER') return adderShortName(fullName);
 const parts = fullName.split('-');
 const toolType   = parts[1] || '';
 const chamber    = parts[2] || '';
@@ -1298,6 +1348,7 @@ function extractExtraTokensFromChartName(fullName) {
 function getShortUnitNameWithTokens(fullName) {
   if (String(currentTab || '').toUpperCase() === 'PARTITION') return partitionShortName(fullName);
   if (/^(U|UTHK|RANGE)$/.test(String(currentTab || '').toUpperCase())) return uRangeShortName(fullName);
+  if (String(currentTab || '').toUpperCase() === 'ADDER') return adderShortName(fullName);
   const base = getShortUnitName(fullName);
   const tokens = extractExtraTokensFromChartName(fullName);
   return tokens.length ? `${base} (${tokens.join(',')})` : base;
@@ -1308,6 +1359,7 @@ function getScoreTableDisplayName(fullName) {
   if (!fullName) return '';
   if (String(currentTab || '').toUpperCase() === 'PARTITION') return partitionMachineName(fullName);
   if (/^(U|UTHK|RANGE)$/.test(String(currentTab || '').toUpperCase())) return uRangeMachineName(fullName);
+  if (String(currentTab || '').toUpperCase() === 'ADDER') return adderMachineName(fullName);
 
   // 目標顯示格式：
   // APF-B01-A-900PURG-W1  => A-B01A1
@@ -1623,6 +1675,9 @@ getSortedUnits(groups).forEach(unit => {
     } else if (tabUpper === 'PARTITION') {
       // Partition：PA + recipe token 結尾數字（PAR_5/LTPA5 -> PA5）
       recipe = partitionRecipe(unit);
+    } else if (tabUpper === 'ADDER') {
+      // ADDER：依 CHART_NAME 拆解（含 _BS 後綴、去 _PA、XFER 等）
+      recipe = adderRecipe(unit);
     } else {
     recipe = tf2MatchedRecipeKey(unit, lastRow ? lastRow.PROCESSUNIT : '');
     if (!recipe) recipe = dbRecipe;
