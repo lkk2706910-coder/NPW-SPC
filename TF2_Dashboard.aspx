@@ -11,6 +11,7 @@
 <style>
 /* ---- 全局樣式 ---- */
 * { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 96px; }  /* 平滑捲動；跳轉落點避開頂部 */
 body {
 font-family: "Microsoft JhengHei", Arial, sans-serif;
 margin: 0;
@@ -251,7 +252,10 @@ backdrop-filter: blur(8px);
 border-radius: 14px;
 box-shadow: 0 14px 30px rgba(2,6,23,.10), 0 2px 8px rgba(2,6,23,.06);
 padding: 12px 12px 14px 12px;
-height: fit-content;
+/* 黏住後若比視窗高，改由評分表自己內部捲動，與右側圖表(頁面捲動)協調 */
+max-height: calc(100vh - 110px);
+overflow-y: auto;
+overscroll-behavior: contain;
 border: 1px solid rgba(148,163,184,.35);
 }
 #score-table-container > b {
@@ -325,6 +329,7 @@ display: none;
 /* 固定大小 + 可滾動（避免重點提示過長） */
 max-height: 420px;
 overflow: auto;
+overscroll-behavior: contain;
 padding-right: 6px;
 }
 #highlight-units-title {
