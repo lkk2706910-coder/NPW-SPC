@@ -634,10 +634,10 @@
                 { name:'NISACVD-B06', shift:'日', ev:[ {items:'HTSIN130_11+PEOX50A+XFER',every:3,from:'2026-06-16'}, {items:'Weekly PA',every:7,from:'2026-06-16'} ] },
                 { name:'NISACVD-B07', shift:'日', ev:[ {items:'HTSIN130_11+PEOX50A+XFER',every:3,from:'2026-06-16'}, {items:'Weekly PA',every:7,from:'2026-06-18'} ] },
                 { name:'NISACVD-B08', shift:'夜', ev:[ {items:'HTSIN130_11+PEOX50A+XFER',every:3,from:'2026-06-17'}, {items:'Weekly PA',every:7,from:'2026-06-21'} ] },
-                { name:'NISACVD-B03', shift:'夜', cells:{0:'XFER',1:'DAILY_PA',3:'XFER',4:'DAILY_PA',6:'XFER'} },
-                { name:'NISACVD-B12', shift:'日', cells:{1:'DAILY_PA\nXFER',4:'DAILY_PA\nXFER'} },
-                { name:'NISACVD-B13', shift:'夜', cells:{0:'DAILY_PA\nXFER',3:'DAILY_PA\nXFER\nXFER',6:'DAILY_PA\nXFER'} },
-                { name:'NISACVD-B14', shift:'日', cells:{0:'DAILY_PA\nXFER',3:'DAILY_PA\nXFER\nXFER',6:'DAILY_PA\nXFER'} }
+                { name:'NISACVD-B03', shift:'夜', ev:[ {items:'XFER',every:3,from:'2026-06-16'}, {items:'DAILY_PA',every:3,from:'2026-06-17'} ] },
+                { name:'NISACVD-B12', shift:'日', ev:[ {items:'XFER',every:3,from:'2026-06-17'}, {items:'DAILY_PA',every:3,from:'2026-06-17'} ] },
+                { name:'NISACVD-B13', shift:'夜', ev:[ {items:'XFER',every:3,from:'2026-06-16'}, {items:'DAILY_PA',every:3,from:'2026-06-16'} ] },
+                { name:'NISACVD-B14', shift:'日', ev:[ {items:'XFER',every:3,from:'2026-06-16'}, {items:'DAILY_PA',every:3,from:'2026-06-16'} ] }
             ]},
             { title:'SACVD (5.5K)', rows:[
                 { name:'SACVD-B01', shift:'日', ev:[ {items:'5.5K',every:3,from:'2026-06-17'}, {items:'XFER',every:3,from:'2026-06-17'} ] },
