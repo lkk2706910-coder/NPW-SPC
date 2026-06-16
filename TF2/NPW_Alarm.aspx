@@ -79,6 +79,7 @@
             width: 800px; height: 760px;
             max-width: calc(100vw - 44px); max-height: calc(100vh - 120px);
             background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+            color: var(--text);
             box-shadow: 0 20px 50px rgba(0,0,0,0.45);
             display: flex; flex-direction: row; overflow: hidden; z-index: 9999;
         }
