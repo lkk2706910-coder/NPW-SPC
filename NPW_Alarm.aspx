@@ -141,6 +141,9 @@
         .npw-report-card .npw-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 12px;}
         .npw-report-card .npw-toolbar label{font-weight:700;}
         .npw-report-card input[type="date"]{padding:6px 8px;border:1px solid #999;border-radius:4px;background:#fff;color:#111;font-size:14px;}
+        .npw-report-card .npw-date-wrap{display:inline-flex;align-items:center;gap:4px;}
+        .npw-report-card #calBtn{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;border:1px solid #999;border-radius:4px;background:#fff;color:#1976d2;cursor:pointer;}
+        .npw-report-card #calBtn:hover{background:#eef4ff;border-color:#1976d2;}
         .npw-report-card #reloadBtn{padding:6px 14px;border:0;border-radius:6px;background:#1976d2;color:#fff;cursor:pointer;}
         .npw-report-card .npw-week-hint{color:#0f4aa8;font-weight:700;}
         .npw-report-card .npw-status{color:#555;font-size:12px;}
@@ -177,7 +180,17 @@
             <div class="npw-toolbar">
                 <h2 style="margin:0;">NPW Alarm 週報</h2>
                 <label for="pickDate">選擇日期</label>
-                <input id="pickDate" type="date" />
+                <span class="npw-date-wrap">
+                    <input id="pickDate" type="date" />
+                    <button id="calBtn" type="button" title="開啟日期選擇器" aria-label="開啟日期選擇器">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                            <line x1="16" y1="2" x2="16" y2="6"></line>
+                            <line x1="8" y1="2" x2="8" y2="6"></line>
+                            <line x1="3" y1="10" x2="21" y2="10"></line>
+                        </svg>
+                    </button>
+                </span>
                 <span class="npw-week-hint" id="weekHint"></span>
                 <button id="reloadBtn" type="button">重新整理</button>
                 <span id="status" class="npw-status">資料載入中...</span>
@@ -614,6 +627,12 @@
                 updateWeekHint(picked);
                 try{await loadFromDb(picked);refreshTables(picked);}catch(e){/* 已顯示 */}
             }
+
+            const calBtn=document.getElementById('calBtn');
+            if(calBtn)calBtn.addEventListener('click',()=>{
+                if(typeof input.showPicker==='function'){try{input.showPicker();return;}catch(e){}}
+                input.focus();
+            });
 
             document.getElementById('reloadBtn').addEventListener('click',()=>{
                 const picked=input.value?new Date(input.value+'T00:00:00'):new Date();
