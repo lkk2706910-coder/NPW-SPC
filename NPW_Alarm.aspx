@@ -183,7 +183,6 @@
         .npw-report-card .npw-spark canvas{display:block;width:100%!important;height:100%!important;}
         .npw-report-card .npw-cell-map{text-align:center;padding:2px!important;}
         .npw-report-card .adder-map-thumb{width:184px;max-width:184px;height:auto;border:1px solid #bbb;background:#fafafa;object-fit:contain;display:block;margin:0 auto;cursor:zoom-in;}
-        .npw-report-card .npw-profile-frame{width:392px;height:230px;border:1px solid #bbb;background:#fff;display:block;}
         .npw-report-card .dup-chart{background:#ffe19a!important;}
         .npw-report-card .dim-row{background:#d9d9d9!important;}
         .npw-report-card .inline-empty{padding:8px 10px;color:#666;font-size:12px;background:#fff;border:1px dashed #999;}
@@ -622,7 +621,7 @@
                 <tr><th style="width:80px;">Entity</th><th style="width:80px;">CHART_ID</th><th class="cn-col">CHART_NAME</th>
                 <th style="width:70px;text-align:center;">Alarm 次數</th><th style="width:160px;">ALARM 日期</th>`;
             if(isAdder)head+=`<th style="width:380px;text-align:center;">Trend_Chart</th><th style="width:200px;text-align:center;">PRE_Map</th><th style="width:200px;text-align:center;">ADDER_Map</th><th style="width:110px;">Measure_Tool</th>`;
-            else head+=`<th style="width:380px;text-align:center;">Trend_Chart</th><th style="width:400px;text-align:center;">Profile</th><th style="width:110px;">Measure_Tool</th>`;
+            else head+=`<th style="width:380px;text-align:center;">Trend_Chart</th><th style="width:200px;text-align:center;">Profile</th><th style="width:110px;">Measure_Tool</th>`;
             head+=`</tr>`;
 
             let html=`<table class="chart-detail"><thead>${head}</thead><tbody>`;
@@ -651,10 +650,8 @@
                           `<td class="npw-cell-map"><span class="adder-map" ${da} style="color:#999;">...</span></td>`+
                           measureCell;
                 }else{
-                    const profileUrl=buildProfileUrl(site,r.chartId,r.chartSeq,r.pointValue);
-                    const profileCell=profileUrl
-                        ? `<td class="npw-cell-map"><iframe class="npw-profile-frame" src="${escapeHtml(profileUrl)}" loading="lazy" title="Profile"></iframe></td>`
-                        : `<td class="npw-cell-map">-</td>`;
+                    const waferAttr=`data-wafer="${escapeHtml(r.wafer==null?'':String(r.wafer))}"`;
+                    const profileCell=`<td class="npw-cell-map"><span class="profile-img" data-site="${site}" data-cid="${cid}" data-seq="${seq}" data-pv="${pv}" ${waferAttr} style="color:#999;">...</span></td>`;
                     extra=previewCell+profileCell+measureCell;
                 }
                 html+=`<tr class="${rowClass}"><td>${escapeHtml(r.entity)}</td><td>${cid}</td><td class="cn-col">${nameHtml}</td>
@@ -669,15 +666,7 @@
         // Map / MeasurePU 代理（與 refer.html 相同）。路徑相對於本頁，視部署位置調整。
         const MAP_PROXY = 'TF2api/SpcMapInfoProxy.ashx';
 
-        // NON-ADDER profile：內嵌 contour 檢視器入口。
-        // 用 _Contour_Multi.asp（非 DataShowMap）— 伺服器會自行帶出正確的 myParaList，
-        // 不需我們從欄位猜 base；以 alarm 點的 CHART_SEQ 對齊 WAFERID。
-        const CONTOUR_BASE = 'http://10.10.101.170/Project1/_Contour_Multi.asp';
-        function buildProfileUrl(site,chartId,chartSeq,pointValue){
-            if(!chartId||chartSeq==null||String(chartSeq)==='')return '';
-            const p=new URLSearchParams({site:site||'12AP58',ChartID:String(chartId),ChartSEQ:String(chartSeq),PointValue:(pointValue==null?'':String(pointValue))});
-            return CONTOUR_BASE+'?'+p.toString();
-        }
+        // NON-ADDER profile 單張 RAW 圖：由後端 op=profileimg 抓 contour 頁、擷取單張圖網址。
 
         // MEASUREPU 顯示用：取 ^SP5^ 後面那段（如 KLA-Tencor^SP5^CUSFSCAN-B05 -> CUSFSCAN-B05）
         function parseMeasurePu(s){
@@ -794,6 +783,28 @@
                 + `<img class="adder-map-thumb" src="${escapeHtml(imgUrl)}" alt="${alt}" loading="lazy" /></a>`;
         }
 
+        // NON-ADDER profile：呼叫後端 op=profileimg 取單張 RAW 圖網址，內嵌縮圖
+        async function hydrateProfileImgs(){
+            const nodes=[...document.querySelectorAll('#nonAdderChartDetail .profile-img[data-cid][data-seq]')];
+            if(!nodes.length)return;
+            const CONC=4;let idx=0;
+            async function worker(){
+                while(idx<nodes.length){
+                    const el=nodes[idx++];
+                    const cid=el.getAttribute('data-cid')||'',seq=el.getAttribute('data-seq')||'',pv=el.getAttribute('data-pv')||'',site=el.getAttribute('data-site')||'12AP58',wafer=el.getAttribute('data-wafer')||'';
+                    if(!cid||!seq){el.textContent='-';continue;}
+                    try{
+                        const u='NPW_Alarm.aspx?op=profileimg&chartId='+encodeURIComponent(cid)+'&chartSeq='+encodeURIComponent(seq)+'&pointValue='+encodeURIComponent(pv)+'&site='+encodeURIComponent(site)+'&wafer='+encodeURIComponent(wafer);
+                        const res=await fetch(u,{cache:'no-store'});
+                        const d=await res.json();
+                        if(d&&d.ok&&d.imgUrl)el.innerHTML=mapThumbHtml(String(d.imgUrl),'Profile RAW');
+                        else el.textContent='-';
+                    }catch(e){el.textContent='-';}
+                }
+            }
+            await Promise.all(Array.from({length:Math.min(CONC,nodes.length)},worker));
+        }
+
         function hydrateMaps(){
             hydrateMapNodes('.map-info',(el,d)=>{
                 if(!d){el.textContent=el.textContent&&el.textContent!=='...'?el.textContent:'-';return;}
@@ -802,7 +813,6 @@
             });
             hydrateMapNodes('.pre-map',(el,d)=>{ el.innerHTML=(d&&d.preMapImgUrl)?mapThumbHtml(String(d.preMapImgUrl),'PRE MAP'):'-'; });
             hydrateMapNodes('.adder-map',(el,d)=>{ el.innerHTML=(d&&d.adderMapImgUrl)?mapThumbHtml(String(d.adderMapImgUrl),'ADDER MAP'):'-'; });
-            // NON-ADDER profile 改為直接連到 _Contour_Multi_DataShowMap.asp（見 buildProfileUrl）
         }
 
         function renderInlineChartDetails(picked){
@@ -812,6 +822,7 @@
             if(n)n.innerHTML=buildInlineChartDetailHtml(picked,false);
             hydratePreviews(picked);  // Chart.js 趨勢縮圖
             hydrateMaps();            // PRE / ADDER MAP / MeasurePU（代理）
+            hydrateProfileImgs();     // NON-ADDER profile 單張 RAW 圖
         }
 
         // ===== 初始化 =====

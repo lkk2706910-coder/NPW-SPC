@@ -6,6 +6,7 @@ using System.Data.SqlClient;
 using System.IO;
 using System.Net;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Web;
 using System.Web.Script.Serialization;
 using System.Web.UI;
@@ -69,6 +70,19 @@ public partial class NPW_Alarm : Page
             Response.ContentType = "application/json; charset=utf-8";
             Response.Cache.SetCacheability(HttpCacheability.NoCache);
             try { HandleChartData(); }
+            catch (Exception ex)
+            {
+                Response.StatusCode = 500;
+                Response.Write("{\"ok\":false,\"error\":\"" + JsonEscape(ex.Message) + "\"}");
+            }
+            Response.End();
+            return;
+        }
+        if (string.Equals(opStr, "profileimg", StringComparison.OrdinalIgnoreCase))
+        {
+            Response.ContentType = "application/json; charset=utf-8";
+            Response.Cache.SetCacheability(HttpCacheability.NoCache);
+            try { HandleProfileImg(); }
             catch (Exception ex)
             {
                 Response.StatusCode = 500;
@@ -307,6 +321,102 @@ public partial class NPW_Alarm : Page
             }
             Response.StatusCode = status;
             Response.Write("{\"ok\":false,\"error\":\"" + JsonEscape(wex.Message) + "\",\"detail\":" + ser.Serialize(detail) + "}");
+        }
+    }
+
+    // NON-ADDER profile single image. ?chartId=&chartSeq=&pointValue=&site=&wafer=
+    // Mirrors the SpcMapProxy/.ashx technique but on the CONTOUR path: fetch the
+    // contour entry page server-side (it builds myParaList itself, so we don't
+    // need the parameter base), follow the DataShowMap page, and extract the RAW
+    // wafer-map <img> (preferring the alarm point's WAFER). Returns { ok, imgUrl }.
+    private void HandleProfileImg()
+    {
+        string site = Regex.Replace(Request.QueryString["site"] ?? "12AP58", "[^0-9A-Za-z]", "");
+        if (!string.Equals(site, "12AP58", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(site, "12AP14", StringComparison.OrdinalIgnoreCase)) site = "12AP58";
+        string chartId = Regex.Replace(Request.QueryString["chartId"] ?? "", "[^0-9]", "");
+        string chartSeq = Regex.Replace(Request.QueryString["chartSeq"] ?? "", "[^0-9]", "");
+        string pointValue = Regex.Replace(Request.QueryString["pointValue"] ?? "", "[^0-9.]", "");
+        string wafer = (Request.QueryString["wafer"] ?? "").Trim();
+
+        var ser = new JavaScriptSerializer();
+        if (chartId.Length == 0 || chartSeq.Length == 0)
+        {
+            Response.Write(ser.Serialize(new Dictionary<string, object> { { "ok", false }, { "error", "chartId/chartSeq required" } }));
+            return;
+        }
+
+        string entryUrl = "http://10.10.101.170/Project1/_Contour_Multi.asp?site=" + Uri.EscapeDataString(site)
+            + "&ChartID=" + Uri.EscapeDataString(chartId)
+            + "&ChartSEQ=" + Uri.EscapeDataString(chartSeq)
+            + (pointValue.Length > 0 ? "&PointValue=" + Uri.EscapeDataString(pointValue) : "");
+
+        string html = HttpGetText(entryUrl);
+        string imgUrl = ExtractRawImg(html, wafer);
+        string usedUrl = entryUrl;
+
+        // Entry page may only reference the DataShowMap sub-page (with the
+        // server-built myParaList). Follow it and extract there.
+        if (imgUrl == null && !string.IsNullOrEmpty(html))
+        {
+            var dm = Regex.Match(html, @"_Contour_Multi_DataShowMap\.asp\?[^""'<>\s]+", RegexOptions.IgnoreCase);
+            if (dm.Success)
+            {
+                string dmUrl = HttpUtility.HtmlDecode(dm.Value).Replace("&amp;", "&");
+                if (!dmUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                    dmUrl = "http://10.10.101.170/Project1/" + dmUrl.TrimStart('/');
+                string dmHtml = HttpGetText(dmUrl);
+                imgUrl = ExtractRawImg(dmHtml, wafer);
+                usedUrl = dmUrl;
+            }
+        }
+
+        Response.Write(ser.Serialize(new Dictionary<string, object> {
+            { "ok", true }, { "imgUrl", imgUrl }, { "wafer", wafer }, { "url", usedUrl }
+        }));
+    }
+
+    // Find the RAW contour <img>; prefer the one whose URL contains the wafer.
+    private static string ExtractRawImg(string html, string wafer)
+    {
+        if (string.IsNullOrEmpty(html)) return null;
+        var matches = Regex.Matches(html, @"<img[^>]+src\s*=\s*['""]([^'""]+)['""]", RegexOptions.IgnoreCase);
+        string firstRaw = null;
+        foreach (Match mm in matches)
+        {
+            string src = HttpUtility.HtmlDecode(mm.Groups[1].Value);
+            if (src.IndexOf("RAW", StringComparison.OrdinalIgnoreCase) < 0) continue;
+            string abs = AbsUrl(src);
+            if (firstRaw == null) firstRaw = abs;
+            if (!string.IsNullOrEmpty(wafer) && abs.IndexOf(wafer, StringComparison.OrdinalIgnoreCase) >= 0) return abs;
+        }
+        return firstRaw;
+    }
+
+    private static string AbsUrl(string src)
+    {
+        if (src.StartsWith("http", StringComparison.OrdinalIgnoreCase)) return src;
+        if (src.StartsWith("/")) return "http://10.10.101.170" + src;
+        return "http://10.10.101.170/Project1/" + src.TrimStart('~').TrimStart('/');
+    }
+
+    // GET a page server-side with Windows integrated auth (intranet pages).
+    private static string HttpGetText(string url)
+    {
+        var req = (HttpWebRequest)WebRequest.Create(url);
+        req.Method = "GET";
+        req.UserAgent = "Mozilla/5.0";
+        req.Timeout = 15000;
+        req.ReadWriteTimeout = 15000;
+        req.AllowAutoRedirect = true;
+        req.UseDefaultCredentials = true;
+        req.Credentials = CredentialCache.DefaultCredentials;
+        using (var resp = (HttpWebResponse)req.GetResponse())
+        using (var stream = resp.GetResponseStream())
+        {
+            if (stream == null) return null;
+            using (var sr = new StreamReader(stream, Encoding.UTF8))
+                return sr.ReadToEnd();
         }
     }
 
