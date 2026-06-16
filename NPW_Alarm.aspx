@@ -179,13 +179,7 @@
         .npw-report-card .npw-spark{position:relative;width:228px;height:84px;}
         .npw-report-card .npw-spark canvas{display:block;width:100%!important;height:100%!important;}
         .npw-report-card .npw-cell-map{text-align:center;padding:2px!important;}
-        .npw-report-card .npw-map-img{width:84px;height:84px;object-fit:contain;border:1px solid #ddd;border-radius:4px;background:#fafafa;cursor:zoom-in;}
-        #particle-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;}
-        #particle-modal .pm-box{position:absolute;inset:4% 4%;background:#fff;border-radius:8px;display:flex;flex-direction:column;overflow:hidden;}
-        #particle-modal .pm-head{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#0d47a1;color:#fff;}
-        #particle-modal .pm-head b{font-size:13px;}
-        #particle-modal #particle-close{background:#fff;color:#0d47a1;border:0;border-radius:4px;padding:4px 12px;cursor:pointer;font-weight:700;}
-        #particle-modal iframe{flex:1;border:0;width:100%;}
+        .npw-report-card .adder-map-thumb{width:160px;height:auto;border:1px solid #bbb;background:#fafafa;object-fit:contain;display:block;margin:0 auto;cursor:zoom-in;}
         .npw-report-card .dup-chart{background:#ffe19a!important;}
         .npw-report-card .dim-row{background:#d9d9d9!important;}
         .npw-report-card .inline-empty{padding:8px 10px;color:#666;font-size:12px;background:#fff;border:1px dashed #999;}
@@ -365,6 +359,8 @@
         let chartAlarmStats={};
         let chartAlarmDateStats={};
         let chartMeasurePu={}; // key|chartKey -> MEASUREPU
+        let chartAlarmSeq={};  // key|chartKey -> Set(CHART_SEQ)
+        let chartProcUnit={};  // key|chartKey -> PROCESSUNIT
         function setStatus(t,c){const s=document.getElementById('status');s.textContent=t||'';if(c)s.style.color=c;}
         function showError(t){const e=document.getElementById('error');e.textContent=t||'';e.style.display=t?'block':'none';}
 
@@ -395,7 +391,7 @@
             const days=[];
             for(let i=0;i<7;i++){const d=new Date(start.getFullYear(),start.getMonth(),start.getDate());d.setDate(start.getDate()+i);days.push(fmtYMDDash(d));}
             const stats={};
-            chartAlarmStats={};chartAlarmDateStats={};chartMeasurePu={};
+            chartAlarmStats={};chartAlarmDateStats={};chartMeasurePu={};chartAlarmSeq={};chartProcUnit={};
             function entOf(pu){if(!pu)return null;const s=String(pu).toUpperCase();const i=s.indexOf('-');return i===-1?s:s.substring(0,i);}
 
             for(const row of rawData){
@@ -447,6 +443,8 @@
                 if(!chartAlarmDateStats[key][ck])chartAlarmDateStats[key][ck]=new Set();
                 chartAlarmDateStats[key][ck].add(ut);
                 if(row.MEASUREPU!=null&&String(row.MEASUREPU).trim()!=='')chartMeasurePu[key+'|'+ck]=String(row.MEASUREPU);
+                if(row.PROCESSUNIT!=null)chartProcUnit[key+'|'+ck]=String(row.PROCESSUNIT);
+                if(row.CHART_SEQ!=null&&String(row.CHART_SEQ).trim()!==''){const sk=key+'|'+ck;if(!chartAlarmSeq[sk])chartAlarmSeq[sk]=new Set();chartAlarmSeq[sk].add(String(row.CHART_SEQ).trim());}
             }
             return {stats,days};
         }
@@ -582,7 +580,10 @@
                     const dates=dateSet?Array.from(dateSet).sort():[];
                     const mkey=fmtYMDDash(start)+'|'+entity+'|'+(isAdder?'ADDER':'NON_ADDER')+'|'+ck;
                     const measurePu=chartMeasurePu[mkey]||'';
-                    allRows.push({entity,chartId,chartName,cnt,nameKey,dates,measurePu});
+                    const processUnit=chartProcUnit[mkey]||'';
+                    const seqSet=chartAlarmSeq[mkey];
+                    const chartSeq=(seqSet&&seqSet.size)?Array.from(seqSet)[0]:'';
+                    allRows.push({entity,chartId,chartName,cnt,nameKey,dates,measurePu,processUnit,chartSeq});
                 }
             }
 
@@ -621,10 +622,15 @@
                 const cid=escapeHtml(r.chartId||''),cname=escapeHtml(r.chartName||'');
                 let extra='';
                 if(isAdder){
+                    const puUp=String(r.processUnit||'').trim().toUpperCase();
+                    const site=puUp.startsWith('OXSE-A')?'12AP14':'12AP58';
+                    const seq=escapeHtml(r.chartSeq||'');
+                    const da=`data-site="${site}" data-uchart-id="${cid}" data-chart-seq="${seq}"`;
+                    const puInit=escapeHtml(parseMeasurePu(r.measurePu));
                     extra=`<td class="npw-cell-preview"><div class="npw-spark" data-cid="${cid}"><canvas></canvas></div></td>`+
-                          `<td class="npw-cell-map" data-cid="${cid}" data-kind="PRE"></td>`+
-                          `<td class="npw-cell-map" data-cid="${cid}" data-kind="ADDER"></td>`+
-                          `<td>${escapeHtml(r.measurePu||'')}</td>`;
+                          `<td class="npw-cell-map"><span class="pre-map" ${da} style="color:#999;">...</span></td>`+
+                          `<td class="npw-cell-map"><span class="adder-map" ${da} style="color:#999;">...</span></td>`+
+                          `<td><span class="map-info" ${da}>${puInit||'<span style="color:#999;">...</span>'}</span></td>`;
                 }
                 html+=`<tr class="${rowClass}"><td>${escapeHtml(r.entity)}</td><td>${cid}</td><td>${nameHtml}</td>
                     <td style="text-align:center;">${escapeHtml(r.cnt)}</td><td>${escapeHtml(datesText)}</td>${extra}</tr>`;
@@ -633,41 +639,20 @@
             return html;
         }
 
-        // ===== Preview 趨勢圖（Chart.js）+ Particle Map（沿用 Tool-ABC）=====
+        // ===== Preview 趨勢圖（Chart.js）+ PRE/ADDER MAP / MeasurePU（沿用 refer.html proxy）=====
         let sparkInstances=[];
+        // Map / MeasurePU 代理（與 refer.html 相同）。路徑相對於本頁，視部署位置調整。
+        const MAP_PROXY = 'TF2api/SpcMapInfoProxy.ashx';
 
-        // Particle Map 網址（沿用 Tool-ABC ADDER 的 _Blob_ShowImage_4WebResultLoop.asp）
-        function buildParticleMapUrl(chartId,seq,pointVal,kind){
-            const base='http://10.10.101.170/Project1/_Blob_ShowImage_4WebResultLoop.asp';
-            const p=new URLSearchParams({site:'12AP58',uchart_id:chartId||'',chart_seq:(seq==null?'':String(seq)),PointValue:(pointVal==null?'':String(pointVal))});
-            if(kind)p.set('category',kind); // 單一類別(PRE/ADDER)選擇器（依後端支援，可調整）
-            return base+'?'+p.toString();
+        // MEASUREPU 顯示用：取 ^SP5^ 後面那段（如 KLA-Tencor^SP5^CUSFSCAN-B05 -> CUSFSCAN-B05）
+        function parseMeasurePu(s){
+            if(s==null)return '';
+            const str=String(s);
+            const m=str.match(/\^SP5\^([^\^\s<]+)/i);
+            return m?m[1]:str;
         }
 
-        function openParticleModal(url){
-            const modal=document.getElementById('particle-modal');
-            const iframe=document.getElementById('particle-iframe');
-            if(!modal||!iframe)return;
-            iframe.src='about:blank';
-            modal.style.display='block';
-            setTimeout(()=>{iframe.src=url;},0);
-        }
-        function closeParticleModal(){
-            const modal=document.getElementById('particle-modal');
-            const iframe=document.getElementById('particle-iframe');
-            if(!modal)return;
-            modal.style.display='none';
-            if(iframe)iframe.src='about:blank';
-        }
-
-        // 在週區間內挑代表 alarm 點（最後一個）
-        function pickAlarmPoint(pts,days){
-            const set=new Set(days);
-            let chosen=null;
-            for(const p of pts){if(Number(p.alarm)>=1 && set.has(String(p.d||'').substring(0,10)))chosen=p;}
-            return chosen;
-        }
-
+        // Chart.js 趨勢縮圖（取代 refer.html 的伺服器縮圖）
         function drawSpark(canvas,pts,days,cid){
             if(!canvas||!window.Chart||!pts||!pts.length)return;
             const labels=pts.map(p=>String(p.d||'').substring(5,10));
@@ -687,32 +672,23 @@
                 ]},
                 options:{animation:false,responsive:true,maintainAspectRatio:false,
                     plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.formattedValue}}},
-                    scales:{x:{display:false},y:{display:false}},
-                    onClick:(evt,els,chart)=>{
-                        const hit=chart.getElementsAtEventForMode(evt,'nearest',{intersect:false},true);
-                        if(!hit.length)return;
-                        const p=pts[hit[0].index];
-                        openParticleModal(buildParticleMapUrl(cid,p.seq,p.mean,''));
-                    }
+                    scales:{x:{display:false},y:{display:false}}
                 }
             });
             sparkInstances.push(inst);
         }
 
-        // 抓 chartdata，畫 Preview 縮圖 + 填 PRE / ADDER MAP
-        async function hydrateAdder(picked){
+        // 畫 Preview 縮圖（Chart.js，資料來自 op=chartdata）
+        async function hydratePreviews(picked){
             const box=document.getElementById('adderChartDetail');
             if(!box)return;
             sparkInstances.forEach(c=>{try{c.destroy();}catch(e){}});sparkInstances=[];
-
             const sparks=[...box.querySelectorAll('.npw-spark[data-cid]')];
             const cids=[...new Set(sparks.map(e=>e.getAttribute('data-cid')).filter(Boolean))];
             if(!cids.length)return;
-
             const start=startTuesdayFor(picked);
             const days=[];for(let i=0;i<7;i++){const d=new Date(start.getFullYear(),start.getMonth(),start.getDate());d.setDate(start.getDate()+i);days.push(fmtYMDDash(d));}
             const weekEnd=new Date(start.getFullYear(),start.getMonth(),start.getDate());weekEnd.setDate(start.getDate()+6);
-
             let series={};
             try{
                 const qs=new URLSearchParams({op:'chartdata',cids:cids.join(','),end:fmtYMDDash(weekEnd),days:'60'});
@@ -720,26 +696,46 @@
                 const data=await res.json();
                 if(data.ok)series=data.series||{};
             }catch(e){console.error(e);}
-
             sparks.forEach(el=>{const cid=el.getAttribute('data-cid');drawSpark(el.querySelector('canvas'),series[cid]||[],days,cid);});
+        }
 
-            box.querySelectorAll('.npw-cell-map').forEach(td=>{
-                const cid=td.getAttribute('data-cid'),kind=td.getAttribute('data-kind');
-                const ap=pickAlarmPoint(series[cid]||[],days);
-                if(!ap){td.innerHTML='<span style="color:#94a3b8;">-</span>';return;}
-                const url=buildParticleMapUrl(cid,ap.seq,ap.mean,kind);
-                const img=document.createElement('img');
-                img.className='npw-map-img';img.alt=kind+' map';img.loading='lazy';
-                img.title=kind+'｜SEQ='+ap.seq+'｜'+(ap.lot||'')+' '+(ap.wafer||'');
-                img.src=url;
-                img.addEventListener('click',()=>openParticleModal(url));
-                img.addEventListener('error',()=>{
-                    const b=document.createElement('button');b.type='button';b.className='npw-mini-btn';b.textContent='開啟';
-                    b.addEventListener('click',()=>openParticleModal(url));
-                    if(img.parentNode)img.parentNode.replaceChild(b,img);
-                });
-                td.appendChild(img);
+        // 共用：以併發方式對一組節點查 MAP 代理，再交給 apply 回填
+        async function hydrateMapNodes(selector,apply){
+            const nodes=[...document.querySelectorAll(selector+'[data-uchart-id][data-chart-seq]')];
+            if(!nodes.length)return;
+            const CONC=6;let idx=0;
+            async function worker(){
+                while(idx<nodes.length){
+                    const el=nodes[idx++];
+                    const site=el.getAttribute('data-site')||'12AP58';
+                    const uchartId=el.getAttribute('data-uchart-id')||'';
+                    const chartSeq=el.getAttribute('data-chart-seq')||'';
+                    if(!chartSeq){el.textContent='-';continue;}
+                    try{
+                        const url=MAP_PROXY+`?site=${encodeURIComponent(site)}&uchart_id=${encodeURIComponent(uchartId)}&chart_seq=${encodeURIComponent(chartSeq)}&PointValue=10`;
+                        const resp=await fetch(url,{credentials:'include'});
+                        if(!resp.ok)throw new Error('HTTP '+resp.status);
+                        const data=await resp.json();
+                        apply(el,(data&&data.ok)?data:null);
+                    }catch(e){el.textContent='-';}
+                }
+            }
+            await Promise.all(Array.from({length:Math.min(CONC,nodes.length)},worker));
+        }
+
+        function mapThumbHtml(imgUrl,alt){
+            return `<a href="openie:${encodeURIComponent(imgUrl)}" target="_blank" rel="noopener noreferrer" title="Open ${alt} (IE)">`
+                + `<img class="adder-map-thumb" src="${escapeHtml(imgUrl)}" alt="${alt}" loading="lazy" /></a>`;
+        }
+
+        function hydrateMaps(){
+            hydrateMapNodes('.map-info',(el,d)=>{
+                if(!d){el.textContent=el.textContent&&el.textContent!=='...'?el.textContent:'-';return;}
+                el.style.color='#111';
+                el.textContent=d.measurePU?parseMeasurePu(d.measurePU):(el.textContent&&el.textContent!=='...'?el.textContent:'-');
             });
+            hydrateMapNodes('.pre-map',(el,d)=>{ el.innerHTML=(d&&d.preMapImgUrl)?mapThumbHtml(String(d.preMapImgUrl),'PRE MAP'):'-'; });
+            hydrateMapNodes('.adder-map',(el,d)=>{ el.innerHTML=(d&&d.adderMapImgUrl)?mapThumbHtml(String(d.adderMapImgUrl),'ADDER MAP'):'-'; });
         }
 
         function renderInlineChartDetails(picked){
@@ -747,7 +743,8 @@
             const n=document.getElementById('nonAdderChartDetail');
             if(a)a.innerHTML=buildInlineChartDetailHtml(picked,true);
             if(n)n.innerHTML=buildInlineChartDetailHtml(picked,false);
-            hydrateAdder(picked);
+            hydratePreviews(picked);  // Chart.js 趨勢縮圖
+            hydrateMaps();            // PRE / ADDER MAP / MeasurePU（代理）
         }
 
         // ===== 初始化 =====
@@ -766,13 +763,6 @@
                 updateWeekHint(picked);
                 try{await loadFromDb(picked);refreshTables(picked);}catch(e){/* 已顯示 */}
             }
-
-            // Particle Map modal 關閉
-            const pmClose=document.getElementById('particle-close');
-            if(pmClose)pmClose.addEventListener('click',closeParticleModal);
-            const pmModal=document.getElementById('particle-modal');
-            if(pmModal)pmModal.addEventListener('click',e=>{if(e.target===pmModal)closeParticleModal();});
-            document.addEventListener('keydown',e=>{if(e.key==='Escape')closeParticleModal();});
 
             const calBtn=document.getElementById('calBtn');
             if(calBtn)calBtn.addEventListener('click',()=>{
@@ -793,17 +783,6 @@
         })();
     })();
     </script>
-
-    <!-- Particle Map modal (沿用 Tool-ABC) -->
-    <div id="particle-modal">
-        <div class="pm-box">
-            <div class="pm-head">
-                <b id="particle-title">Particle Map</b>
-                <button id="particle-close" type="button">關閉</button>
-            </div>
-            <iframe id="particle-iframe" src="about:blank"></iframe>
-        </div>
-    </div>
 
     <!-- ============================================================
          AI chat widget
