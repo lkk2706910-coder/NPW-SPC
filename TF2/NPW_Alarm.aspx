@@ -66,6 +66,9 @@
         .sched th, .sched td { border: 1px solid #333; padding: 3px 6px; text-align: center; vertical-align: middle; min-width: 66px; white-space: nowrap; }
         .sched th { background: #f0f0f0; }
         .sched .sched-ent { background: #fff; text-align: left; font-weight: 700; white-space: nowrap; position: sticky; left: 0; z-index: 1; }
+        .sched td .sched-chk { display: block; text-align: left; white-space: nowrap; cursor: pointer; line-height: 1.5; }
+        .sched td .sched-chk input { margin: 0 4px 0 0; vertical-align: middle; }
+        .sched td:has(.sched-chk) { text-align: left; }
         .wrap { max-width: none; margin: 0 auto; padding: 24px 18px; }
         .card {
             background: var(--panel);
@@ -668,18 +671,25 @@
                         ev.items.split('+').forEach(t=>{t=t.trim();if(t&&items.indexOf(t)<0)items.push(t);});
                 });
                 items.sort((a,b)=>itemRank(a)-itemRank(b));
-                return items.join('\n');
+                return items;
             }
-            return (row.cells&&row.cells[idx])||'';
+            return ((row.cells&&row.cells[idx])||'').split('\n').filter(Boolean);
         }
+        const SCHED_STORE='npw.sched.checks';
+        function loadSchedChecks(){try{return JSON.parse(localStorage.getItem(SCHED_STORE)||'{}');}catch(e){return {};}}
+        function saveSchedChecks(o){try{localStorage.setItem(SCHED_STORE,JSON.stringify(o));}catch(e){}}
         function renderSchedule(picked){
             const box=document.getElementById('downSchedule');
             if(!box)return;
             const start=startTuesdayFor(picked);
             const dates=[];for(let i=0;i<7;i++){dates.push(new Date(start.getFullYear(),start.getMonth(),start.getDate()+i));}
             const md=d=>(d.getMonth()+1)+'月'+d.getDate()+'日';
-            const esc=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;');
-            const cell=t=>esc(t).replace(/\n/g,'<br>');
+            const esc=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+            const checks=loadSchedChecks();
+            const cellHtml=(items,iso,name)=>items.map(t=>{
+                const k=name+'|'+iso+'|'+t;
+                return '<label class="sched-chk"><input type="checkbox" data-k="'+esc(k)+'"'+(checks[k]?' checked':'')+'>'+esc(t)+'</label>';
+            }).join('');
             let html='';
             SCHEDULE.forEach(g=>{
                 html+='<div class="sched-title">'+esc(g.title)+'</div>';
@@ -691,14 +701,25 @@
                 g.rows.forEach(r=>{
                     html+='<tr><td class="sched-ent">'+esc(r.name)+'('+esc(r.shift)+')</td>';
                     for(let i=0;i<7;i++){
-                        const t=schedCell(r,dates[i],i);
-                        html+='<td>'+(r.shift==='日'?cell(t):'')+'</td><td>'+(r.shift==='夜'?cell(t):'')+'</td>';
+                        const items=schedCell(r,dates[i],i);
+                        const inner=items.length?cellHtml(items,fmtYMDDash(dates[i]),r.name):'';
+                        html+='<td>'+(r.shift==='日'?inner:'')+'</td><td>'+(r.shift==='夜'?inner:'')+'</td>';
                     }
                     html+='</tr>';
                 });
                 html+='</tbody></table></div>';
             });
             box.innerHTML=html;
+            if(!box.dataset.bound){
+                box.dataset.bound='1';
+                box.addEventListener('change',e=>{
+                    const cb=e.target;
+                    if(!cb||!cb.matches||!cb.matches('input[type=checkbox][data-k]'))return;
+                    const o=loadSchedChecks(),k=cb.getAttribute('data-k');
+                    if(cb.checked)o[k]=1; else delete o[k];
+                    saveSchedChecks(o);
+                });
+            }
         }
 
         // down chart 作業區上方：各 entity 的 ADDER Target vs 本週 alarm 數
