@@ -35,7 +35,53 @@ public partial class NPW_Alarm : Page
             Response.End();
             return;
         }
+        if (string.Equals(opStr, "data", StringComparison.OrdinalIgnoreCase))
+        {
+            Response.ContentType = "application/json; charset=utf-8";
+            Response.Cache.SetCacheability(HttpCacheability.NoCache);
+            try { HandleData(); }
+            catch (Exception ex)
+            {
+                Response.StatusCode = 500;
+                Response.Write("{\"ok\":false,\"error\":\"" + JsonEscape(ex.Message) + "\"}");
+            }
+            Response.End();
+            return;
+        }
         // Otherwise fall through to render the page.
+    }
+
+    // 讀取 GPTDB_USPC.dbo.TF2_NPW_CHART，回傳 JSON。
+    // 選填查詢參數：?area=TF2  &pu=NISACVD  &top=200
+    private void HandleData()
+    {
+        string area = (Request.QueryString["area"] ?? "").Trim();
+        string pu = (Request.QueryString["pu"] ?? "").Trim();
+        int top;
+        if (!int.TryParse(Request.QueryString["top"], out top) || top <= 0 || top > 5000) top = 200;
+
+        var conds = new List<string>();
+        var args = new List<object>();
+        if (area.Length > 0) { conds.Add("AREA = @p" + args.Count); args.Add(area); }
+        if (pu.Length > 0) { conds.Add("PROCESSUNIT LIKE @p" + args.Count + " + '%'"); args.Add(pu); }
+        string where = conds.Count > 0 ? " WHERE " + string.Join(" AND ", conds) : "";
+
+        string sql = "SELECT TOP " + top + " * FROM GPTDB_USPC.dbo.TF2_NPW_CHART WITH (NOLOCK)"
+                     + where + " ORDER BY UPDATE_TIME DESC";
+        var rows = DbHelper.QueryRows(sql, args.ToArray());
+
+        // DateTime → 字串，方便前端顯示（避免 /Date(ms)/）
+        foreach (var row in rows)
+        {
+            var keys = new List<string>(row.Keys);
+            foreach (var k in keys)
+                if (row[k] is DateTime) row[k] = ((DateTime)row[k]).ToString("yyyy-MM-dd HH:mm:ss");
+        }
+
+        var ser = new JavaScriptSerializer { MaxJsonLength = int.MaxValue };
+        Response.Write(ser.Serialize(new Dictionary<string, object> {
+            { "ok", true }, { "count", rows.Count }, { "rows", rows }
+        }));
     }
 
     private void HandleChat()

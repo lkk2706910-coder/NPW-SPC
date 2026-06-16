@@ -147,7 +147,57 @@
             <p><code>var rows = DbHelper.QueryRows("SELECT * FROM your_table WHERE x = @p0", value);</code></p>
             <p>要加新 .aspx 頁面就直接加,沒有 auth gate 需要繞過。</p>
         </div>
+
+        <div class="card">
+            <h2>NPW 資料 (TF2_NPW_CHART)</h2>
+            <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:10px;">
+                <input id="fArea" placeholder="AREA(選填,如 TF2)" style="padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;" />
+                <input id="fPu" placeholder="PROCESSUNIT 前綴(選填)" style="padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;min-width:180px;" />
+                <input id="fTop" type="number" value="100" min="1" max="5000" title="筆數" style="width:90px;padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;" />
+                <button id="fLoad" type="button" style="padding:6px 14px;border:0;border-radius:6px;background:#1976d2;color:#fff;cursor:pointer;font-size:13px;">讀取</button>
+                <span id="fStatus" style="color:#64748b;font-size:12px;"></span>
+            </div>
+            <div style="overflow:auto; max-height:480px; border:1px solid #e5e7eb; border-radius:8px;">
+                <table id="dataTable" style="border-collapse:collapse; width:100%; font-size:12px;"></table>
+            </div>
+        </div>
     </div>
+
+    <script>
+    // NPW 資料預覽：呼叫 NPW_Alarm.aspx?op=data 讀 TF2_NPW_CHART
+    (function () {
+        const KEYS = ['CHART_NAME','AREA','PROCESSUNIT','RECIPE','MEAN_VALUE','UCL','LCL',
+                      'SPEC_HIGH','SPEC_LOW','SPEC_TARGET','ALARM_COUNT','OOS_COUNT','OOC_COUNT',
+                      'MONITOR_TYPE','PARAMETER','UPDATE_TIME'];
+        const tbl = document.getElementById('dataTable');
+        const st = document.getElementById('fStatus');
+        const esc = v => v == null ? '' : String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+        function render(rows) {
+            const head = '<thead><tr>' + KEYS.map(k =>
+                '<th style="border:1px solid #e2e8f0;padding:5px 7px;background:#f5f7fb;position:sticky;top:0;white-space:nowrap;">' + k + '</th>').join('') + '</tr></thead>';
+            const body = rows.map(r => '<tr>' + KEYS.map(k =>
+                '<td style="border:1px solid #eef2f7;padding:5px 7px;white-space:nowrap;">' + esc(r[k]) + '</td>').join('') + '</tr>').join('');
+            tbl.innerHTML = head + '<tbody>' + body + '</tbody>';
+        }
+        async function load() {
+            const qs = new URLSearchParams({ op: 'data', top: (document.getElementById('fTop').value || '100') });
+            const area = document.getElementById('fArea').value.trim();
+            const pu = document.getElementById('fPu').value.trim();
+            if (area) qs.set('area', area);
+            if (pu) qs.set('pu', pu);
+            st.textContent = '讀取中…';
+            try {
+                const res = await fetch('NPW_Alarm.aspx?' + qs.toString(), { cache: 'no-store' });
+                const data = await res.json();
+                if (!data.ok) throw new Error(data.error || ('HTTP ' + res.status));
+                render(data.rows || []);
+                st.textContent = '共 ' + data.count + ' 列';
+            } catch (e) { st.textContent = '錯誤：' + e.message; }
+        }
+        document.getElementById('fLoad').addEventListener('click', load);
+        load(); // 開頁先載入一次
+    })();
+    </script>
 
     <!-- ============================================================
          AI chat widget
