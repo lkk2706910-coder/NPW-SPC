@@ -626,15 +626,14 @@
         // 註：以下內容由提供的 3 張照片判讀，低解析處可能需核對。
         const SCHEDULE=[
             { title:'NISACVD', rows:[
-                { name:'NISACVD-B01', shift:'日', cells:{1:'Weekly PA\nHTSIN130_11\nPEOX50A\nXFER',4:'HTSIN130_11\nPEOX50A\nXFER'} },
-                { name:'NISACVD-B06', shift:'夜', cells:{0:'Weekly PA\nHTSIN130_11\nPEOX50A\nXFER',3:'HTSIN130_11\nPEOX50A\nXFER',6:'HTSIN130_11\nPEOX50A\nXFER'} },
-                { name:'NISACVD-B07', shift:'日', cells:{3:'HTSIN130_11\nPEOX50A\nXFER',6:'HTSIN130_11\nPEOX50A\nXFER'} },
-                { name:'NISACVD-B08', shift:'夜', cells:{1:'HTSIN130_11\nPEOX50A\nXFER',2:'Weekly PA',4:'HTSIN130_11\nPEOX50A\nXFER'} },
-                { name:'NISACVD-B03', shift:'夜', cells:{1:'XFER',6:'XFER'} },
-                { name:'NISACVD-B12', shift:'日', cells:{2:'DAILY_PA\nXFER',5:'DAILY_PA\nXFER'} },
-                { name:'NISACVD-B12', shift:'夜', cells:{3:'DAILY_PA\nXFER'} },
-                { name:'NISACVD-B13', shift:'夜', cells:{3:'DAILY_PA\nXFER',6:'DAILY_PA\nXFER'} },
-                { name:'NISACVD-B14', shift:'日', cells:{0:'DAILY_PA\nXFER',5:'XFER'} }
+                { name:'NISACVD-B01', shift:'日', cells:{3:'XFER',4:'HTSIN130_11\nPEOX50A',5:'XFER'} },
+                { name:'NISACVD-B06', shift:'日', cells:{3:'HTSIN130_11\nPEOX50A\nXFER',4:'HTSIN130_11\nPEOX50A\nXFER\nWeekly PA',6:'HTSIN130_11\nPEOX50A\nXFER'} },
+                { name:'NISACVD-B07', shift:'日', cells:{0:'HTSIN130_11\nPEOX50A\nXFER',2:'Weekly PA',3:'HTSIN130_11\nPEOX50A\nXFER'} },
+                { name:'NISACVD-B08', shift:'夜', cells:{1:'HTSIN130_11\nPEOX50A\nXFER',4:'HTSIN130_11\nPEOX50A\nXFER',5:'Weekly PA'} },
+                { name:'NISACVD-B03', shift:'夜', cells:{0:'XFER',1:'DAILY_PA',3:'XFER',4:'DAILY_PA',6:'XFER'} },
+                { name:'NISACVD-B12', shift:'日', cells:{1:'DAILY_PA\nXFER',4:'DAILY_PA\nXFER'} },
+                { name:'NISACVD-B13', shift:'夜', cells:{0:'DAILY_PA\nXFER',3:'DAILY_PA\nXFER\nXFER',6:'DAILY_PA\nXFER'} },
+                { name:'NISACVD-B14', shift:'日', cells:{0:'DAILY_PA\nXFER',3:'DAILY_PA\nXFER\nXFER',6:'DAILY_PA\nXFER'} }
             ]},
             { title:'SACVD (5.5K)', rows:[
                 { name:'SACVD-B01', shift:'日', cells:{2:'5.5K\nXFER',5:'5.5K\nXFER'} },
