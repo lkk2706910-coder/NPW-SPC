@@ -366,6 +366,7 @@
         let chartProcUnit={};  // key|chartKey -> PROCESSUNIT
         let chartAlarmMean={}; // key|chartKey -> MEAN_VALUE (代表 alarm 點，與 CHART_SEQ 同一筆)
         let chartAlarmWafer={};// key|chartKey -> WAFER (同一筆代表 alarm 點)
+        let chartParameter={}; // key|chartKey -> PARAMETER (profile myParaList 用)
         function setStatus(t,c){const s=document.getElementById('status');s.textContent=t||'';if(c)s.style.color=c;}
         function showError(t){const e=document.getElementById('error');e.textContent=t||'';e.style.display=t?'block':'none';}
 
@@ -396,7 +397,7 @@
             const days=[];
             for(let i=0;i<7;i++){const d=new Date(start.getFullYear(),start.getMonth(),start.getDate());d.setDate(start.getDate()+i);days.push(fmtYMDDash(d));}
             const stats={};
-            chartAlarmStats={};chartAlarmDateStats={};chartMeasurePu={};chartAlarmSeq={};chartProcUnit={};chartAlarmMean={};chartAlarmWafer={};
+            chartAlarmStats={};chartAlarmDateStats={};chartMeasurePu={};chartAlarmSeq={};chartProcUnit={};chartAlarmMean={};chartAlarmWafer={};chartParameter={};
             function entOf(pu){if(!pu)return null;const s=String(pu).toUpperCase();const i=s.indexOf('-');return i===-1?s:s.substring(0,i);}
 
             for(const row of rawData){
@@ -449,6 +450,7 @@
                 chartAlarmDateStats[key][ck].add(ut);
                 if(row.MEASUREPU!=null&&String(row.MEASUREPU).trim()!=='')chartMeasurePu[key+'|'+ck]=String(row.MEASUREPU);
                 if(row.PROCESSUNIT!=null)chartProcUnit[key+'|'+ck]=String(row.PROCESSUNIT);
+                if(row.PARAMETER!=null&&String(row.PARAMETER).trim()!==''&&chartParameter[key+'|'+ck]==null)chartParameter[key+'|'+ck]=String(row.PARAMETER);
                 if(row.CHART_SEQ!=null&&String(row.CHART_SEQ).trim()!==''){
                     const sk=key+'|'+ck;
                     if(!chartAlarmSeq[sk]){chartAlarmSeq[sk]=new Set();if(chartAlarmMean[sk]==null&&row.MEAN_VALUE!=null)chartAlarmMean[sk]=row.MEAN_VALUE;if(chartAlarmWafer[sk]==null&&row.WAFER!=null)chartAlarmWafer[sk]=row.WAFER;}
@@ -594,7 +596,8 @@
                     const chartSeq=(seqSet&&seqSet.size)?Array.from(seqSet)[0]:'';
                     const pointValue=chartAlarmMean[mkey];
                     const wafer=chartAlarmWafer[mkey];
-                    allRows.push({entity,chartId,chartName,cnt,nameKey,dates,measurePu,processUnit,chartSeq,pointValue,wafer});
+                    const parameter=chartParameter[mkey];
+                    allRows.push({entity,chartId,chartName,cnt,nameKey,dates,measurePu,processUnit,chartSeq,pointValue,wafer,parameter});
                 }
             }
 
@@ -647,10 +650,11 @@
                           `<td class="npw-cell-map"><span class="adder-map" ${da} style="color:#999;">...</span></td>`+
                           measureCell;
                 }else{
-                    const waferAttr=`data-wafer="${escapeHtml(r.wafer==null?'':String(r.wafer))}"`;
-                    extra=previewCell+
-                          `<td class="npw-cell-map"><span class="profile-map" ${da} ${waferAttr} style="color:#999;">...</span></td>`+
-                          measureCell;
+                    const profileUrl=buildProfileUrl(r.chartId,r.chartSeq,r.parameter);
+                    const profileCell=profileUrl
+                        ? `<td class="npw-cell-map"><a href="openie:${encodeURIComponent(profileUrl)}" target="_blank" rel="noopener noreferrer" class="npw-mini-btn" title="開啟 Profile (IE)">開啟 Profile</a></td>`
+                        : `<td class="npw-cell-map">-</td>`;
+                    extra=previewCell+profileCell+measureCell;
                 }
                 html+=`<tr class="${rowClass}"><td>${escapeHtml(r.entity)}</td><td>${cid}</td><td class="cn-col">${nameHtml}</td>
                     <td style="text-align:center;">${escapeHtml(r.cnt)}</td><td>${escapeHtml(datesText)}</td>${extra}</tr>`;
@@ -663,6 +667,27 @@
         let sparkInstances=[];
         // Map / MeasurePU 代理（與 refer.html 相同）。路徑相對於本頁，視部署位置調整。
         const MAP_PROXY = 'TF2api/SpcMapInfoProxy.ashx';
+
+        // NON-ADDER profile：直接連到 contour 檢視器（以 alarm 點的 CHART_SEQ 對齊 WAFERID）
+        const PROFILE_BASE = 'http://10.10.101.170/Project1/_Contour_Multi_DataShowMap.asp';
+        const PROFILE_SUFFIXES = ['GOF', 'RAW', 'RI']; // 藍色關鍵字 RAW 在其中
+        function profileBase(parameter){
+            const parts=String(parameter||'').split('-').filter(x=>x!=='');
+            const upper=parts.map(x=>x.toUpperCase());
+            const ti=upper.lastIndexOf('THK');
+            if(ti>=0)return parts.slice(0,ti+1).join('-');                 // 取到 -THK 為止
+            if(parts.length>1&&PROFILE_SUFFIXES.indexOf(upper[upper.length-1])>=0)return parts.slice(0,-1).join('-');
+            return parts.join('-');
+        }
+        function buildProfileUrl(chartId,chartSeq,parameter){
+            if(!chartId||chartSeq==null||String(chartSeq)==='')return '';
+            const base=profileBase(parameter);
+            if(!base)return '';
+            let paraList='';
+            PROFILE_SUFFIXES.forEach(s=>{paraList+=base+'-'+s+'^'+base+'-'+s+'^';});
+            const p=new URLSearchParams({AutoScale:'N',ChartID:String(chartId),ChartSEQ:String(chartSeq),myMinMax:''});
+            return PROFILE_BASE+'?'+p.toString()+'&myParaList='+encodeURIComponent(paraList);
+        }
 
         // MEASUREPU 顯示用：取 ^SP5^ 後面那段（如 KLA-Tencor^SP5^CUSFSCAN-B05 -> CUSFSCAN-B05）
         function parseMeasurePu(s){
@@ -787,8 +812,7 @@
             });
             hydrateMapNodes('.pre-map',(el,d)=>{ el.innerHTML=(d&&d.preMapImgUrl)?mapThumbHtml(String(d.preMapImgUrl),'PRE MAP'):'-'; });
             hydrateMapNodes('.adder-map',(el,d)=>{ el.innerHTML=(d&&d.adderMapImgUrl)?mapThumbHtml(String(d.adderMapImgUrl),'ADDER MAP'):'-'; });
-            // profile：附帶 &keyword=RAW（藍色關鍵字 RAW）；圖以 alarm 點 WAFER 對齊 WAFERID
-            hydrateMapNodes('.profile-map',(el,d)=>{ const u=d&&(d.profileMapImgUrl||d.contourMapImgUrl||d.uMapImgUrl||d.rawMapImgUrl); el.innerHTML=u?mapThumbHtml(String(u),'PROFILE'):'-'; },'&keyword=RAW');
+            // NON-ADDER profile 改為直接連到 _Contour_Multi_DataShowMap.asp（見 buildProfileUrl）
         }
 
         function renderInlineChartDetails(picked){
