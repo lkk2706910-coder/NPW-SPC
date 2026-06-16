@@ -57,6 +57,12 @@
         .down-sum .ds-corner { background: #bcd6ee; }
         .down-sum .ds-rowh { background: #bcd6ee; font-weight: 700; }
         .down-sum .ds-v { background: #fff; }
+        .sched-title { font-weight: 700; color: #c00; margin: 12px 0 4px; }
+        .sched-scroll { overflow-x: auto; margin-bottom: 16px; }
+        .sched { border-collapse: collapse; font-size: 12px; color: #111; background: #fff; }
+        .sched th, .sched td { border: 1px solid #333; padding: 3px 6px; text-align: center; vertical-align: middle; min-width: 66px; white-space: nowrap; }
+        .sched th { background: #f0f0f0; }
+        .sched .sched-ent { background: #fff; text-align: left; font-weight: 700; white-space: nowrap; position: sticky; left: 0; z-index: 1; }
         .wrap { max-width: none; margin: 0 auto; padding: 24px 18px; }
         .card {
             background: var(--panel);
@@ -349,6 +355,7 @@
 
         <section id="sec-downchart" hidden>
             <div id="downAdderSummary" style="display:flex;gap:24px;flex-wrap:wrap;margin:8px 0 16px;"></div>
+            <div id="downSchedule"></div>
         </section>
     </div>
 
@@ -602,6 +609,69 @@
             updateTableByStats('tblNonAdder',stats,days,false,picked);
             renderInlineChartDetails(picked);
             renderDownAdderSummary(stats,picked);
+            renderSchedule(picked);
+        }
+
+        // ===== 測機排程表（固定週樣板，日期跟著所選週自動位移）=====
+        // 每個 chamber 只在自己的班別(日測/夜測)欄出現；cells 鍵為週內第幾天(0=週二起)。
+        // 註：以下內容由提供的 3 張照片判讀，低解析處可能需核對。
+        const SCHEDULE=[
+            { title:'NISACVD', rows:[
+                { name:'NISACVD-B01', shift:'日', cells:{1:'Weekly PA\nHTSIN130_11\nPEOX50A\nXFER',4:'HTSIN130_11\nPEOX50A\nXFER'} },
+                { name:'NISACVD-B06', shift:'夜', cells:{0:'Weekly PA\nHTSIN130_11\nPEOX50A\nXFER',3:'HTSIN130_11\nPEOX50A\nXFER',6:'HTSIN130_11\nPEOX50A\nXFER'} },
+                { name:'NISACVD-B07', shift:'日', cells:{3:'HTSIN130_11\nPEOX50A\nXFER',6:'HTSIN130_11\nPEOX50A\nXFER'} },
+                { name:'NISACVD-B08', shift:'夜', cells:{1:'HTSIN130_11\nPEOX50A\nXFER',2:'Weekly PA',4:'HTSIN130_11\nPEOX50A\nXFER'} },
+                { name:'NISACVD-B03', shift:'夜', cells:{1:'XFER',6:'XFER'} },
+                { name:'NISACVD-B12', shift:'日', cells:{2:'DAILY_PA\nXFER',5:'DAILY_PA\nXFER'} },
+                { name:'NISACVD-B12', shift:'夜', cells:{3:'DAILY_PA\nXFER'} },
+                { name:'NISACVD-B13', shift:'夜', cells:{3:'DAILY_PA\nXFER',6:'DAILY_PA\nXFER'} },
+                { name:'NISACVD-B14', shift:'日', cells:{0:'DAILY_PA\nXFER',5:'XFER'} }
+            ]},
+            { title:'SACVD (5.5K)', rows:[
+                { name:'SACVD-B01', shift:'日', cells:{2:'5.5K\nXFER',5:'5.5K\nXFER'} },
+                { name:'SACVD-B04', shift:'夜', cells:{2:'5.5K\nXFER',5:'5.5K\nXFER'} },
+                { name:'SACVD-B06', shift:'夜', cells:{1:'5.5K\nXFER',4:'5.5K\nXFER'} },
+                { name:'SACVD-B09', shift:'日', cells:{0:'5.5K\nXFER',3:'5.5K\nXFER',6:'5.5K\nXFER'} },
+                { name:'SACVD-B10', shift:'夜', cells:{0:'5.5K\nXFER',3:'5.5K\nXFER',6:'5.5K\nXFER'} }
+            ]},
+            { title:'SACVD (USG50)', rows:[
+                { name:'SACVD-B02', shift:'日', cells:{3:'CHC 2K\nXFER'} },
+                { name:'SACVD-B11', shift:'夜', cells:{0:'USG50',1:'USG50',2:'USG50',3:'USG50',4:'CHC 2K\nXFER',6:'USG50'} },
+                { name:'SACVD-B12', shift:'夜', cells:{0:'USG50\nXFER',3:'USG50',4:'XFER',6:'USG50\nXFER'} }
+            ]},
+            { title:'SACVD-B03B / B03C / B07A 只測 SABOX110 PA', rows:[
+                { name:'SACVD-B03', shift:'日', cells:{0:'DAILY2_PA\nDAILY4_PA',2:'DAILY2_PA\nXFER',4:'DAILY2_PA\nDAILY4_PA',5:'XFER',6:'DAILY2_PA'} },
+                { name:'SACVD-B05', shift:'夜', cells:{0:'XFER',1:'D2_PA',3:'D2_PA\nD4_PA\nXFER',5:'D2_PA',6:'XFER'} },
+                { name:'SACVD-B07', shift:'夜', cells:{0:'D2_PA',1:'XFER',2:'D2_PA\nD4_PA',4:'D2_PA\nXFER',6:'D2_PA\nD4_PA'} }
+            ]}
+        ];
+        function renderSchedule(picked){
+            const box=document.getElementById('downSchedule');
+            if(!box)return;
+            const start=startTuesdayFor(picked);
+            const dates=[];for(let i=0;i<7;i++){dates.push(new Date(start.getFullYear(),start.getMonth(),start.getDate()+i));}
+            const md=d=>(d.getMonth()+1)+'月'+d.getDate()+'日';
+            const esc=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+            const cell=t=>esc(t).replace(/\n/g,'<br>');
+            let html='';
+            SCHEDULE.forEach(g=>{
+                html+='<div class="sched-title">'+esc(g.title)+'</div>';
+                html+='<div class="sched-scroll"><table class="sched"><thead><tr><th rowspan="2" class="sched-ent">Entity</th>';
+                dates.forEach(d=>{html+='<th colspan="2">'+md(d)+'</th>';});
+                html+='</tr><tr>';
+                dates.forEach(()=>{html+='<th>日測</th><th>夜測</th>';});
+                html+='</tr></thead><tbody>';
+                g.rows.forEach(r=>{
+                    html+='<tr><td class="sched-ent">'+esc(r.name)+'('+esc(r.shift)+')</td>';
+                    for(let i=0;i<7;i++){
+                        const t=r.cells[i]||'';
+                        html+='<td>'+(r.shift==='日'?cell(t):'')+'</td><td>'+(r.shift==='夜'?cell(t):'')+'</td>';
+                    }
+                    html+='</tr>';
+                });
+                html+='</tbody></table></div>';
+            });
+            box.innerHTML=html;
         }
 
         // down chart 作業區上方：各 entity 的 ADDER Target vs 本週 alarm 數
