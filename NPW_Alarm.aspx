@@ -676,14 +676,21 @@
             return m?m[1]:str;
         }
 
-        // 趨勢圖 Y 軸上限（避免單一高 alarm 點把管制線擠到最下方）
-        const ADDER_Y_MAX = 30;        // ADDER (Preview)
-        const NONADDER_Y_MAX = null;   // NON-ADDER (chart) 先自動縮放，待確認
+        // 趨勢圖 Y 軸範圍
+        const ADDER_Y_MAX = 30;          // ADDER (Trend_Chart)：0 ~ 30
+        const NONADDER_XBAR_PCT = 0.10;  // NON-ADDER (Trend_Chart)：卡 XBAR ±10%
 
-        // Chart.js 趨勢圖（沿用 Tool-ABC 樣式：MEAN_VALUE/UCL/XBAR(CL)/+1σ/+2σ + 圖例 + 軸）
-        // yMax: 數字=固定上限(ADDER 用 50)；null=自動縮放(NON-ADDER)
-        function drawSpark(canvas,pts,days,cid,yMax){
+        // 代表 XBAR（取最後一個有效的 CL 值）
+        function reprXbar(pts){for(let i=pts.length-1;i>=0;i--){const v=pts[i]&&pts[i].xbar;if(v!=null&&isFinite(Number(v)))return Number(v);}return null;}
+
+        // Chart.js 趨勢圖（Tool-ABC 樣式：MEAN_VALUE/UCL/XBAR(CL)/+1σ/+2σ + 圖例 + 軸）
+        // opts: {yMin,yMax} 固定範圍；或 {xbarPct} 以 XBAR±百分比 卡上下界。
+        function drawSpark(canvas,pts,days,cid,opts){
             if(!canvas||!window.Chart||!pts||!pts.length)return;
+            opts=opts||{};
+            let yMin=(opts.yMin!=null)?opts.yMin:null, yMax=(opts.yMax!=null)?opts.yMax:null;
+            if(opts.xbarPct!=null){const xb=reprXbar(pts);if(xb!=null){yMin=xb*(1-opts.xbarPct);yMax=xb*(1+opts.xbarPct);}}
+            const hasMin=(yMin!=null),hasMax=(yMax!=null);
             const labels=pts.map(p=>String(p.d||'').replace('T',' '));
             const meanRaw=pts.map(p=>p.mean==null?null:Number(p.mean));
             const ucl=pts.map(p=>p.ucl==null?null:Number(p.ucl));
@@ -692,12 +699,16 @@
             const p2=pts.map(p=>(p.xbar==null||p.sigma==null)?null:Number(p.xbar)+2*Number(p.sigma));
             const set=new Set(days);
             const alarmPt=pts.map(p=>Number(p.alarm)>=1 && set.has(String(p.d||'').substring(0,10)));
-            const capped=(yMax!=null);
-            // 超過上限的點裁到頂端並標紅（tooltip 仍顯示真值），確保管制線看得見
-            const overTop=meanRaw.map(v=>capped&&Number.isFinite(v)&&v>yMax);
-            const mean=meanRaw.map((v,i)=>overTop[i]?yMax:v);
-            const ptColor=alarmPt.map((a,i)=>(a||overTop[i])?'red':'#000');
-            const ptRadius=alarmPt.map((a,i)=>(a||overTop[i])?5:3);
+            // 超出上下界的點裁到邊界並標紅（tooltip 仍顯示真值）
+            const overTop=meanRaw.map(v=>hasMax&&Number.isFinite(v)&&v>yMax);
+            const underBot=meanRaw.map(v=>hasMin&&Number.isFinite(v)&&v<yMin);
+            const mean=meanRaw.map((v,i)=>v==null?null:(overTop[i]?yMax:(underBot[i]?yMin:v)));
+            const ptColor=alarmPt.map((a,i)=>(a||overTop[i]||underBot[i])?'red':'#000');
+            const ptRadius=alarmPt.map((a,i)=>(a||overTop[i]||underBot[i])?5:3);
+            const yScale={ticks:{font:{size:9}}};
+            if(hasMin)yScale.min=yMin;
+            if(hasMax)yScale.max=yMax;
+            if(!hasMin&&!hasMax)yScale.beginAtZero=true;
             const inst=new Chart(canvas.getContext('2d'),{
                 type:'line',
                 data:{labels,datasets:[
@@ -712,13 +723,13 @@
                     plugins:{
                         legend:{display:true,position:'top',align:'end',labels:{usePointStyle:true,pointStyle:'line',boxWidth:26,boxHeight:8,padding:8,font:{size:9,weight:'700'}}},
                         tooltip:{callbacks:{label:c=>{
-                            if(c.dataset.label==='MEAN_VALUE'){const rv=meanRaw[c.dataIndex];return 'MEAN_VALUE: '+(rv==null?'-':rv)+(overTop[c.dataIndex]?' (>上限)':'');}
+                            if(c.dataset.label==='MEAN_VALUE'){const rv=meanRaw[c.dataIndex];return 'MEAN_VALUE: '+(rv==null?'-':rv)+(overTop[c.dataIndex]?' (>上限)':(underBot[c.dataIndex]?' (<下限)':''));}
                             return c.dataset.label+': '+c.formattedValue;
                         }}}
                     },
                     scales:{
                         x:{ticks:{font:{size:8},maxRotation:90,minRotation:90,autoSkip:true,maxTicksLimit:14}},
-                        y:capped?{min:0,max:yMax,ticks:{font:{size:9}}}:{beginAtZero:true,ticks:{font:{size:9}}}
+                        y:yScale
                     }
                 }
             });
@@ -743,8 +754,8 @@
             }catch(e){console.error(e);}
             sparks.forEach(el=>{
                 const cid=el.getAttribute('data-cid');
-                const yMax=el.getAttribute('data-block')==='A'?ADDER_Y_MAX:NONADDER_Y_MAX; // ADDER 50 / NON-ADDER 30
-                drawSpark(el.querySelector('canvas'),series[cid]||[],days,cid,yMax);
+                const opts=el.getAttribute('data-block')==='A'?{yMin:0,yMax:ADDER_Y_MAX}:{xbarPct:NONADDER_XBAR_PCT};
+                drawSpark(el.querySelector('canvas'),series[cid]||[],days,cid,opts);
             });
         }
 
