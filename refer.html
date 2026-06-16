@@ -1,0 +1,2048 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>TF2_NPW</title>
+  <style>
+    html, body { height: 100%; margin: 0; }
+    body{
+      background: linear-gradient(to bottom,#e7eef5 0%,#f3f6fa 35%,#f7f8fa 55%,#ffffff 100%);
+      font-family: Arial,"Microsoft JhengHei","PingFang TC",sans-serif;
+      color:#111;
+    }
+    .wrap{ max-width:1100px; margin:24px auto 48px; padding:0 12px; }
+
+    /* 日期選擇器 */
+    .toolbar{
+      display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+      margin: 0 0 12px 0;
+    }
+    .toolbar label{ font-weight:700; }
+    .toolbar input[type="date"]{
+      padding:6px 8px;
+      border:1px solid #999;
+      border-radius:4px;
+      background:#fff;
+      font-size:14px;
+    }
+        .toolbar input[type="file"]{
+      font-size:12px;
+    }
+    .hint{ color:#444; font-size:12px; }
+
+    /* 下方 Chart Detail 欄位勾選 */
+    .col-toggle{
+      width:100%;
+      max-width:1100px;
+      margin:0 auto 10px;
+      padding:8px 10px;
+      background:#fff;
+      border:1px solid #bbb;
+      border-radius:6px;
+      box-shadow:0 1px 0 rgba(0,0,0,.05);
+      font-size:12px;
+    }
+    .col-toggle .title{ font-weight:700; margin-right:10px; }
+    .col-toggle label{ margin-right:12px; white-space:nowrap; }
+
+
+    .report{
+      width:100%;
+      border-collapse:collapse;
+      table-layout:fixed;
+      background:#fff;
+      border:2px solid #222;
+      margin:0 0 18px 0;
+      box-shadow:0 1px 0 rgba(0,0,0,.05);
+    }
+        .report th,.report td{
+          border:1px solid #222;
+          font-size:12px;
+          padding:4px 6px;
+          line-height:1.2;
+          text-align:center;
+          vertical-align:middle;
+        }
+
+
+
+
+        
+
+
+    .section-title{
+      background:#b7d2ea;
+      font-weight:700;
+      text-align:left;
+      letter-spacing:.5px;
+      padding:6px 10px !important;
+      border-bottom:2px solid #222 !important;
+    }
+    .h-green{ background:#d9f2c2; font-weight:700; }
+    .h-amber{ background:#ffe19a; font-weight:700; }
+    .h-white{ background:#fff; font-weight:700; }
+    .left{ text-align:left; }
+
+    .barcell{ position:relative; overflow:hidden; }
+    .barcell .bar{
+      position:absolute; left:0; top:3px; bottom:3px;
+      width:var(--w,0%);
+      background:linear-gradient(to right,#ff6b6b,#ffd1d1);
+    }
+    .barcell .txt{ position:relative; z-index:1; font-weight:700; }
+
+    tfoot td{ font-weight:700; }
+    .total-label{ text-align:right; background:#f4f4f4; }
+    .total-good{ background:#cfe8b6; }
+    .total-warn{ background:#fff0b3; }
+
+    col.entity{ width:92px; }
+        col.date{ width:74px; }
+        col.statS{ width:72px; }
+        col.statM{ width:92px; }
+
+        .alarm-today{
+          background:#ffe19a !important;
+          font-weight:700;
+        }
+
+        
+
+
+        /* Inline chart detail table 欄寬 */
+        col.chart-prev{ width:360px; }
+
+                .adder-map-thumb{
+          width:180px;
+
+          height:auto;
+          border:1px solid #bbb;
+          background:#fafafa;
+          object-fit:contain;
+          display:block;
+        }
+
+
+    
+
+    .loading{ font-size:12px; color:#555; margin-bottom:8px; }
+    .error{ font-size:12px; color:#c00; margin-bottom:8px; white-space:pre-line; }
+
+    /* Alarm Counts > Weekly Target Count 時粉紅底色 */
+    .alarm-over-target {
+      background-color: #ffd1e6 !important;
+    }
+
+    /* 右邊第3格(綠色) > 右邊第5格(黃色) 時，綠色那格粉紅色 */
+    .total-green-over-yellow {
+      background-color: #ffd1e6 !important;
+    }
+
+    /* ========== 簡單彈出視窗樣式 ========== */
+    .modal-backdrop{
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,.35);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      z-index:999;
+    }
+    .modal{
+      background:#fff;
+      border-radius:6px;
+      box-shadow:0 4px 14px rgba(0,0,0,.3);
+      max-width:640px;
+      width:90%;
+      max-height:80%;
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+    }
+    .modal-header{
+      padding:8px 12px;
+      background:#2c5fa8;
+      color:#fff;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+    }
+    .modal-title{
+      font-size:14px;
+      font-weight:700;
+    }
+    .modal-close{
+      cursor:pointer;
+      font-weight:bold;
+      padding:0 6px;
+    }
+    .modal-body{
+      padding:10px 12px;
+      overflow:auto;
+      font-size:12px;
+    }
+    .modal-body table{
+      width:100%;
+      border-collapse:collapse;
+      table-layout:fixed;
+      font-size:12px;
+    }
+    /* Chart detail table column width */
+    .modal-body table col.col-id   { width:80px; }   /* CHART_ID 欄 */
+    .modal-body table col.col-name { width:auto; }   /* CHART_NAME 自動撐開 */
+    .modal-body table col.col-cnt  { width:90px; }   /* Alarm 次數欄 */
+    .modal-body th,.modal-body td{
+      border:1px solid #ccc;
+      padding:4px 6px;
+      text-align:left;
+      word-break:break-all;
+    }
+    .modal-body th{
+      background:#f5f5f5;
+    }
+    .modal-empty{
+      padding:8px 4px;
+      color:#666;
+    }
+
+        /* 讓 Entity 看起來可點擊 */
+    td.entity-cell{
+      cursor:pointer;
+      text-decoration:underline;
+      text-decoration-style:dotted;
+    }
+
+    /* ========== Inline Chart Detail (顯示於表格下方) ========== */
+        .chart-detail{
+      width:100%;
+      border-collapse:collapse;
+      table-layout:fixed;
+      background:#fff;
+      border:2px solid #222;
+      margin: -6px 0 18px 0;
+      box-shadow:0 1px 0 rgba(0,0,0,.05);
+    }
+
+    /* 讓下方 Chart Detail 表格跟上方報表同樣「置中」(不會靠左貼齊) */
+    .chart-detail-wrap{
+      width:100%;
+      display:flex;
+      justify-content:center;
+    }
+    .chart-detail-wrap .chart-detail{
+      width:100%;
+      max-width:1100px; /* 與 .wrap max-width 對齊 */
+    }
+
+        .chart-detail th,.chart-detail td{
+          border:1px solid #222;
+          font-size:12px;
+          padding:4px 6px;
+          line-height:1.2;
+          vertical-align:middle;
+          overflow:hidden;
+        }
+
+
+
+    .chart-detail th{
+      background:#f5f5f5;
+      text-align:left;
+      font-weight:700;
+    }
+        .chart-detail td{
+      text-align:left;
+      word-break:break-word;
+      overflow-wrap:anywhere;
+    }
+
+
+        .chart-thumb{
+          width:320px;
+          height:auto;
+
+          border:1px solid #bbb;
+          background:#fafafa;
+          object-fit:contain;
+          display:block;
+        }
+
+
+        .dup-chart{
+      background:#ffe19a !important;
+    }
+        .dim-row{
+          background:#d9d9d9 !important;
+        }
+
+
+
+    .inline-empty{
+      padding:8px 10px;
+      color:#666;
+      font-size:12px;
+      background:#fff;
+      border:1px dashed #999;
+    }
+
+  </style>
+  <!-- 引入 SheetJS (xlsx) CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="toolbar">
+    <label for="pickDate">選擇日期</label>
+    <input id="pickDate" type="date" />
+    <div class="hint" id="weekHint"></div>
+
+    <span style="flex-basis:8px;"></span>
+
+    <label for="excelFile">備份 Excel 位置 F:\FAB12A_CRD\TF2_EQ1\TF2_NPW.xlsx</label>
+    <input id="excelFile" type="file" accept=".xlsx" />
+    
+  </div>
+
+    <div id="status" class="loading">資料載入中...</div>
+  <div id="error" class="error" style="display:none;"></div>
+
+  <!-- 下方 Chart Detail 欄位顯示勾選 -->
+  <div class="col-toggle" id="chartColToggle">
+    <span class="title">Chart Detail 欄位</span>
+    <label><input type="checkbox" data-col="entity" checked>Entity</label>
+    <label><input type="checkbox" data-col="chart_id" checked>CHART_ID</label>
+    <label><input type="checkbox" data-col="chart_name" checked>CHART_NAME</label>
+    <label><input type="checkbox" data-col="alarm_cnt" checked>Alarm 次數</label>
+    <label><input type="checkbox" data-col="alarm_dates" checked>ALARM 日期</label>
+    <label><input type="checkbox" data-col="preview" checked>Preview</label>
+    <label><input type="checkbox" data-col="pre" checked>PRE</label>
+    <label><input type="checkbox" data-col="adder_map" checked>ADDER MAP</label>
+    <label><input type="checkbox" data-col="measure_pu" checked>MeasurePU</label>
+    <label style="margin-left:8px;"><input type="checkbox" data-col="auto_reload" checked>變更即刷新</label>
+  </div>
+
+
+  <!-- ========== ADDER ========== -->
+  <table class="report" id="tblAdder">
+    <colgroup>
+      <col class="entity">
+      <col class="date"><col class="date"><col class="date"><col class="date"><col class="date"><col class="date"><col class="date">
+      <col class="statS"><col class="statM"><col class="statS"><col class="statS">
+      <col class="statS"><col class="statS"><col class="statM">
+    </colgroup>
+    <thead>
+      <tr><th class="section-title" colspan="15">ADDER</th></tr>
+      <tr>
+        <th class="h-green">Entity</th>
+        <th class="h-green date-head"></th>
+        <th class="h-green date-head"></th>
+        <th class="h-green date-head"></th>
+        <th class="h-green date-head"></th>
+        <th class="h-green date-head"></th>
+        <th class="h-green date-head"></th>
+        <th class="h-green date-head"></th>
+
+        <th class="h-amber">Alarm<br/>Counts</th>
+        <th class="h-amber">Over Weekly to<br/>Day Count</th>
+        <th class="h-amber">Weekly to<br/>Day Target</th>
+        <th class="h-amber">Weekly<br/>Target Count</th>
+        <th class="h-amber">Alarm<br/>rate</th>
+        <th class="h-amber">Weekly<br/>Target Rate</th>
+                <th class="h-amber">Total Monitor<br/>Count</th>
+      </tr>
+    </thead>
+        <tbody>
+      <tr data-entity="APF">
+        <td class="left entity-cell">APF</td>
+        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+        <td>0</td>
+        <td class="barcell"><span class="bar"></span><span class="txt">0</span></td>
+        <td>0</td><td>0</td>
+        <td>0%</td><td>0%</td><td>0</td>
+      </tr>
+      <tr data-entity="BLOKCVD">
+        <td class="left entity-cell">BLOKCVD</td>
+        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+        <td>0</td>
+        <td class="barcell"><span class="bar"></span><span class="txt">0</span></td>
+        <td>0</td><td>0</td>
+        <td>0%</td><td>0%</td><td>0</td>
+      </tr>
+      <tr data-entity="TEOSPE">
+        <td class="left entity-cell">TEOSPE</td>
+        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+        <td>0</td>
+        <td class="barcell"><span class="bar"></span><span class="txt">0</span></td>
+        <td>0</td><td>0</td>
+        <td>0%</td><td>0%</td><td>0</td>
+      </tr>
+      <tr data-entity="ULKCVD">
+        <td class="left entity-cell">ULKCVD</td>
+        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+        <td>0</td>
+        <td class="barcell"><span class="bar"></span><span class="txt">0</span></td>
+        <td>0</td><td>0</td>
+        <td>0%</td><td>0%</td><td>0</td>
+      </tr>
+      <tr data-entity="OXSE">
+        <td class="left entity-cell">OXSE</td>
+        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+        <td>0</td>
+        <td class="barcell"><span class="bar"></span><span class="txt">0</span></td>
+        <td>0</td><td>0</td>
+        <td>0%</td><td>0%</td><td>0</td>
+      </tr>
+
+    </tbody>
+
+        <tfoot>
+      <tr>
+        <td class="total-label" colspan="8">TF2_EQ2 Alarm</td>
+        <td id="adderEq2Alarm">0</td>
+        <td class="total-good" colspan="2" id="adderEq2AlarmRate">0%</td>
+        <td></td><td></td>
+        <td class="total-warn" colspan="2" id="adderEq2WeeklyTargetRate">0%</td>
+      </tr>
+      <tr>
+        <td class="total-label" colspan="8">Total Alarm</td>
+        <td id="adderTotalAlarm">0</td>
+        <td class="total-good" colspan="2" id="adderTotalAlarmRate">0%</td>
+        <td></td><td></td>
+        <td class="total-warn" colspan="2" id="adderTotalWeeklyTargetRate">0%</td>
+      </tr>
+    </tfoot>
+
+    </table>
+
+    <div id="adderChartDetail" class="chart-detail-wrap"></div>
+
+
+  <!-- ========== NON-ADDER ========== -->
+  <table class="report" id="tblNonAdder">
+    <colgroup>
+      <col class="entity">
+      <col class="date"><col class="date"><col class="date"><col class="date"><col class="date"><col class="date"><col class="date">
+      <col class="statS"><col class="statM"><col class="statS"><col class="statS">
+      <col class="statS"><col class="statS"><col class="statM">
+    </colgroup>
+    <thead>
+      <tr><th class="section-title" colspan="15">NON-ADDER</th></tr>
+      <tr>
+        <th class="h-green">Entity</th>
+        <th class="h-green date-head"></th>
+        <th class="h-green date-head"></th>
+        <th class="h-green date-head"></th>
+        <th class="h-green date-head"></th>
+        <th class="h-green date-head"></th>
+        <th class="h-green date-head"></th>
+        <th class="h-green date-head"></th>
+
+        <th class="h-amber">Alarm<br/>Counts</th>
+        <th class="h-amber">Over Weekly to<br/>Day Count</th>
+        <th class="h-amber">Weekly to<br/>Day Target</th>
+        <th class="h-amber">Weekly<br/>Target Count</th>
+        <th class="h-amber">Alarm<br/>rate</th>
+        <th class="h-amber">Weekly<br/>Target Rate</th>
+                <th class="h-amber">Total Monitor<br/>Count</th>
+      </tr>
+    </thead>
+        <tbody>
+      <tr data-entity="APF">
+        <td class="left entity-cell">APF</td>
+        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+        <td>0</td>
+        <td class="barcell"><span class="bar"></span><span class="txt">0</span></td>
+        <td>0</td><td>0</td>
+        <td>0%</td><td>0%</td><td>0</td>
+      </tr>
+      <tr data-entity="BLOKCVD">
+        <td class="left entity-cell">BLOKCVD</td>
+        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+        <td>0</td>
+        <td class="barcell"><span class="bar"></span><span class="txt">0</span></td>
+        <td>0</td><td>0</td>
+        <td>0%</td><td>0%</td><td>0</td>
+      </tr>
+      <tr data-entity="TEOSPE">
+        <td class="left entity-cell">TEOSPE</td>
+        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+        <td>0</td>
+        <td class="barcell"><span class="bar"></span><span class="txt">0</span></td>
+        <td>0</td><td>0</td>
+        <td>0%</td><td>0%</td><td>0</td>
+      </tr>
+      <tr data-entity="ULKCVD">
+        <td class="left entity-cell">ULKCVD</td>
+        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+        <td>0</td>
+        <td class="barcell"><span class="bar"></span><span class="txt">0</span></td>
+        <td>0</td><td>0</td>
+        <td>0%</td><td>0%</td><td>0</td>
+      </tr>
+      <tr data-entity="OXSE">
+        <td class="left entity-cell">OXSE</td>
+        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+        <td>0</td>
+        <td class="barcell"><span class="bar"></span><span class="txt">0</span></td>
+        <td>0</td><td>0</td>
+        <td>0%</td><td>0%</td><td>0</td>
+      </tr>
+
+    </tbody>
+
+        <tfoot>
+      <tr>
+        <td class="total-label" colspan="8">TF2_EQ2 Alarm</td>
+        <td id="nonAdderEq2Alarm">0</td>
+        <td class="total-good" colspan="2" id="nonAdderEq2AlarmRate">0%</td>
+        <td></td><td></td>
+        <td class="total-warn" colspan="2" id="nonAdderEq2WeeklyTargetRate">0%</td>
+      </tr>
+      <tr>
+        <td class="total-label" colspan="8">Total Alarm</td>
+        <td id="nonAdderTotalAlarm">0</td>
+        <td class="total-good" colspan="2" id="nonAdderTotalAlarmRate">0%</td>
+        <td></td><td></td>
+        <td class="total-warn" colspan="2" id="nonAdderTotalWeeklyTargetRate">0%</td>
+      </tr>
+    </tfoot>
+
+    </table>
+
+    <div id="nonAdderChartDetail" class="chart-detail-wrap"></div>
+
+
+</div>
+
+<!-- ========= Modal for Chart Detail ========= -->
+<div id="chartModalBackdrop" class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="chartModalTitle">Detail</div>
+      <div class="modal-close" id="chartModalClose">✕</div>
+    </div>
+    <div class="modal-body">
+      <div id="chartModalContent"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ============ 共用日期處理函式 ============
+
+  function toISODateLocal(d){
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth()+1).padStart(2,'0');
+    const dd = String(d.getDate()).padStart(2,'0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
+  function fmtYMD(d){
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth()+1).padStart(2,'0');
+    const dd = String(d.getDate()).padStart(2,'0');
+    return `${yyyy}/${mm}/${dd}`;
+  }
+
+  function fmtYMDDash(d){
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth()+1).padStart(2,'0');
+    const dd = String(d.getDate()).padStart(2,'0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
+  // 顯示用：YYYY/MM/DD HH:MM:SS
+  function fmtDateTime(d){
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth()+1).padStart(2,'0');
+    const dd = String(d.getDate()).padStart(2,'0');
+    const hh = String(d.getHours()).padStart(2,'0');
+    const mi = String(d.getMinutes()).padStart(2,'0');
+    const ss = String(d.getSeconds()).padStart(2,'0');
+    return `${yyyy}/${mm}/${dd} ${hh}:${mi}:${ss}`;
+  }
+
+  // 以「選擇日往前的禮拜二」為第一天，連續 7 天
+  function startTuesdayFor(selectedDate){
+    const d = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+    const dow = d.getDay(); // 0(日)1(一)2(二)...
+    const diff = (dow - 2 + 7) % 7;
+    d.setDate(d.getDate() - diff);
+    return d;
+  }
+
+  function getWeekNumber(d){
+    const date = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const dayNr = (date.getDay() + 6) % 7; // 週一為0
+    date.setDate(date.getDate() - dayNr + 3);
+    const firstThursday = new Date(date.getFullYear(), 0, 4);
+    const firstDayNr = (firstThursday.getDay() + 6) % 7;
+    firstThursday.setDate(firstThursday.getDate() - firstDayNr + 3);
+    const weekNumber = 1 + Math.round((date - firstThursday) / (7 * 24 * 3600 * 1000));
+    return weekNumber;
+  }
+
+  // 修正版：針對兩張表的 date-head 分別設定 (避免 heads[i+7])
+  function setHeadersByPickedDate(picked){
+    const start = startTuesdayFor(picked);
+
+    const adderHeads = document.querySelectorAll('#tblAdder .date-head');
+    const nonAdderHeads = document.querySelectorAll('#tblNonAdder .date-head');
+
+    for(let i=0;i<7;i++){
+      const d = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+      d.setDate(start.getDate() + i);
+      const text = fmtYMD(d);
+
+      if(adderHeads[i]) adderHeads[i].textContent = text;
+      if(nonAdderHeads[i]) nonAdderHeads[i].textContent = text;
+    }
+  }
+
+  // ============ Weekly Target Count 設定 ============
+
+  const WEEKLY_TARGET_ADDER = {
+    NISACVD: 6,
+    ULKCVD: 6,
+    SACVD: 7,
+    TEOSPE: 10,
+    CUSILPE: 5,
+    BLOKCVD: 5,
+    DARC: 1,
+    OXSE: 1,
+    APF: 1,
+    TTOX: 0,
+    ALDOX: 0,
+    HKG: 2,
+    CUTTOX: 1,
+    SILPE: 0,
+    CULKCVD: 0
+  };
+
+  const WEEKLY_TARGET_NON_ADDER = {
+    CUSILPE: 19,
+    ULKCVD: 20,
+    TEOSPE: 17,
+    SACVD: 14,
+    NISACVD: 17,
+    OXSE: 2,
+    HKG: 3,
+    TTOX: 2,
+    DARC: 5,
+    SILPE: 1,
+    BLOKCVD: 2,
+    APF: 5,
+    CUTTOX: 3,
+    CUKVALUE: 0,
+    CULKCVD: 1,
+    ALDOX: 1
+  };
+
+  function getWeeklyTargetCount(entity, isAdder){
+    if(isAdder){
+      return WEEKLY_TARGET_ADDER[entity] != null ? WEEKLY_TARGET_ADDER[entity] : 0;
+    }else{
+      return WEEKLY_TARGET_NON_ADDER[entity] != null ? WEEKLY_TARGET_NON_ADDER[entity] : 0;
+    }
+  }
+
+  // ============ Weekly Target Rate 設定 (依照題目給定) ============
+
+  const WEEKLY_TARGET_RATE_ADDER = {
+    ULKCVD: 1.49,
+    TEOSPE: 1.26,
+    SACVD: 1.35,
+    BLOKCVD: 1.95,
+    CUSILPE: 1.09,
+    CUTTOX: 0.52,
+    NISACVD: 1.17,
+    HKG: 1.46,
+    DARC: 1.84,
+    SILPE: 2.10,
+    APF: 0.62,
+    OXSE: 2.22,
+    TTOX: 0.68,
+    CULKCVD: 0.00
+  };
+
+  const WEEKLY_TARGET_RATE_NON_ADDER = {
+    TEOSPE: 0.90,
+    SACVD: 0.60,
+    ULKCVD: 0.90,
+    CUSILPE: 0.60,
+    HKG: 0.60,
+    NISACVD: 0.60,
+    TTOX: 0.60,
+    SILPE: 0.60,
+    DARC: 0.60,
+    BLOKCVD: 0.60,
+    CUTTOX: 0.60,
+    APF: 0.60,
+    OXSE: 0.60,
+    CULKCVD: 0.60,
+    CUKVALUE: 0.60,
+    ALDOX: 0.60
+  };
+
+  function getWeeklyTargetRate(entity, isAdder){
+    if(isAdder){
+      return WEEKLY_TARGET_RATE_ADDER[entity] != null ? WEEKLY_TARGET_RATE_ADDER[entity] : 0;
+    }else{
+      return WEEKLY_TARGET_RATE_NON_ADDER[entity] != null ? WEEKLY_TARGET_RATE_NON_ADDER[entity] : 0;
+    }
+  }
+
+    // ============ Owner 對照表 (已移除 Owner 欄位) ============
+
+
+  // ============ Excel 資料載入與處理 ============
+
+        let rawData = [];
+    let chartAlarmStats = {};
+    let chartAlarmProcessUnitStats = {}; // {weekStart|entity|ADDER/NON_ADDER: {chartId||chartName: Set(PROCESSUNIT)}}
+  let chartAlarmDateStats = {}; // {weekStart|entity|ADDER/NON_ADDER: {chartId||chartName: Set(YYYY-MM-DD)}}
+        let chartAlarmSeqStats = {};
+    
+  // {weekStart|entity|ADDER/NON_ADDER: {chartId||chartName: Set(CHART_SEQ)}}
+  
+
+  let currentDataSourceText = ''; // 顯示用：目前使用的資料來源
+
+
+
+
+  function setStatus(text, color){
+    const status = document.getElementById('status');
+    status.textContent = text || '';
+    if(color) status.style.color = color;
+  }
+
+  function showError(errText){
+    const errorBox = document.getElementById('error');
+    errorBox.textContent = errText || '';
+    errorBox.style.display = errText ? 'block' : 'none';
+  }
+
+    function parseWorkbookToRawData(workbook){
+    // 支援不同版本 Excel：優先 TF2_NPW，其次 TF2_RAW，最後用第一張 sheet
+    const preferred = ['TF2_NPW', 'TF2_RAW'];
+    let sheetName = preferred.find(n => workbook.Sheets && workbook.Sheets[n]);
+
+    if(!sheetName){
+      const names = workbook.SheetNames || [];
+      sheetName = names.length ? names[0] : null;
+    }
+
+    if(!sheetName || !workbook.Sheets[sheetName]){
+      throw new Error('找不到工作表：TF2_NPW / TF2_RAW');
+    }
+
+    const ws = workbook.Sheets[sheetName];
+    return XLSX.utils.sheet_to_json(ws, {defval:null});
+  }
+
+
+  // 新增：使用者上傳 Excel 讀取
+  async function loadExcelFromFile(file){
+    showError('');
+    setStatus('資料載入中 (使用者上傳：' + file.name + ')...', '#555');
+
+    try{
+      const arrayBuffer = await file.arrayBuffer();
+      const data = new Uint8Array(arrayBuffer);
+      const workbook = XLSX.read(data, {type:'array'});
+      rawData = parseWorkbookToRawData(workbook);
+
+      currentDataSourceText = '來源：上傳檔 ' + file.name;
+      setStatus(`資料載入完成。${currentDataSourceText}（rows=${rawData.length}）`, '#006400');
+
+    }catch(err){
+      console.error(err);
+      setStatus('', '');
+      showError(
+        '讀取上傳 Excel 發生錯誤：\n' + err.message +
+        '\n\n請確認：\n1. 檔案可正常開啟\n2. 工作表名稱是否為 TF2_RAW'
+      );
+      throw err;
+    }
+  }
+
+  // 原本：從同資料夾抓 TF2_NPW.xlsx
+  async function loadExcelFromUrl(){
+    const status = document.getElementById('status');
+    showError('');
+
+    try{
+      setStatus('資料載入中 (TF2_NPW.xlsx)...', '#555');
+
+      // 先發送 HEAD 取得檔案更新時間
+      let lastModText = '';
+      try{
+        const headResp = await fetch('TF2_NPW.xlsx', { method: 'HEAD' });
+        if(headResp.ok){
+          const lm = headResp.headers.get('Last-Modified');
+          if(lm){
+            const lmDate = new Date(lm);
+            if(!isNaN(lmDate.getTime())){
+              lastModText = '，Excel 檔案更新時間：' + fmtDateTime(lmDate);
+            }
+          }
+        }
+      }catch(e){
+        // HEAD 失敗略過
+      }
+
+            const response = await withTimeout(fetch('TF2_NPW.xlsx'), 20000, 'fetch TF2_NPW.xlsx');
+
+      if(!response.ok){
+        throw new Error('無法讀取 TF2_NPW.xlsx (HTTP ' + response.status + ')');
+      }
+      const arrayBuffer = await response.arrayBuffer();
+      const data = new Uint8Array(arrayBuffer);
+
+      const workbook = XLSX.read(data, {type:'array'});
+      rawData = parseWorkbookToRawData(workbook);
+
+      currentDataSourceText = '來源：TF2_NPW.xlsx' + lastModText;
+      setStatus(`資料載入完成。${currentDataSourceText}（rows=${rawData.length}）`, '#006400');
+
+    }catch(err){
+      console.error(err);
+      setStatus('', '');
+      showError(
+        '讀取 Excel 發生錯誤：\n' );
+      throw err;
+    }
+  }
+
+    async function loadExcel(){
+    const fileInput = document.getElementById('excelFile');
+    if(fileInput && fileInput.files && fileInput.files[0]){
+      return loadExcelFromFile(fileInput.files[0]);
+    }
+    return loadExcelFromUrl();
+  }
+
+  // 避免卡在「資料載入中...」：加上超時保護
+  function withTimeout(promise, ms, label){
+    let timer;
+    const timeout = new Promise((_, reject)=>{
+      timer = setTimeout(()=>reject(new Error((label||'operation') + ' timeout (' + ms + 'ms)')), ms);
+    });
+    return Promise.race([promise.finally(()=>clearTimeout(timer)), timeout]);
+  }
+
+
+  function buildStats(picked){
+    const dbg = { totalRows: rawData ? rawData.length : 0, usedRows: 0, inWeekRows: 0, alarmRows: 0, sampleKeys: [] };
+
+    const start = startTuesdayFor(picked);
+
+    const days = [];
+    for(let i=0;i<7;i++){
+      const d = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+      d.setDate(start.getDate() + i);
+      days.push(fmtYMDDash(d));
+    }
+    const stats = {};
+
+                                chartAlarmStats = {};
+    chartAlarmProcessUnitStats = {};
+    chartAlarmDateStats = {};
+    chartAlarmSeqStats = {};
+
+    
+
+
+
+    function getEntityFromProcessUnit(pu){
+      if(!pu) return null;
+      const s = String(pu).toUpperCase();
+      const idx = s.indexOf('-');
+      if(idx === -1) return s;
+      return s.substring(0, idx);
+    }
+
+    for(const row of rawData){
+      dbg.usedRows++;
+
+      const processUnit = row.PROCESSUNIT;
+      const entity = getEntityFromProcessUnit(processUnit);
+      if(!entity) continue;
+
+      let updateTime = row.UPDATE_TIME;
+      if(!updateTime) continue;
+
+      let dObj;
+      if(typeof updateTime === 'number'){
+        if (XLSX.SSF && XLSX.SSF.parse_date_code) {
+          dObj = XLSX.SSF.parse_date_code(updateTime);
+        } else {
+          dObj = null;
+        }
+        if(dObj){
+          const jsDate = new Date(dObj.y, dObj.m-1, dObj.d);
+          updateTime = fmtYMDDash(jsDate);
+        }else{
+          const jsDate = new Date((updateTime - 25569)*86400*1000);
+          updateTime = fmtYMDDash(jsDate);
+        }
+      }else{
+        const jsDate = new Date(updateTime);
+        if(!isNaN(jsDate.getTime())){
+          updateTime = fmtYMDDash(jsDate);
+        }else{
+          if(typeof updateTime === 'string' && updateTime.length >= 10){
+            updateTime = updateTime.substring(0,10);
+          }else{
+            continue;
+          }
+        }
+      }
+
+      if(!days.includes(updateTime)) continue;
+      dbg.inWeekRows++;
+
+
+      const MONITOR_TYPE = row.MONITOR_TYPE;
+      const SPC_ALARM_STATUS = row.SPC_ALARM_STATUS;
+      const CHART_TYPE = (row.CHART_TYPE || '').toString().trim().toUpperCase();
+      const CHART_NAME = row.CHART_NAME || '';
+      const CHART_NAME_UP = String(CHART_NAME).toUpperCase();
+      const CHART_ID = row.CHART_ID || '';
+
+      const containsEng = CHART_NAME_UP.includes('ENG');
+
+      if(!stats[entity]){
+        stats[entity] = {
+          daily: {},
+          sum: {
+            alarmAdder:0, alarmNonAdder:0,
+            totalMonAdder:0, totalMonNonAdder:0
+          }
+        };
+      }
+      const es = stats[entity];
+      if(!es.daily[updateTime]){
+        es.daily[updateTime] = {
+          alarmAdder:0, alarmNonAdder:0,
+          totalMonAdder:0, totalMonNonAdder:0
+        };
+      }
+      const ds = es.daily[updateTime];
+
+            // Total Monitor Count
+      // 舊版欄位：MON_CNT
+      // 你目前 Excel 欄位：POINT_NUMBER (用來代表監控點數)
+      const MON_CNT = (row.MON_CNT != null ? Number(row.MON_CNT)
+        : (row.POINT_NUMBER != null ? Number(row.POINT_NUMBER) : 1));
+
+
+      if(MONITOR_TYPE !== 'DOWN' && !containsEng){
+        if(CHART_TYPE === 'C-C'){
+          ds.totalMonAdder += MON_CNT;
+          es.sum.totalMonAdder += MON_CNT;
+        }else if(CHART_TYPE === 'XBAR'){
+          ds.totalMonNonAdder += MON_CNT;
+          es.sum.totalMonNonAdder += MON_CNT;
+        }
+      }
+
+      // Alarm 條件
+            if(MONITOR_TYPE === 'DOWN') continue;
+      if(String(SPC_ALARM_STATUS).toUpperCase() !== 'Y') continue;
+
+            if(containsEng) continue;
+      dbg.alarmRows++;
+      if(dbg.sampleKeys.length < 3){
+        dbg.sampleKeys.push({ entity, updateTime, CHART_TYPE, MONITOR_TYPE, SPC_ALARM_STATUS });
+      }
+
+
+      let isAdder = false;
+      if(CHART_TYPE === 'C-C'){
+        isAdder = true;
+        ds.alarmAdder += 1;
+        es.sum.alarmAdder += 1;
+      }else if(CHART_TYPE === 'XBAR'){
+        isAdder = false;
+        ds.alarmNonAdder += 1;
+        es.sum.alarmNonAdder += 1;
+      }else{
+        continue;
+      }
+
+            // Chart 層級 alarm 統計
+            const key = fmtYMDDash(start) + '|' + entity + '|' + (isAdder ? 'ADDER' : 'NON_ADDER');
+      if(!chartAlarmStats[key]) chartAlarmStats[key] = {};
+      const chartKey = CHART_ID + '||' + CHART_NAME;
+      if(!chartAlarmStats[key][chartKey]) chartAlarmStats[key][chartKey] = 0;
+      chartAlarmStats[key][chartKey] += 1;
+
+      // 記錄該 chartKey 在本週出現過的 PROCESSUNIT（用來決定 site=12AP14）
+      if(!chartAlarmProcessUnitStats[key]) chartAlarmProcessUnitStats[key] = {};
+      if(!chartAlarmProcessUnitStats[key][chartKey]) chartAlarmProcessUnitStats[key][chartKey] = new Set();
+      chartAlarmProcessUnitStats[key][chartKey].add(String(processUnit || '').trim());
+
+
+            // Chart 層級 alarm 日期(用來判斷同 chart 同週多天 & 顯示日期)
+      if(!chartAlarmDateStats[key]) chartAlarmDateStats[key] = {};
+      if(!chartAlarmDateStats[key][chartKey]) chartAlarmDateStats[key][chartKey] = new Set();
+      chartAlarmDateStats[key][chartKey].add(updateTime);
+
+            // Chart Seq (用於查 Map)
+      const chartSeq = row.CHART_SEQ;
+      if(chartSeq != null && String(chartSeq).trim() !== ''){
+        if(!chartAlarmSeqStats[key]) chartAlarmSeqStats[key] = {};
+        if(!chartAlarmSeqStats[key][chartKey]) chartAlarmSeqStats[key][chartKey] = new Set();
+        chartAlarmSeqStats[key][chartKey].add(String(chartSeq).trim());
+      }
+
+      
+
+
+
+    }
+
+        // Debug output
+    console.log('[TF2_NPW debug]', dbg);
+    setStatus((document.getElementById('status').textContent || '') + ` | inWeek=${dbg.inWeekRows}, alarm=${dbg.alarmRows}`, '#006400');
+
+    return {stats, days};
+
+  }
+
+    function updateTableByStats(tableId, stats, days, isAdder, picked){
+    const tbl = document.getElementById(tableId);
+    const tbody = tbl.querySelector('tbody');
+    const rows = tbody.querySelectorAll('tr[data-entity]');
+
+    // 只計算表格列出的 Entity (TF2_EQ2)
+    let eq2TotalAlarm = 0;
+    let eq2TotalMonitor = 0;
+
+    // 計算所有 Entity 的總和 (Total Alarm)
+    let grandTotalAlarm = 0;
+    let grandTotalMonitor = 0;
+
+
+    const start = startTuesdayFor(picked);
+    const pickedMidnight = new Date(picked);
+    pickedMidnight.setHours(0,0,0,0);
+    const startMidnight = new Date(start);
+    startMidnight.setHours(0,0,0,0);
+
+    const dayIndex = Math.floor((pickedMidnight - startMidnight) / (24*3600*1000));
+    const dayOfRange = Math.min(Math.max(dayIndex + 1, 1), 7);
+
+        // 先把 stats 內所有 entity 的總和算出來
+    for(const entity in stats){
+      const s = stats[entity];
+      if(!s || !s.sum) continue;
+      if(isAdder){
+        grandTotalAlarm += (s.sum.alarmAdder || 0);
+        grandTotalMonitor += (s.sum.totalMonAdder || 0);
+      }else{
+        grandTotalAlarm += (s.sum.alarmNonAdder || 0);
+        grandTotalMonitor += (s.sum.totalMonNonAdder || 0);
+      }
+    }
+
+    rows.forEach(row=>{
+
+      const entity = row.getAttribute('data-entity');
+      const entityStats = stats[entity] || null;
+
+      const dateTds = Array.from(row.querySelectorAll('td')).slice(1,8);
+      let alarmCount = 0;
+
+      for(let i=0;i<7;i++){
+        const dayStr = days[i];
+        let value = '';
+        if(entityStats && entityStats.daily[dayStr]){
+          const ds = entityStats.daily[dayStr];
+          value = isAdder ? (ds.alarmAdder || '') : (ds.alarmNonAdder || '');
+        }
+        dateTds[i].textContent = value ? String(value) : '';
+      }
+
+      let totalMonitor = 0;
+      if(entityStats){
+        if(isAdder){
+          alarmCount = entityStats.sum.alarmAdder || 0;
+          totalMonitor = entityStats.sum.totalMonAdder || 0;
+        }else{
+          alarmCount = entityStats.sum.alarmNonAdder || 0;
+          totalMonitor = entityStats.sum.totalMonNonAdder || 0;
+        }
+      }
+
+      const tds = row.querySelectorAll('td');
+
+            // Alarm Counts (第 9 欄)
+            const alarmTd = tds[8];
+      alarmTd.textContent = alarmCount ? String(alarmCount) : '0';
+
+
+
+      // Weekly Target Count
+      const weeklyTargetCount = getWeeklyTargetCount(entity, isAdder);
+
+      // Weekly to Day Target = Weekly Target Count * (今天是第幾天 / 7) (四捨五入)
+      let weeklyToDayTarget = 0;
+      if (dayOfRange > 0){
+        weeklyToDayTarget = Math.round(weeklyTargetCount * (dayOfRange / 7));
+      }
+
+      // Over Weekly to Day Count (第 10 欄，barcell)
+      const overTd = tds[9];
+      const bar = overTd.querySelector('.bar');
+      const txt = overTd.querySelector('.txt');
+
+      const overCount = Math.max(0, alarmCount - weeklyToDayTarget);
+      txt.textContent = overCount ? String(overCount) : '0';
+
+      let widthPercent = 0;
+      if (overCount > 0) widthPercent = Math.min(100, overCount * 10);
+      overTd.style.setProperty('--w', widthPercent + '%');
+
+            // Weekly to Day Target (第 11 欄) & Weekly Target Count (第 12 欄)
+            tds[10].textContent = weeklyToDayTarget ? String(weeklyToDayTarget) : '0';
+      tds[11].textContent = weeklyTargetCount ? String(weeklyTargetCount) : '0';
+
+
+
+      // Alarm rate (第 13 欄)
+      let alarmRate = 0;
+      if(totalMonitor > 0) alarmRate = alarmCount / totalMonitor;
+      tds[12].textContent = (alarmRate*100).toFixed(2) + '%';
+
+      // Weekly Target Rate (第 14 欄)
+      const weeklyTargetRateVal = getWeeklyTargetRate(entity, isAdder);
+      tds[13].textContent = weeklyTargetRateVal.toFixed(2) + '%';
+
+      // Total Monitor Count (第 15 欄)
+      tds[14].textContent = totalMonitor ? String(totalMonitor) : '0';
+
+      // Alarm Counts > Weekly Target Count 時粉紅色顯示
+      if(alarmCount > weeklyTargetCount){
+        alarmTd.classList.add('alarm-over-target');
+      }else{
+        alarmTd.classList.remove('alarm-over-target');
+      }
+
+            eq2TotalAlarm += alarmCount;
+      eq2TotalMonitor += totalMonitor;
+
+    });
+
+        // 更新表尾：TF2_EQ2 Alarm (只算表格列出的 entity)
+    if(isAdder){
+      document.getElementById('adderEq2Alarm').textContent = String(eq2TotalAlarm);
+      document.getElementById('adderEq2AlarmRate').textContent =
+        eq2TotalMonitor>0 ? (eq2TotalAlarm/eq2TotalMonitor*100).toFixed(2)+'%' : '0%';
+      document.getElementById('adderEq2WeeklyTargetRate').textContent = '1.48%';
+
+      // Total Alarm (所有 entity)
+      document.getElementById('adderTotalAlarm').textContent = String(grandTotalAlarm);
+      document.getElementById('adderTotalAlarmRate').textContent =
+        grandTotalMonitor>0 ? (grandTotalAlarm/grandTotalMonitor*100).toFixed(2)+'%' : '0%';
+      document.getElementById('adderTotalWeeklyTargetRate').textContent = '1.48%';
+    }else{
+      document.getElementById('nonAdderEq2Alarm').textContent = String(eq2TotalAlarm);
+      document.getElementById('nonAdderEq2AlarmRate').textContent =
+        eq2TotalMonitor>0 ? (eq2TotalAlarm/eq2TotalMonitor*100).toFixed(2)+'%' : '0%';
+      document.getElementById('nonAdderEq2WeeklyTargetRate').textContent = '0.75%';
+
+      // Total Alarm (所有 entity)
+      document.getElementById('nonAdderTotalAlarm').textContent = String(grandTotalAlarm);
+      document.getElementById('nonAdderTotalAlarmRate').textContent =
+        grandTotalMonitor>0 ? (grandTotalAlarm/grandTotalMonitor*100).toFixed(2)+'%' : '0%';
+      document.getElementById('nonAdderTotalWeeklyTargetRate').textContent = '0.75%';
+    }
+
+
+    // 右邊第3格(綠色) > 右邊第5格(黃色) 時，綠色那格變粉紅色
+    const tfoot = tbl.querySelector('tfoot tr');
+    if(tfoot){
+      const cells = tfoot.querySelectorAll('td');
+      const greenCell = cells[2];
+      const yellowCell = cells[5];
+
+      if(greenCell && yellowCell){
+        const greenVal = parseFloat(greenCell.textContent.replace('%','').trim()) || 0;
+        const yellowVal = parseFloat(yellowCell.textContent.replace('%','').trim()) || 0;
+
+        if(greenVal > yellowVal){
+          greenCell.classList.add('total-green-over-yellow');
+        }else{
+          greenCell.classList.remove('total-green-over-yellow');
+        }
+      }
+    }
+  }
+
+    function refreshTables(picked){
+    if(!rawData || rawData.length === 0) return;
+    const {stats, days} = buildStats(picked);
+    updateTableByStats('tblAdder', stats, days, true, picked);
+    updateTableByStats('tblNonAdder', stats, days, false, picked);
+
+    // 直接顯示 chart detail 在圖表下方
+    renderInlineChartDetails(picked);
+  }
+
+
+    // ========== Inline Chart Detail (顯示於表格下方) ==========
+
+  function escapeHtml(s){
+    return String(s ?? '')
+      .replaceAll('&','&amp;')
+      .replaceAll('<','&lt;')
+      .replaceAll('>','&gt;')
+      .replaceAll('"','&quot;')
+      .replaceAll("'",'&#39;');
+  }
+
+    function buildInlineChartDetailHtml(picked, isAdder){
+    const start = startTuesdayFor(picked);
+    const blockLabel = isAdder ? 'ADDER' : 'NON-ADDER';
+
+        const entities = ['APF','BLOKCVD','TEOSPE','ULKCVD','OXSE'];
+
+
+    // 重複標註條件：同一張表內
+    // - 同一個 CHART_NAME 出現在 >=2 筆(可能跨 entity / 不同 chartId)
+    // - 或者同一個 CHART_ID 在同一週有 >=2 個不同 alarm 日期 (例如 SACVD-B07 兩天都有)
+    const chartNameFreq = {};
+    const allRows = [];
+
+    for(const entity of entities){
+            const chartMap = getChartAlarmDetail(start, entity, isAdder) || {};
+      const dateMap = getChartAlarmDateDetail(start, entity, isAdder) || {};
+      const puMap = getChartProcessUnitDetail(start, entity, isAdder) || {};
+
+
+      for(const chartKey in chartMap){
+        const cnt = chartMap[chartKey];
+        const [chartId, chartName] = chartKey.split('||');
+
+        const nameKey = (chartName || '').toString().trim().toUpperCase();
+        if(nameKey){
+          chartNameFreq[nameKey] = (chartNameFreq[nameKey] || 0) + 1;
+        }
+
+        const dateSet = dateMap[chartKey];
+        const dates = dateSet ? Array.from(dateSet).sort() : [];
+
+                // NON-ADDER：只保留 CHART_NAME 含 RANGE 或 U% 的
+        if(!isAdder && !/RANGE|U%/i.test(String(chartName || ''))){
+          continue;
+        }
+
+                const puSet = puMap[chartKey];
+        const processUnit = (puSet && puSet.size) ? Array.from(puSet)[0] : '';
+        allRows.push({ entity, chartId, chartName, cnt, nameKey, dates, processUnit });
+
+
+      }
+    }
+
+    if(allRows.length === 0){
+            return `<div class="inline-empty">${blockLabel}：本週 APF / BLOKCVD / TEOSPE / ULKCVD / OXSE 無 Alarm 記錄。</div>`;
+
+    }
+
+                function entityOrder(entity){
+          const order = {
+            APF: 0,
+            BLOKCVD: 1,
+            TEOSPE: 2,
+            ULKCVD: 3,
+            OXSE: 4
+          };
+          return order[entity] != null ? order[entity] : 99;
+        }
+
+
+        // 排序改回最初：
+        // 1) NON-ADDER：先把不反灰(RANGE/U%)放最上面
+                // 2) Entity (APF -> BLOKCVD -> TEOSPE -> ULKCVD -> OXSE)
+
+        // 3) Alarm 次數(大到小)
+        // 4) CHART_NAME
+        allRows.sort((a,b)=>{
+          if(!isAdder){
+            const aKeep = /RANGE|U%/i.test(String(a.chartName || '')) ? 0 : 1;
+            const bKeep = /RANGE|U%/i.test(String(b.chartName || '')) ? 0 : 1;
+            if(aKeep !== bKeep) return aKeep - bKeep;
+          }
+
+          const ea = entityOrder(a.entity);
+          const eb = entityOrder(b.entity);
+          if(ea !== eb) return ea - eb;
+
+          if(b.cnt !== a.cnt) return b.cnt - a.cnt;
+          return String(a.chartName||'').localeCompare(String(b.chartName||''));
+        });
+
+
+
+
+        const cols = getChartDetailColState(isAdder);
+
+    let html = `
+            <table class="chart-detail" data-detail-type="${isAdder ? 'ADDER' : 'NON_ADDER'}">
+                <colgroup>
+                          <col style="width:92px;" data-col="entity" />
+                          <col style="width:90px;" data-col="chart_id" />
+                          <col style="width:320px;" data-col="chart_name" />
+                          <col style="width:90px;" data-col="alarm_cnt" />
+                          <col style="width:95px;" data-col="alarm_dates" />
+
+                          <col class="chart-prev" data-col="preview" />
+                          <col style="width:200px;" data-col="pre" />
+                          <col style="width:200px;" data-col="adder_map" />
+                          <col style="width:140px;" data-col="measure_pu" />
+                        </colgroup>
+
+                <thead>
+                  <tr>
+                    <th colspan="9">${blockLabel} - Chart Alarm Detail (W${getWeekNumber(picked)})</th>
+                  </tr>
+                  <tr>
+                    <th data-col="entity">Entity</th>
+                    <th data-col="chart_id">CHART_ID</th>
+                    <th data-col="chart_name">CHART_NAME</th>
+                    <th data-col="alarm_cnt" style="text-align:center;">Alarm 次數</th>
+                    <th data-col="alarm_dates" style="width:35px;">ALARM 日期</th>
+
+                    <th data-col="preview">Preview</th>
+                    <th data-col="pre">PRE</th>
+                    <th data-col="adder_map">ADDER MAP</th>
+                    <th data-col="measure_pu">MeasurePU</th>
+                  </tr>
+                </thead>
+                <tbody>
+
+
+    `;
+
+
+    for(const r of allRows){
+            const url = buildChartUrl(r.chartId, isAdder, r.processUnit);
+
+            // MAP（只需要 ADDER）
+            const puUp = String(r.processUnit || '').trim().toUpperCase();
+            const site = puUp.startsWith('OXSE-A') ? '12AP14' : '12AP58';
+            const chartSeqMap = isAdder ? (getChartAlarmSeqDetail(start, r.entity, true) || {}) : null;
+            const chartKey = `${r.chartId || ''}||${r.chartName || ''}`;
+            const seqSet = (isAdder && chartSeqMap) ? chartSeqMap[chartKey] : null;
+            const chartSeq = (seqSet && seqSet.size) ? Array.from(seqSet)[0] : '';
+
+            const mapUrl = (isAdder && chartSeq)
+              ? `http://10.10.101.170/Project1/_Blob_ShowImage_4WebResultLoop.asp?site=${encodeURIComponent(site)}`
+                + `&uchart_id=${encodeURIComponent(r.chartId || '')}`
+                + `&chart_seq=${encodeURIComponent(chartSeq)}`
+                + `&PointValue=10`
+              : '';
+
+
+
+            const nameHtml = url
+        ? `<a href="openie:${encodeURIComponent(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(r.chartName || '')}</a>`
+        : escapeHtml(r.chartName || '');
+
+
+            const dupByName = r.nameKey && (chartNameFreq[r.nameKey] >= 2);
+      const dupByMultiDay = Array.isArray(r.dates) && r.dates.length >= 2;
+      const isDup = dupByName || dupByMultiDay;
+      const dupMark = isDup ? 'Y' : '';
+
+            const datesText = (r.dates && r.dates.length)
+        ? r.dates.join(', ')
+        : '';
+
+      const todayStr = fmtYMDDash(picked);
+      const isTodayAlarm = Array.isArray(r.dates) && r.dates.includes(todayStr);
+      const dateCellClass = isTodayAlarm ? 'alarm-today' : '';
+
+
+            // NON-ADDER：除了包含 RANGE 或 U% 的 CHART_NAME，其餘整列底色反灰(但仍顯示)
+      const nonAdderDim = (!isAdder) && !/RANGE|U%/i.test(String(r.chartName || ''));
+
+      // 黃底優先：若 isDup 為 true，就不要再套灰底
+      const rowClass = isDup ? 'dup-chart' : (nonAdderDim ? 'dim-row' : '');
+
+                                                const previewHtml = url
+              ? `<a href="openie:${encodeURIComponent(url)}" target="_blank" rel="noopener noreferrer" title="Open chart (IE)">
+                   <img class="chart-thumb" data-chart-id="${escapeHtml(r.chartId || '')}" data-is-adder="${isAdder ? '1' : '0'}" data-process-unit="${escapeHtml(r.processUnit || '')}" alt="${escapeHtml(r.chartId || '')}" loading="lazy" />
+                 </a>`
+              : '';
+
+            // 防呆：不要在這裡重複宣告 chartKey/chartSeq（避免 JS SyntaxError 導致整頁中斷，Excel 讀不到）
+
+
+            const preMapHtml = (isAdder && mapUrl)
+                    ? `<span class="pre-map" data-site="${escapeHtml(site)}" data-uchart-id="${escapeHtml(r.chartId || '')}" data-chart-seq="${escapeHtml(chartSeq)}" style="color:#999;">...</span>`
+                    : '<span style="color:#999;">-</span>';
+
+            const measurePuHtml = (isAdder && mapUrl)
+              ? `<span class="map-info" data-site="${escapeHtml(site)}" data-uchart-id="${escapeHtml(r.chartId || '')}" data-chart-seq="${escapeHtml(chartSeq)}" style="color:#999;">...</span>`
+              : '<span style="color:#999;">-</span>';
+
+
+
+
+            
+
+
+
+
+
+            const preCellHtml = isAdder ? preMapHtml : '<span style="color:#999;">-</span>';
+      const adderMapCellHtml = isAdder
+        ? `<span class="adder-map" data-site="${escapeHtml(site)}" data-uchart-id="${escapeHtml(r.chartId || '')}" data-chart-seq="${escapeHtml(chartSeq)}" style="color:#999;">...</span>`
+        : '<span style="color:#999;">-</span>';
+      const measureCellHtml = isAdder ? measurePuHtml : '<span style="color:#999;">-</span>';
+
+      html += `
+                <tr class="${rowClass}">
+          <td data-col="entity">${escapeHtml(r.entity)}</td>
+          <td data-col="chart_id">${escapeHtml(r.chartId || '')}</td>
+          <td data-col="chart_name">${nameHtml}</td>
+          <td data-col="alarm_cnt" style="text-align:center;">${escapeHtml(r.cnt)}</td>
+          <td data-col="alarm_dates" class="${dateCellClass}">${escapeHtml(datesText)}</td>
+          <td data-col="preview">${previewHtml}</td>
+          <td data-col="pre">${preCellHtml}</td>
+          <td data-col="adder_map">${adderMapCellHtml}</td>
+          <td data-col="measure_pu">${measureCellHtml}</td>
+        </tr>
+
+
+      `;
+
+
+
+
+    }
+
+    html += `
+        </tbody>
+      </table>
+    `;
+
+    return html;
+  }
+
+
+    function renderInlineChartDetails(picked){
+    const adderBox = document.getElementById('adderChartDetail');
+    const nonAdderBox = document.getElementById('nonAdderChartDetail');
+
+        if(adderBox) adderBox.innerHTML = buildInlineChartDetailHtml(picked, true);
+    if(nonAdderBox) nonAdderBox.innerHTML = buildInlineChartDetailHtml(picked, false);
+
+    // 套用勾選的欄位顯示狀態
+    applyChartDetailColVisibility();
+
+
+        // 產生完表格後，再把每一張縮圖的 src 補上
+    hydrateChartThumbs();
+
+    // 再把 MAP 相關資訊（MeasurePU）補上
+    hydrateMapInfo();
+
+    // 再把 PRE MAP 圖補上
+    hydratePreMapThumbs();
+
+    // 再把 ADDER MAP 圖補上
+    hydrateAdderMapThumbs();
+
+  }
+
+
+        async function hydrateMapInfo(){
+
+      const nodes = Array.from(document.querySelectorAll('.map-info[data-uchart-id][data-chart-seq]'));
+      if(!nodes.length) return;
+
+      const CONCURRENCY = 6;
+      let idx = 0;
+
+      async function worker(){
+        while(idx < nodes.length){
+          const myIdx = idx++;
+          const el = nodes[myIdx];
+          const site = el.getAttribute('data-site') || '12AP58';
+          const uchartId = el.getAttribute('data-uchart-id') || '';
+          const chartSeq = el.getAttribute('data-chart-seq') || '';
+
+          try{
+            const url = `TF2api/SpcMapInfoProxy.ashx?site=${encodeURIComponent(site)}`
+              + `&uchart_id=${encodeURIComponent(uchartId)}`
+              + `&chart_seq=${encodeURIComponent(chartSeq)}`
+              + `&PointValue=10`;
+
+            const resp = await fetch(url, { credentials:'include' });
+            if(!resp.ok) throw new Error('HTTP ' + resp.status);
+            const data = await resp.json();
+            if(!data || !data.ok){
+              el.textContent = '-';
+              continue;
+            }
+
+                        el.style.color = '#111';
+            if(data.measurePU){
+              const s = String(data.measurePU);
+                            // 只要顯示 CUSFSCAN-B06（把 ^SP5^ 也拿掉）
+              const m = s.match(/\^SP5\^([^\^\s<]+)/i);
+              el.textContent = m ? m[1] : s;
+
+            }else{
+              el.textContent = '-';
+            }
+
+          }catch(e){
+            el.textContent = '-';
+          }
+        }
+      }
+
+            await Promise.all(Array.from({length: Math.min(CONCURRENCY, nodes.length)}, worker));
+    }
+
+    async function hydratePreMapThumbs(){
+      const nodes = Array.from(document.querySelectorAll('.pre-map[data-uchart-id][data-chart-seq]'));
+      if(!nodes.length) return;
+
+      const CONCURRENCY = 6;
+      let idx = 0;
+
+      async function worker(){
+        while(idx < nodes.length){
+          const myIdx = idx++;
+          const el = nodes[myIdx];
+          const site = el.getAttribute('data-site') || '12AP58';
+          const uchartId = el.getAttribute('data-uchart-id') || '';
+          const chartSeq = el.getAttribute('data-chart-seq') || '';
+
+          try{
+            const url = `TF2api/SpcMapInfoProxy.ashx?site=${encodeURIComponent(site)}`
+              + `&uchart_id=${encodeURIComponent(uchartId)}`
+              + `&chart_seq=${encodeURIComponent(chartSeq)}`
+              + `&PointValue=10`;
+
+            const resp = await fetch(url, { credentials:'include' });
+            if(!resp.ok) throw new Error('HTTP ' + resp.status);
+            const data = await resp.json();
+            if(!data || !data.ok || !data.preMapImgUrl){
+              el.textContent = '-';
+              continue;
+            }
+
+            const imgUrl = String(data.preMapImgUrl);
+            el.innerHTML = `<a href="openie:${encodeURIComponent(imgUrl)}" target="_blank" rel="noopener noreferrer" title="Open PRE MAP (IE)">`
+              + `<img class="adder-map-thumb" src="${escapeHtml(imgUrl)}" alt="PRE MAP" loading="lazy" />`
+              + `</a>`;
+          }catch(e){
+            el.textContent = '-';
+          }
+        }
+      }
+
+      await Promise.all(Array.from({length: Math.min(CONCURRENCY, nodes.length)}, worker));
+    }
+
+    async function hydrateAdderMapThumbs(){
+      const nodes = Array.from(document.querySelectorAll('.adder-map[data-uchart-id][data-chart-seq]'));
+      if(!nodes.length) return;
+
+      const CONCURRENCY = 6;
+      let idx = 0;
+
+      async function worker(){
+        while(idx < nodes.length){
+          const myIdx = idx++;
+          const el = nodes[myIdx];
+          const site = el.getAttribute('data-site') || '12AP58';
+          const uchartId = el.getAttribute('data-uchart-id') || '';
+          const chartSeq = el.getAttribute('data-chart-seq') || '';
+
+          try{
+            const url = `TF2api/SpcMapInfoProxy.ashx?site=${encodeURIComponent(site)}`
+              + `&uchart_id=${encodeURIComponent(uchartId)}`
+              + `&chart_seq=${encodeURIComponent(chartSeq)}`
+              + `&PointValue=10`;
+
+            const resp = await fetch(url, { credentials:'include' });
+            if(!resp.ok) throw new Error('HTTP ' + resp.status);
+            const data = await resp.json();
+            if(!data || !data.ok || !data.adderMapImgUrl){
+              el.textContent = '-';
+              continue;
+            }
+
+            const imgUrl = String(data.adderMapImgUrl);
+            el.innerHTML = `<a href="openie:${encodeURIComponent(imgUrl)}" target="_blank" rel="noopener noreferrer" title="Open ADDER MAP (IE)">`
+              + `<img class="adder-map-thumb" src="${escapeHtml(imgUrl)}" alt="ADDER MAP" loading="lazy" />`
+              + `</a>`;
+          }catch(e){
+            el.textContent = '-';
+          }
+        }
+      }
+
+      await Promise.all(Array.from({length: Math.min(CONCURRENCY, nodes.length)}, worker));
+    }
+
+    async function hydrateChartThumbs(){
+
+
+      const thumbs = Array.from(document.querySelectorAll('img.chart-thumb[data-chart-id]'))
+        .filter(img => !img.getAttribute('src'));
+
+
+      // 先給所有未載入的縮圖一個 loading 狀態
+      thumbs.forEach(img=>{
+        img.style.opacity = '0.55';
+        img.style.background = '#f0f0f0';
+      });
+
+      // 併發限制（同時最多 N 張）
+      const CONCURRENCY = 6;
+      let idx = 0;
+
+      async function worker(){
+        while(idx < thumbs.length){
+          const myIdx = idx++;
+          const img = thumbs[myIdx];
+                    const chartId = img.getAttribute('data-chart-id');
+          const isAdder = img.getAttribute('data-is-adder') === '1';
+          const processUnit = img.getAttribute('data-process-unit') || '';
+
+
+          try{
+                        const previewUrl = await fetchChartPreviewImageUrl(chartId, isAdder, processUnit);
+
+            if(previewUrl){
+              img.src = previewUrl;
+              img.style.opacity = '1';
+            }else{
+              img.alt = (chartId || '') + ' (no preview)';
+              img.style.display = 'block';
+              img.style.padding = '6px';
+            }
+          }catch(e){
+            img.alt = (chartId || '') + ' (no preview)';
+            img.style.display = 'block';
+            img.style.padding = '6px';
+          }
+        }
+      }
+
+      await Promise.all(Array.from({length: Math.min(CONCURRENCY, thumbs.length)}, worker));
+    }
+
+
+    
+
+
+
+
+  // ========== 簡易 Modal 相關函式 ==========
+
+
+  function openChartModal(title, contentHtml){
+    const backdrop = document.getElementById('chartModalBackdrop');
+    const titleEl = document.getElementById('chartModalTitle');
+    const contentEl = document.getElementById('chartModalContent');
+
+    titleEl.textContent = title;
+    contentEl.innerHTML = contentHtml;
+    backdrop.style.display = 'flex';
+  }
+
+  function closeChartModal(){
+    document.getElementById('chartModalBackdrop').style.display = 'none';
+  }
+
+  function bindModalEvents(){
+    const backdrop = document.getElementById('chartModalBackdrop');
+    document.getElementById('chartModalClose').addEventListener('click', closeChartModal);
+    backdrop.addEventListener('click', (e)=>{
+      if(e.target === backdrop) closeChartModal();
+    });
+  }
+
+        function getChartAlarmDetail(startDate, entity, isAdder){
+    const key = fmtYMDDash(startDate) + '|' + entity + '|' + (isAdder ? 'ADDER' : 'NON_ADDER');
+    return chartAlarmStats[key] || null;
+  }
+
+  function getChartProcessUnitDetail(startDate, entity, isAdder){
+    const key = fmtYMDDash(startDate) + '|' + entity + '|' + (isAdder ? 'ADDER' : 'NON_ADDER');
+    return chartAlarmProcessUnitStats[key] || null;
+  }
+
+
+    function getChartAlarmDateDetail(startDate, entity, isAdder){
+    const key = fmtYMDDash(startDate) + '|' + entity + '|' + (isAdder ? 'ADDER' : 'NON_ADDER');
+    return chartAlarmDateStats[key] || null;
+  }
+
+    function getChartAlarmSeqDetail(startDate, entity, isAdder){
+    const key = fmtYMDDash(startDate) + '|' + entity + '|' + (isAdder ? 'ADDER' : 'NON_ADDER');
+    return chartAlarmSeqStats[key] || null;
+  }
+
+  
+
+
+
+
+        function buildChartUrl(chartId, isAdder, processUnit) {
+          if(!chartId) return null;
+
+          // 需求：只有 OXSE-AXX (以 PROCESSUNIT 判斷，例如 OXSE-A01) 的 chart 要改 site=12AP14
+          // 其餘維持 12AP58
+          const puUp = String(processUnit || '').trim().toUpperCase();
+          const site = puUp.startsWith('OXSE-A') ? '12AP14' : '12AP58';
+
+          // 新需求：點開 chart 頁面改用 ADDERSPCChart.aspx
+          // (isAdder=true => CHART_TYPE=C-C；isAdder=false => CHART_TYPE=XBAR)
+          const chartType = isAdder ? 'C-C' : 'XBAR';
+
+          return `http://10.10.101.170/projectsite/SPCTool/ADDERSPCChart.aspx?site=${site}`
+            + `&UCHART_ID=${encodeURIComponent(chartId)}`
+            + `&CHART_TYPE=${encodeURIComponent(chartType)}`
+            + `&DateFrom=`
+            + `&DataCount=50`
+            + `&DataType=OFFSPC`;
+        }
+
+
+
+    // 由 PreviewMultiSPCTypeChart 頁面抓出當次產生的縮圖 (navi_SPC__...jpg)
+    // 注意：縮圖檔名含隨機字串，每次開啟可能不同，所以必須先 fetch 圖表頁再解析
+        async function fetchChartPreviewImageUrl(chartId, isAdder, processUnit){
+      if(!chartId) return null;
+
+      const puUp = String(processUnit || '').trim().toUpperCase();
+      const site = puUp.startsWith('OXSE-A') ? '12AP14' : '12AP58';
+
+      // 前端直接抓 10.10.101.170 會被 CORS 擋；改走同站台的 proxy
+      // 追加 site 讓後端 proxy 決定要抓哪個 site
+      const proxyUrl = `TF2api/SpcPreviewProxy.ashx?chartId=${encodeURIComponent(chartId)}&site=${encodeURIComponent(site)}`;
+
+
+      try{
+        const resp = await fetch(proxyUrl, { credentials: 'include' });
+        if(!resp.ok) return null;
+        const data = await resp.json();
+        if(!data || !data.ok) return null;
+        return data.imageUrl || null;
+      }catch(e){
+        return null;
+      }
+    }
+
+
+
+
+
+    function buildChartDetailHtml(chartMap, isAdder, puMap){
+    if(!chartMap || Object.keys(chartMap).length === 0){
+      return '<div class="modal-empty">本週此 Entity 無 Alarm 記錄。</div>';
+    }
+
+    let rows = '';
+    for(const chartKey in chartMap){
+      const count = chartMap[chartKey];
+      const [chartId, chartName] = chartKey.split('||');
+
+      const puSet = puMap ? puMap[chartKey] : null;
+      const processUnit = (puSet && puSet.size) ? Array.from(puSet)[0] : '';
+
+      const url = buildChartUrl(chartId, isAdder, processUnit);
+            const nameCellHtml = url
+        ? `<a href="openie:${encodeURIComponent(url)}" target="_blank" rel="noopener noreferrer">${chartName || ''}</a>`
+        : (chartName || '');
+
+
+
+      rows += `<tr>
+        <td>${chartId || ''}</td>
+        <td>${nameCellHtml}</td>
+        <td style="text-align:center;">${count}</td>
+      </tr>`;
+    }
+
+    return `
+      <table>
+        <colgroup>
+          <col class="col-id">
+          <col class="col-name">
+          <col class="col-cnt">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>CHART_ID</th>
+            <th>CHART_NAME</th>
+            <th>Alarm 次數</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows}
+        </tbody>
+      </table>
+    `;
+  }
+
+      function bindEntityClick(){
+    // 點擊上方表格的 Entity，跳出該 Entity 本週 Chart Alarm Detail
+    function onClickEntityCell(e){
+      const td = e.target.closest('td.entity-cell');
+      if(!td) return;
+      const tr = td.closest('tr[data-entity]');
+      const tbl = td.closest('table');
+      if(!tr || !tbl) return;
+
+      const entity = tr.getAttribute('data-entity');
+      const isAdder = tbl.id === 'tblAdder';
+
+      const pickedInput = document.getElementById('pickDate');
+      const picked = pickedInput && pickedInput.value
+        ? new Date(pickedInput.value + 'T00:00:00')
+        : new Date();
+      const start = startTuesdayFor(picked);
+
+            const chartMap = getChartAlarmDetail(start, entity, isAdder) || {};
+      const puMap = getChartProcessUnitDetail(start, entity, isAdder) || {};
+      const title = `${isAdder ? 'ADDER' : 'NON-ADDER'} - ${entity} - Alarm Detail (W${getWeekNumber(picked)})`;
+      const html = buildChartDetailHtml(chartMap, isAdder, puMap);
+
+      openChartModal(title, html);
+    }
+
+    // 事件委派：兩張表都綁
+    ['tblAdder','tblNonAdder'].forEach(id=>{
+      const t = document.getElementById(id);
+      if(!t) return;
+      t.removeEventListener('click', onClickEntityCell);
+      t.addEventListener('click', onClickEntityCell);
+    });
+  }
+
+
+
+    // ========== 下方 Chart Detail 欄位顯示控制 ==========
+
+  const CHART_DETAIL_COLS = [
+    'entity','chart_id','chart_name','alarm_cnt','alarm_dates','preview','pre','adder_map','measure_pu'
+  ];
+
+  function getDefaultChartDetailColState(){
+    const s = {};
+    CHART_DETAIL_COLS.forEach(k => s[k] = true);
+    // NON-ADDER 預設移除 PRE/ADDER MAP/MeasurePU
+    s.pre = false;
+    s.adder_map = false;
+    s.measure_pu = false;
+    return s;
+  }
+
+  function loadChartDetailColState(){
+    try{
+      const raw = localStorage.getItem('tf2_chart_detail_cols_v1');
+      if(!raw) return null;
+      const obj = JSON.parse(raw);
+      if(!obj || typeof obj !== 'object') return null;
+      return obj;
+    }catch(e){
+      return null;
+    }
+  }
+
+  function saveChartDetailColState(state){
+    try{ localStorage.setItem('tf2_chart_detail_cols_v1', JSON.stringify(state)); }catch(e){}
+  }
+
+  function getChartDetailColState(isAdder){
+    const state = loadChartDetailColState() || {};
+    // adder/non-adder 分開存
+    const key = isAdder ? 'adder' : 'nonadder';
+    if(state[key] && typeof state[key] === 'object') return state[key];
+
+    const def = getDefaultChartDetailColState();
+    // ADDER 預設全開；NON-ADDER 預設關閉 3 欄
+    if(isAdder){
+      CHART_DETAIL_COLS.forEach(k => def[k] = true);
+    }
+    return def;
+  }
+
+  function setChartDetailColState(isAdder, colKey, visible){
+    const state = loadChartDetailColState() || {};
+    const key = isAdder ? 'adder' : 'nonadder';
+    state[key] = state[key] && typeof state[key] === 'object' ? state[key] : getChartDetailColState(isAdder);
+    state[key][colKey] = !!visible;
+    saveChartDetailColState(state);
+  }
+
+  function applyChartDetailColVisibility(){
+    const adderCols = getChartDetailColState(true);
+    const nonAdderCols = getChartDetailColState(false);
+
+    document.querySelectorAll('table.chart-detail').forEach(tbl=>{
+      const type = (tbl.getAttribute('data-detail-type') || '').toUpperCase();
+      const cols = type === 'ADDER' ? adderCols : nonAdderCols;
+
+      CHART_DETAIL_COLS.forEach(colKey=>{
+        const show = cols[colKey] !== false;
+        tbl.querySelectorAll(`[data-col="${colKey}"]`).forEach(el=>{
+          el.style.display = show ? '' : 'none';
+        });
+      });
+
+      // 修正 header title colSpan
+      const visibleCount = CHART_DETAIL_COLS.reduce((n,k)=> n + ((cols[k] !== false) ? 1 : 0), 0);
+      const titleTh = tbl.querySelector('thead tr:first-child th');
+      if(titleTh) titleTh.colSpan = Math.max(1, visibleCount);
+    });
+  }
+
+  function syncChartColToggleUi(){
+    const box = document.getElementById('chartColToggle');
+    if(!box) return;
+
+    // UI 以「NON-ADDER」為主要（因為需求 2），但仍可切換控制兩張表：
+    // 這裡做法：同一組勾選同時套用到 ADDER / NON-ADDER，
+    // 並另外強制 NON-ADDER 的三欄永遠關閉。
+
+    const storedAdder = getChartDetailColState(true);
+    const storedNonAdder = getChartDetailColState(false);
+
+    box.querySelectorAll('input[type="checkbox"][data-col]').forEach(cb=>{
+      const colKey = cb.getAttribute('data-col');
+      if(colKey === 'auto_reload') return;
+
+      // 勾選狀態：以 ADDER 為主顯示（避免 NON-ADDER 三欄永遠 false 造成 UI 無法勾）
+      cb.checked = storedAdder[colKey] !== false;
+
+      // NON-ADDER 三欄固定移除：UI disabled
+      if(['pre','adder_map','measure_pu'].includes(colKey)){
+        cb.checked = false;
+        cb.disabled = true;
+        cb.title = 'NON-ADDER 已固定移除';
+      }else{
+        cb.disabled = false;
+        cb.title = '';
+      }
+    });
+  }
+
+  function bindChartColToggle(){
+    const box = document.getElementById('chartColToggle');
+    if(!box) return;
+
+    syncChartColToggleUi();
+
+    box.addEventListener('change', ()=>{
+      const autoReload = box.querySelector('input[data-col="auto_reload"]');
+      const doRefresh = !autoReload || autoReload.checked;
+
+      box.querySelectorAll('input[type="checkbox"][data-col]').forEach(cb=>{
+        const colKey = cb.getAttribute('data-col');
+        if(!colKey || colKey === 'auto_reload') return;
+
+        // NON-ADDER 固定移除的三欄
+        if(['pre','adder_map','measure_pu'].includes(colKey)){
+          setChartDetailColState(false, colKey, false);
+          // ADDER 也可以由使用者控制，但 UI 已 disabled，所以這裡不動
+          return;
+        }
+
+        // 同一組勾選同時控制 ADDER / NON-ADDER（比較符合「針對下方表格」的直覺）
+        setChartDetailColState(true, colKey, cb.checked);
+        setChartDetailColState(false, colKey, cb.checked);
+      });
+
+      if(doRefresh){
+        applyChartDetailColVisibility();
+      }
+    });
+  }
+
+
+  function bindExcelUpload(){
+
+    const fileInput = document.getElementById('excelFile');
+    if(!fileInput) return;
+
+    fileInput.addEventListener('change', async ()=>{
+      const file = fileInput.files && fileInput.files[0];
+      if(!file) return;
+
+      const pickedInput = document.getElementById('pickDate');
+      const picked = pickedInput && pickedInput.value
+        ? new Date(pickedInput.value + 'T00:00:00')
+        : new Date();
+
+      try{
+        await loadExcelFromFile(file);
+        refreshTables(picked);
+      }catch(e){
+        // 錯誤已顯示在畫面上
+      }
+    });
+  }
+
+  (function init(){
+    const input = document.getElementById('pickDate');
+    const weekHint = document.getElementById('weekHint');
+
+    function updateWeekHint(date){
+      const weekNum = getWeekNumber(date);
+      weekHint.textContent = `W${weekNum}`;
+    }
+
+    const today = new Date();
+    input.value = toISODateLocal(today);
+    setHeadersByPickedDate(today);
+    updateWeekHint(today);
+
+        // // fillOwners(); // 已移除 Owner 欄位
+ // 已移除 Owner 欄位
+
+
+            bindModalEvents();
+    bindEntityClick();
+    bindExcelUpload();
+    bindChartColToggle();
+
+
+
+
+        withTimeout(loadExcel(), 20000, 'loadExcel').then(()=>{
+      refreshTables(today);
+    }).catch((e)=>{
+      console.error(e);
+      setStatus('', '');
+      showError('讀取 Excel 逾時或失敗：\n' + (e && e.message ? e.message : String(e)) + '\n\n請確認：\n1) 右上角是否有選到 Excel 檔案(上傳)\n2) 或網站同資料夾是否存在 TF2_NPW.xlsx');
+    });
+
+
+    input.addEventListener('change', () => {
+      if(!input.value) return;
+      const picked = new Date(input.value + "T00:00:00");
+      setHeadersByPickedDate(picked);
+      updateWeekHint(picked);
+      refreshTables(picked);
+    });
+  })();
+</script>
+</body>
+</html>
