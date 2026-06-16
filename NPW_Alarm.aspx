@@ -33,19 +33,20 @@
         html, body { margin: 0; padding: 0; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", Arial, sans-serif;
-            background: var(--bg-gradient);
-            color: var(--text);
+            background: #fff;
+            color: #111;
             min-height: 100vh;
         }
         .topbar {
             display: flex; align-items: center;
             padding: 12px 22px;
-            background: var(--panel);
-            border-bottom: 1px solid var(--border);
+            background: #fff;
+            color: #111;
+            border-bottom: 1px solid #ddd;
             gap: 14px;
         }
         .topbar h1 { font-size: 16px; margin: 0; }
-        .wrap { max-width: 1360px; margin: 0 auto; padding: 24px; }
+        .wrap { max-width: none; margin: 0 auto; padding: 24px 18px; }
         .card {
             background: var(--panel);
             border: 1px solid var(--border);
@@ -137,7 +138,7 @@
 
     <div class="wrap">
         <style>
-        .npw-report-card{background:#fff;color:#111;}
+        .npw-report-card{background:transparent;color:#111;border:0;border-radius:0;padding:0;margin:0;box-shadow:none;}
         .npw-report-card h2{color:#111;}
         .npw-report-card .npw-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 12px;}
         .npw-report-card .npw-toolbar label{font-weight:700;}
@@ -172,7 +173,8 @@
         .npw-report-card #adderChartDetail,.npw-report-card #nonAdderChartDetail{overflow-x:auto;}
         .npw-report-card .chart-detail{width:100%;border-collapse:collapse;background:#fff;border:2px solid #222;margin:-6px 0 18px;}
         .npw-report-card .chart-detail th,.npw-report-card .chart-detail td{border:1px solid #222;font-size:12px;padding:4px 6px;line-height:1.2;vertical-align:middle;color:#111;text-align:left;word-break:break-all;}
-        .npw-report-card .chart-detail th{background:#f5f5f5;font-weight:700;}
+        .npw-report-card .chart-detail th{background:#f5f5f5;font-weight:700;white-space:nowrap;}
+        .npw-report-card .chart-detail .cn-col{min-width:260px;white-space:normal;word-break:break-word;}
         .npw-report-card .chart-detail a{color:#1d4ed8;}
         .npw-report-card .npw-mini-btn{font-size:11px;padding:2px 6px;border:1px solid #1976d2;border-radius:4px;background:#fff;color:#1976d2;cursor:pointer;}
         .npw-report-card .npw-mini-btn:hover{background:#1976d2;color:#fff;}
@@ -611,7 +613,7 @@
 
             const colCount=isAdder?9:5;
             let head=`<tr><th colspan="${colCount}">${blockLabel} - Chart Alarm Detail (W${getWeekNumber(start)})</th></tr>
-                <tr><th style="width:80px;">Entity</th><th style="width:80px;">CHART_ID</th><th>CHART_NAME</th>
+                <tr><th style="width:80px;">Entity</th><th style="width:80px;">CHART_ID</th><th class="cn-col">CHART_NAME</th>
                 <th style="width:70px;text-align:center;">Alarm 次數</th><th style="width:160px;">ALARM 日期</th>`;
             if(isAdder)head+=`<th style="width:380px;text-align:center;">Preview</th><th style="width:200px;text-align:center;">PRE</th><th style="width:200px;text-align:center;">ADDER MAP</th><th style="width:110px;">MeasurePU</th>`;
             head+=`</tr>`;
@@ -640,7 +642,7 @@
                           `<td class="npw-cell-map"><span class="adder-map" ${da} style="color:#999;">...</span></td>`+
                           `<td><span class="map-info" ${da}>${puInit||'<span style="color:#999;">...</span>'}</span></td>`;
                 }
-                html+=`<tr class="${rowClass}"><td>${escapeHtml(r.entity)}</td><td>${cid}</td><td>${nameHtml}</td>
+                html+=`<tr class="${rowClass}"><td>${escapeHtml(r.entity)}</td><td>${cid}</td><td class="cn-col">${nameHtml}</td>
                     <td style="text-align:center;">${escapeHtml(r.cnt)}</td><td>${escapeHtml(datesText)}</td>${extra}</tr>`;
             }
             html+='</tbody></table>';
