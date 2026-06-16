@@ -675,17 +675,25 @@
             }
             return ((row.cells&&row.cells[idx])||'').split('\n').filter(Boolean);
         }
-        const SCHED_STORE='npw.sched.checks';
-        function loadSchedChecks(){try{return JSON.parse(localStorage.getItem(SCHED_STORE)||'{}');}catch(e){return {};}}
-        function saveSchedChecks(o){try{localStorage.setItem(SCHED_STORE,JSON.stringify(o));}catch(e){}}
+        // 勾選狀態：存在伺服器 JSON 檔，所有人共用
+        let schedChecks={};
+        let _schedPicked=null;
+        async function loadSchedChecksServer(){
+            try{const r=await fetch(PAGE+'?op=getchecks',{cache:'no-store'});const d=await r.json();if(d&&d.ok)schedChecks=d.checks||{};}catch(e){}
+            if(_schedPicked)renderSchedule(_schedPicked);
+        }
+        function saveSchedCheck(k,checked){
+            try{fetch(PAGE+'?op=savecheck',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:k,checked:!!checked})});}catch(e){}
+        }
         function renderSchedule(picked){
             const box=document.getElementById('downSchedule');
             if(!box)return;
+            _schedPicked=picked;
             const start=startTuesdayFor(picked);
             const dates=[];for(let i=0;i<7;i++){dates.push(new Date(start.getFullYear(),start.getMonth(),start.getDate()+i));}
             const md=d=>(d.getMonth()+1)+'月'+d.getDate()+'日';
             const esc=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
-            const checks=loadSchedChecks();
+            const checks=schedChecks;
             const cellHtml=(items,iso,name)=>items.map(t=>{
                 const k=name+'|'+iso+'|'+t;
                 return '<label class="sched-chk"><input type="checkbox" data-k="'+esc(k)+'"'+(checks[k]?' checked':'')+'>'+esc(t)+'</label>';
@@ -715,9 +723,9 @@
                 box.addEventListener('change',e=>{
                     const cb=e.target;
                     if(!cb||!cb.matches||!cb.matches('input[type=checkbox][data-k]'))return;
-                    const o=loadSchedChecks(),k=cb.getAttribute('data-k');
-                    if(cb.checked)o[k]=1; else delete o[k];
-                    saveSchedChecks(o);
+                    const k=cb.getAttribute('data-k');
+                    if(cb.checked)schedChecks[k]=1; else delete schedChecks[k];
+                    saveSchedCheck(k,cb.checked);
                 });
             }
         }
@@ -1094,7 +1102,12 @@
             if(dcPrev)dcPrev.addEventListener('click',()=>{const d=curWeek();d.setDate(d.getDate()-7);reload(d);});
             if(dcNext)dcNext.addEventListener('click',()=>{const d=curWeek();d.setDate(d.getDate()+7);reload(d);});
 
+            // 切到作業區時重抓共用勾選狀態（看別人最新的勾選）
+            const dcTab=document.querySelector('.seg-btn[data-sec="downchart"]');
+            if(dcTab)dcTab.addEventListener('click',()=>loadSchedChecksServer());
+
             reload(today);
+            loadSchedChecksServer(); // 載入共用勾選狀態，完成後會重繪排程
         })();
     })();
     </script>

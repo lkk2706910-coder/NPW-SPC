@@ -104,7 +104,96 @@ public partial class NPW_Alarm : Page
             Response.End();
             return;
         }
+        if (string.Equals(opStr, "getchecks", StringComparison.OrdinalIgnoreCase))
+        {
+            Response.ContentType = "application/json; charset=utf-8";
+            Response.Cache.SetCacheability(HttpCacheability.NoCache);
+            try { HandleGetChecks(); }
+            catch (Exception ex)
+            {
+                Response.StatusCode = 500;
+                Response.Write("{\"ok\":false,\"error\":\"" + JsonEscape(ex.Message) + "\"}");
+            }
+            Response.End();
+            return;
+        }
+        if (string.Equals(opStr, "savecheck", StringComparison.OrdinalIgnoreCase))
+        {
+            Response.ContentType = "application/json; charset=utf-8";
+            Response.Cache.SetCacheability(HttpCacheability.NoCache);
+            try { HandleSaveCheck(); }
+            catch (Exception ex)
+            {
+                Response.StatusCode = 500;
+                Response.Write("{\"ok\":false,\"error\":\"" + JsonEscape(ex.Message) + "\"}");
+            }
+            Response.End();
+            return;
+        }
         // Otherwise fall through to render the page.
+    }
+
+    // Shared schedule checkbox state, stored in a JSON file next to this page
+    // so all users see the same checks. File: sched_checks.json in the page folder.
+    private static readonly object _schedLock = new object();
+    private string SchedFile() { return Server.MapPath("sched_checks.json"); }
+
+    private void HandleGetChecks()
+    {
+        string path = SchedFile();
+        string json = "{}";
+        lock (_schedLock)
+        {
+            if (File.Exists(path))
+            {
+                try { json = File.ReadAllText(path, Encoding.UTF8); }
+                catch { json = "{}"; }
+                if (string.IsNullOrWhiteSpace(json)) json = "{}";
+            }
+        }
+        Response.Write("{\"ok\":true,\"checks\":" + json + "}");
+    }
+
+    private void HandleSaveCheck()
+    {
+        string body;
+        using (var sr = new StreamReader(Request.InputStream, Encoding.UTF8)) body = sr.ReadToEnd();
+        var ser = new JavaScriptSerializer { MaxJsonLength = int.MaxValue };
+        Dictionary<string, object> req;
+        try { req = ser.Deserialize<Dictionary<string, object>>(body) ?? new Dictionary<string, object>(); }
+        catch { req = new Dictionary<string, object>(); }
+
+        object ko, co;
+        req.TryGetValue("key", out ko);
+        req.TryGetValue("checked", out co);
+        string key = ko == null ? null : Convert.ToString(ko);
+        bool isChecked = co != null && (co is bool ? (bool)co : (Convert.ToString(co) == "true" || Convert.ToString(co) == "1"));
+        if (string.IsNullOrEmpty(key))
+        {
+            Response.Write("{\"ok\":false,\"error\":\"key required\"}");
+            return;
+        }
+
+        string path = SchedFile();
+        lock (_schedLock)
+        {
+            Dictionary<string, object> map;
+            try
+            {
+                if (File.Exists(path))
+                {
+                    string t = File.ReadAllText(path, Encoding.UTF8);
+                    map = string.IsNullOrWhiteSpace(t) ? new Dictionary<string, object>()
+                        : (ser.Deserialize<Dictionary<string, object>>(t) ?? new Dictionary<string, object>());
+                }
+                else map = new Dictionary<string, object>();
+            }
+            catch { map = new Dictionary<string, object>(); }
+
+            if (isChecked) map[key] = 1; else map.Remove(key);
+            File.WriteAllText(path, ser.Serialize(map), Encoding.UTF8);
+        }
+        Response.Write("{\"ok\":true}");
     }
 
     // ISO week number (for the W## label).
