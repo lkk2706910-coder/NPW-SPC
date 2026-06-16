@@ -670,8 +670,8 @@
         }
 
         // 趨勢圖 Y 軸上限（避免單一高 alarm 點把管制線擠到最下方）
-        const ADDER_Y_MAX = 50;     // ADDER (Preview)
-        const NONADDER_Y_MAX = 30;  // NON-ADDER (chart)
+        const ADDER_Y_MAX = 30;        // ADDER (Preview)
+        const NONADDER_Y_MAX = null;   // NON-ADDER (chart) 先自動縮放，待確認
 
         // Chart.js 趨勢圖（沿用 Tool-ABC 樣式：MEAN_VALUE/UCL/XBAR(CL)/+1σ/+2σ + 圖例 + 軸）
         // yMax: 數字=固定上限(ADDER 用 50)；null=自動縮放(NON-ADDER)
