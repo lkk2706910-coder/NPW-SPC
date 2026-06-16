@@ -5,6 +5,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>TF2 NPW Alarm 週報</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.3.0/dist/chart.umd.min.js"></script>
     <style>
         :root {
             color-scheme: dark;
@@ -174,6 +175,17 @@
         .npw-report-card .chart-detail a{color:#1d4ed8;}
         .npw-report-card .npw-mini-btn{font-size:11px;padding:2px 6px;border:1px solid #1976d2;border-radius:4px;background:#fff;color:#1976d2;cursor:pointer;}
         .npw-report-card .npw-mini-btn:hover{background:#1976d2;color:#fff;}
+        .npw-report-card .npw-cell-preview{padding:2px!important;}
+        .npw-report-card .npw-spark{position:relative;width:228px;height:84px;}
+        .npw-report-card .npw-spark canvas{display:block;width:100%!important;height:100%!important;}
+        .npw-report-card .npw-cell-map{text-align:center;padding:2px!important;}
+        .npw-report-card .npw-map-img{width:84px;height:84px;object-fit:contain;border:1px solid #ddd;border-radius:4px;background:#fafafa;cursor:zoom-in;}
+        #particle-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;}
+        #particle-modal .pm-box{position:absolute;inset:4% 4%;background:#fff;border-radius:8px;display:flex;flex-direction:column;overflow:hidden;}
+        #particle-modal .pm-head{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#0d47a1;color:#fff;}
+        #particle-modal .pm-head b{font-size:13px;}
+        #particle-modal #particle-close{background:#fff;color:#0d47a1;border:0;border-radius:4px;padding:4px 12px;cursor:pointer;font-weight:700;}
+        #particle-modal iframe{flex:1;border:0;width:100%;}
         .npw-report-card .dup-chart{background:#ffe19a!important;}
         .npw-report-card .dim-row{background:#d9d9d9!important;}
         .npw-report-card .inline-empty{padding:8px 10px;color:#666;font-size:12px;background:#fff;border:1px dashed #999;}
@@ -593,7 +605,7 @@
             let head=`<tr><th colspan="${colCount}">${blockLabel} - Chart Alarm Detail (W${getWeekNumber(start)})</th></tr>
                 <tr><th style="width:80px;">Entity</th><th style="width:80px;">CHART_ID</th><th>CHART_NAME</th>
                 <th style="width:70px;text-align:center;">Alarm 次數</th><th style="width:160px;">ALARM 日期</th>`;
-            if(isAdder)head+=`<th style="width:60px;text-align:center;">Chart</th><th style="width:74px;text-align:center;">Pre_map</th><th style="width:74px;text-align:center;">Post_map</th><th style="width:110px;">Measure tool</th>`;
+            if(isAdder)head+=`<th style="width:236px;text-align:center;">Preview</th><th style="width:100px;text-align:center;">PRE</th><th style="width:100px;text-align:center;">ADDER MAP</th><th style="width:100px;">MeasurePU</th>`;
             head+=`</tr>`;
 
             let html=`<table class="chart-detail"><thead>${head}</thead><tbody>`;
@@ -609,10 +621,9 @@
                 const cid=escapeHtml(r.chartId||''),cname=escapeHtml(r.chartName||'');
                 let extra='';
                 if(isAdder){
-                    const da=`data-cid="${cid}" data-cname="${cname}"`;
-                    extra=`<td style="text-align:center;"><button type="button" class="npw-mini-btn" ${da} data-act="chart" title="SPC Chart">📈</button></td>`+
-                          `<td style="text-align:center;"><button type="button" class="npw-mini-btn" ${da} data-act="pre" title="PRE wafer map">PRE</button></td>`+
-                          `<td style="text-align:center;"><button type="button" class="npw-mini-btn" ${da} data-act="post" title="POST(ADDER) wafer map">POST</button></td>`+
+                    extra=`<td class="npw-cell-preview"><div class="npw-spark" data-cid="${cid}"><canvas></canvas></div></td>`+
+                          `<td class="npw-cell-map" data-cid="${cid}" data-kind="PRE"></td>`+
+                          `<td class="npw-cell-map" data-cid="${cid}" data-kind="ADDER"></td>`+
                           `<td>${escapeHtml(r.measurePu||'')}</td>`;
                 }
                 html+=`<tr class="${rowClass}"><td>${escapeHtml(r.entity)}</td><td>${cid}</td><td>${nameHtml}</td>
@@ -622,15 +633,121 @@
             return html;
         }
 
-        // 圖表 / wafer map 動作（資料來源確認後實作）
-        function openSpcChart(cid,cname){alert('SPC Chart（Tool-ABC 畫圖）建置中\nCHART_ID: '+cid+'\nCHART_NAME: '+cname);}
-        function openWaferMap(cid,cname,kind){alert(kind+' wafer map 建置中（待確認 MAP 資料來源）\nCHART_ID: '+cid+'\nCHART_NAME: '+cname);}
+        // ===== Preview 趨勢圖（Chart.js）+ Particle Map（沿用 Tool-ABC）=====
+        let sparkInstances=[];
+
+        // Particle Map 網址（沿用 Tool-ABC ADDER 的 _Blob_ShowImage_4WebResultLoop.asp）
+        function buildParticleMapUrl(chartId,seq,pointVal,kind){
+            const base='http://10.10.101.170/Project1/_Blob_ShowImage_4WebResultLoop.asp';
+            const p=new URLSearchParams({site:'12AP58',uchart_id:chartId||'',chart_seq:(seq==null?'':String(seq)),PointValue:(pointVal==null?'':String(pointVal))});
+            if(kind)p.set('category',kind); // 單一類別(PRE/ADDER)選擇器（依後端支援，可調整）
+            return base+'?'+p.toString();
+        }
+
+        function openParticleModal(url){
+            const modal=document.getElementById('particle-modal');
+            const iframe=document.getElementById('particle-iframe');
+            if(!modal||!iframe)return;
+            iframe.src='about:blank';
+            modal.style.display='block';
+            setTimeout(()=>{iframe.src=url;},0);
+        }
+        function closeParticleModal(){
+            const modal=document.getElementById('particle-modal');
+            const iframe=document.getElementById('particle-iframe');
+            if(!modal)return;
+            modal.style.display='none';
+            if(iframe)iframe.src='about:blank';
+        }
+
+        // 在週區間內挑代表 alarm 點（最後一個）
+        function pickAlarmPoint(pts,days){
+            const set=new Set(days);
+            let chosen=null;
+            for(const p of pts){if(Number(p.alarm)>=1 && set.has(String(p.d||'').substring(0,10)))chosen=p;}
+            return chosen;
+        }
+
+        function drawSpark(canvas,pts,days,cid){
+            if(!canvas||!window.Chart||!pts||!pts.length)return;
+            const labels=pts.map(p=>String(p.d||'').substring(5,10));
+            const mean=pts.map(p=>p.mean==null?null:Number(p.mean));
+            const ucl=pts.map(p=>p.ucl==null?null:Number(p.ucl));
+            const cl=pts.map(p=>p.xbar==null?null:Number(p.xbar));
+            const set=new Set(days);
+            const alarmPt=pts.map(p=>Number(p.alarm)>=1 && set.has(String(p.d||'').substring(0,10)));
+            const ptColor=alarmPt.map(a=>a?'red':'rgba(0,0,0,0.55)');
+            const ptRadius=alarmPt.map(a=>a?4:0);
+            const inst=new Chart(canvas.getContext('2d'),{
+                type:'line',
+                data:{labels,datasets:[
+                    {label:'MEAN_VALUE',data:mean,borderColor:'#000',borderWidth:1,fill:false,tension:.2,pointBackgroundColor:ptColor,pointBorderColor:ptColor,pointRadius:ptRadius,pointHoverRadius:5},
+                    {label:'UCL',data:ucl,borderColor:'red',borderDash:[4,2],borderWidth:1,pointRadius:0,spanGaps:true},
+                    {label:'CL',data:cl,borderColor:'#0f766e',borderWidth:1,pointRadius:0,spanGaps:true}
+                ]},
+                options:{animation:false,responsive:true,maintainAspectRatio:false,
+                    plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.formattedValue}}},
+                    scales:{x:{display:false},y:{display:false}},
+                    onClick:(evt,els,chart)=>{
+                        const hit=chart.getElementsAtEventForMode(evt,'nearest',{intersect:false},true);
+                        if(!hit.length)return;
+                        const p=pts[hit[0].index];
+                        openParticleModal(buildParticleMapUrl(cid,p.seq,p.mean,''));
+                    }
+                }
+            });
+            sparkInstances.push(inst);
+        }
+
+        // 抓 chartdata，畫 Preview 縮圖 + 填 PRE / ADDER MAP
+        async function hydrateAdder(picked){
+            const box=document.getElementById('adderChartDetail');
+            if(!box)return;
+            sparkInstances.forEach(c=>{try{c.destroy();}catch(e){}});sparkInstances=[];
+
+            const sparks=[...box.querySelectorAll('.npw-spark[data-cid]')];
+            const cids=[...new Set(sparks.map(e=>e.getAttribute('data-cid')).filter(Boolean))];
+            if(!cids.length)return;
+
+            const start=startTuesdayFor(picked);
+            const days=[];for(let i=0;i<7;i++){const d=new Date(start.getFullYear(),start.getMonth(),start.getDate());d.setDate(start.getDate()+i);days.push(fmtYMDDash(d));}
+            const weekEnd=new Date(start.getFullYear(),start.getMonth(),start.getDate());weekEnd.setDate(start.getDate()+6);
+
+            let series={};
+            try{
+                const qs=new URLSearchParams({op:'chartdata',cids:cids.join(','),end:fmtYMDDash(weekEnd),days:'60'});
+                const res=await fetch('NPW_Alarm.aspx?'+qs.toString(),{cache:'no-store'});
+                const data=await res.json();
+                if(data.ok)series=data.series||{};
+            }catch(e){console.error(e);}
+
+            sparks.forEach(el=>{const cid=el.getAttribute('data-cid');drawSpark(el.querySelector('canvas'),series[cid]||[],days,cid);});
+
+            box.querySelectorAll('.npw-cell-map').forEach(td=>{
+                const cid=td.getAttribute('data-cid'),kind=td.getAttribute('data-kind');
+                const ap=pickAlarmPoint(series[cid]||[],days);
+                if(!ap){td.innerHTML='<span style="color:#94a3b8;">-</span>';return;}
+                const url=buildParticleMapUrl(cid,ap.seq,ap.mean,kind);
+                const img=document.createElement('img');
+                img.className='npw-map-img';img.alt=kind+' map';img.loading='lazy';
+                img.title=kind+'｜SEQ='+ap.seq+'｜'+(ap.lot||'')+' '+(ap.wafer||'');
+                img.src=url;
+                img.addEventListener('click',()=>openParticleModal(url));
+                img.addEventListener('error',()=>{
+                    const b=document.createElement('button');b.type='button';b.className='npw-mini-btn';b.textContent='開啟';
+                    b.addEventListener('click',()=>openParticleModal(url));
+                    if(img.parentNode)img.parentNode.replaceChild(b,img);
+                });
+                td.appendChild(img);
+            });
+        }
 
         function renderInlineChartDetails(picked){
             const a=document.getElementById('adderChartDetail');
             const n=document.getElementById('nonAdderChartDetail');
             if(a)a.innerHTML=buildInlineChartDetailHtml(picked,true);
             if(n)n.innerHTML=buildInlineChartDetailHtml(picked,false);
+            hydrateAdder(picked);
         }
 
         // ===== 初始化 =====
@@ -650,15 +767,12 @@
                 try{await loadFromDb(picked);refreshTables(picked);}catch(e){/* 已顯示 */}
             }
 
-            // ADDER 明細的 Chart / Pre_map / Post_map 按鈕（事件委派）
-            document.addEventListener('click',e=>{
-                const btn=e.target.closest('.npw-mini-btn');
-                if(!btn)return;
-                const cid=btn.getAttribute('data-cid')||'',cname=btn.getAttribute('data-cname')||'',act=btn.getAttribute('data-act');
-                if(act==='chart')openSpcChart(cid,cname);
-                else if(act==='pre')openWaferMap(cid,cname,'PRE');
-                else if(act==='post')openWaferMap(cid,cname,'POST');
-            });
+            // Particle Map modal 關閉
+            const pmClose=document.getElementById('particle-close');
+            if(pmClose)pmClose.addEventListener('click',closeParticleModal);
+            const pmModal=document.getElementById('particle-modal');
+            if(pmModal)pmModal.addEventListener('click',e=>{if(e.target===pmModal)closeParticleModal();});
+            document.addEventListener('keydown',e=>{if(e.key==='Escape')closeParticleModal();});
 
             const calBtn=document.getElementById('calBtn');
             if(calBtn)calBtn.addEventListener('click',()=>{
@@ -679,6 +793,17 @@
         })();
     })();
     </script>
+
+    <!-- Particle Map modal (沿用 Tool-ABC) -->
+    <div id="particle-modal">
+        <div class="pm-box">
+            <div class="pm-head">
+                <b id="particle-title">Particle Map</b>
+                <button id="particle-close" type="button">關閉</button>
+            </div>
+            <iframe id="particle-iframe" src="about:blank"></iframe>
+        </div>
+    </div>
 
     <!-- ============================================================
          AI chat widget

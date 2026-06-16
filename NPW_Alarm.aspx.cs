@@ -64,6 +64,19 @@ public partial class NPW_Alarm : Page
             Response.End();
             return;
         }
+        if (string.Equals(opStr, "chartdata", StringComparison.OrdinalIgnoreCase))
+        {
+            Response.ContentType = "application/json; charset=utf-8";
+            Response.Cache.SetCacheability(HttpCacheability.NoCache);
+            try { HandleChartData(); }
+            catch (Exception ex)
+            {
+                Response.StatusCode = 500;
+                Response.Write("{\"ok\":false,\"error\":\"" + JsonEscape(ex.Message) + "\"}");
+            }
+            Response.End();
+            return;
+        }
         // Otherwise fall through to render the page.
     }
 
@@ -122,6 +135,73 @@ public partial class NPW_Alarm : Page
             }},
             { "rows", rows }
         }));
+    }
+
+    // SPC trend series for the inline chart thumbnails. ?cids=ID1,ID2,...
+    // Optional ?days=60 history window (default 60), bounded by ?end=YYYY-MM-DD.
+    // Returns { ok, series: { CHART_ID: [ {d,xbar,ucl,lcl,mean,alarm,lot,wafer}, ... ] } }.
+    private void HandleChartData()
+    {
+        string cidsRaw = (Request.QueryString["cids"] ?? "").Trim();
+        if (cidsRaw.Length == 0)
+        {
+            Response.Write("{\"ok\":true,\"series\":{}}");
+            return;
+        }
+        // sanitize + cap the id list
+        var ids = new List<string>();
+        foreach (var part in cidsRaw.Split(','))
+        {
+            string p = part.Trim();
+            if (p.Length > 0 && ids.Count < 60 && !ids.Contains(p)) ids.Add(p);
+        }
+
+        int days;
+        if (!int.TryParse(Request.QueryString["days"], out days) || days <= 0 || days > 400) days = 60;
+        DateTime end;
+        if (!DateTime.TryParse(Request.QueryString["end"], out end)) end = DateTime.Today;
+        end = end.Date.AddDays(1);                 // inclusive of end date
+        DateTime start = end.AddDays(-days);
+
+        var args = new List<object>();
+        var ph = new List<string>();
+        foreach (var id in ids) { ph.Add("@p" + args.Count); args.Add(id); }
+        int pStart = args.Count; args.Add(start);
+        int pEnd = args.Count; args.Add(end);
+
+        string sql =
+            "SELECT CHART_ID, CHART_SEQ, CONVERT(varchar(19), UPDATE_TIME, 120) AS D, " +
+            "XBAR, SIGMA, UCL, LCL, MEAN_VALUE, ALARM_COUNT, LOT, WAFER " +
+            "FROM GPTDB_USPC.dbo.TF2_NPW_CHART WITH (NOLOCK) " +
+            "WHERE CHART_ID IN (" + string.Join(",", ph) + ") " +
+            "AND UPDATE_TIME >= @p" + pStart + " AND UPDATE_TIME < @p" + pEnd + " " +
+            "ORDER BY CHART_ID, UPDATE_TIME";
+        var rows = QueryRows(sql, args.ToArray());
+
+        var series = new Dictionary<string, object>();
+        foreach (var row in rows)
+        {
+            string cid = Convert.ToString(row["CHART_ID"]);
+            List<object> list;
+            object existing;
+            if (series.TryGetValue(cid, out existing)) list = (List<object>)existing;
+            else { list = new List<object>(); series[cid] = list; }
+            list.Add(new Dictionary<string, object> {
+                { "d", row["D"] },
+                { "seq", row["CHART_SEQ"] },
+                { "xbar", row["XBAR"] },
+                { "sigma", row["SIGMA"] },
+                { "ucl", row["UCL"] },
+                { "lcl", row["LCL"] },
+                { "mean", row["MEAN_VALUE"] },
+                { "alarm", row["ALARM_COUNT"] },
+                { "lot", row["LOT"] },
+                { "wafer", row["WAFER"] }
+            });
+        }
+
+        var ser = new JavaScriptSerializer { MaxJsonLength = int.MaxValue };
+        Response.Write(ser.Serialize(new Dictionary<string, object> { { "ok", true }, { "series", series } }));
     }
 
     // Generic read from GPTDB_USPC.dbo.TF2_NPW_CHART, returns JSON.
