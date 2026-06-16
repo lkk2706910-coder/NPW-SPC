@@ -11,13 +11,13 @@ using System.Web.UI;
 // No-auth home page + AI chat proxy.
 //
 // Routes:
-//   GET  Home.aspx            -> renders the page (no auth required)
-//   POST Home.aspx?op=chat    -> proxy to LLM
+//   GET  NPW_Alarm.aspx            -> renders the page (no auth required)
+//   POST NPW_Alarm.aspx?op=chat    -> proxy to LLM
 //
-// The page itself is rendered by Home.aspx markup; this code-behind
+// The page itself is rendered by NPW_Alarm.aspx markup; this code-behind
 // only handles the chat API op. DB queries from your own .aspx pages
 // go through DbHelper directly.
-public partial class Home : Page
+public partial class NPW_Alarm : Page
 {
     protected void Page_Load(object sender, EventArgs e)
     {
