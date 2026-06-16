@@ -669,8 +669,9 @@
             return m?m[1]:str;
         }
 
-        // ADDER 趨勢圖 Y 軸上限（避免單一高 alarm 點把管制線擠到最下方）
-        const ADDER_Y_MAX = 50;
+        // 趨勢圖 Y 軸上限（避免單一高 alarm 點把管制線擠到最下方）
+        const ADDER_Y_MAX = 50;     // ADDER (Preview)
+        const NONADDER_Y_MAX = 30;  // NON-ADDER (chart)
 
         // Chart.js 趨勢圖（沿用 Tool-ABC 樣式：MEAN_VALUE/UCL/XBAR(CL)/+1σ/+2σ + 圖例 + 軸）
         // yMax: 數字=固定上限(ADDER 用 50)；null=自動縮放(NON-ADDER)
@@ -735,7 +736,7 @@
             }catch(e){console.error(e);}
             sparks.forEach(el=>{
                 const cid=el.getAttribute('data-cid');
-                const yMax=el.getAttribute('data-block')==='A'?ADDER_Y_MAX:null; // ADDER 固定 50，NON-ADDER 自動
+                const yMax=el.getAttribute('data-block')==='A'?ADDER_Y_MAX:NONADDER_Y_MAX; // ADDER 50 / NON-ADDER 30
                 drawSpark(el.querySelector('canvas'),series[cid]||[],days,cid,yMax);
             });
         }
