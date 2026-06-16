@@ -678,20 +678,23 @@
             return m?m[1]:str;
         }
 
-        // 趨勢圖 Y 軸範圍
-        const ADDER_Y_MAX = 30;          // ADDER (Trend_Chart)：0 ~ 30
-        const NONADDER_XBAR_PCT = 0.10;  // NON-ADDER (Trend_Chart)：卡 XBAR ±10%
+        // 趨勢圖 Y 軸範圍：上界 = 該 chart UCL×(1+pct)，下界 = LCL×(1-pct)
+        const YBOUND_PCT = 0.01;  // UCL/LCL 各 ±1%
 
         // 代表 XBAR（取最後一個有效的 CL 值）
-        function reprXbar(pts){for(let i=pts.length-1;i>=0;i--){const v=pts[i]&&pts[i].xbar;if(v!=null&&isFinite(Number(v)))return Number(v);}return null;}
+        function reprVal(pts,key){for(let i=pts.length-1;i>=0;i--){const v=pts[i]&&pts[i][key];if(v!=null&&isFinite(Number(v)))return Number(v);}return null;}
 
         // Chart.js 趨勢圖（Tool-ABC 樣式：MEAN_VALUE/UCL/XBAR(CL)/+1σ/+2σ + 圖例 + 軸）
-        // opts: {yMin,yMax} 固定範圍；或 {xbarPct} 以 XBAR±百分比 卡上下界。
+        // opts: {yMin,yMax} 固定範圍；或 {uclLclPct} 以 UCL×(1+pct)/LCL×(1-pct) 卡上下界。
         function drawSpark(canvas,pts,days,cid,opts){
             if(!canvas||!window.Chart||!pts||!pts.length)return;
             opts=opts||{};
             let yMin=(opts.yMin!=null)?opts.yMin:null, yMax=(opts.yMax!=null)?opts.yMax:null;
-            if(opts.xbarPct!=null){const xb=reprXbar(pts);if(xb!=null){yMin=xb*(1-opts.xbarPct);yMax=xb*(1+opts.xbarPct);}}
+            if(opts.uclLclPct!=null){
+                const u=reprVal(pts,'ucl'), l=reprVal(pts,'lcl');
+                if(u!=null)yMax=u*(1+opts.uclLclPct);
+                yMin=(l!=null)?l*(1-opts.uclLclPct):0;
+            }
             const hasMin=(yMin!=null),hasMax=(yMax!=null);
             const labels=pts.map(p=>String(p.d||'').replace('T',' '));
             const meanRaw=pts.map(p=>p.mean==null?null:Number(p.mean));
@@ -780,7 +783,7 @@
             sparks.forEach(el=>{
                 const cid=el.getAttribute('data-cid');
                 const block=el.getAttribute('data-block');
-                const opts=block==='A'?{block:'A',yMin:0,yMax:ADDER_Y_MAX}:{block:'N',xbarPct:NONADDER_XBAR_PCT};
+                const opts={block:block==='A'?'A':'N',uclLclPct:YBOUND_PCT};
                 drawSpark(el.querySelector('canvas'),series[cid]||[],days,cid,opts);
             });
         }
