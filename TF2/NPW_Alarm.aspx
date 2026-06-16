@@ -50,6 +50,13 @@
         .seg-btn { padding: 6px 16px; border: 1px solid #1976d2; border-radius: 6px; background: #fff; color: #1976d2; cursor: pointer; font-size: 14px; font-weight: 600; }
         .seg-btn:hover { background: #eef4ff; }
         .seg-btn.active { background: #1976d2; color: #fff; }
+        .down-sum { border-collapse: collapse; font-size: 13px; color: #111; }
+        .down-sum td, .down-sum th { border: 1px solid #333; padding: 4px 12px; text-align: center; }
+        .down-sum .ds-title { background: #ffff66; font-weight: 700; }
+        .down-sum .ds-h { background: #fff; font-weight: 700; white-space: nowrap; }
+        .down-sum .ds-corner { background: #bcd6ee; }
+        .down-sum .ds-rowh { background: #bcd6ee; font-weight: 700; }
+        .down-sum .ds-v { background: #fff; }
         .wrap { max-width: none; margin: 0 auto; padding: 24px 18px; }
         .card {
             background: var(--panel);
@@ -341,8 +348,7 @@
         </section>
 
         <section id="sec-downchart" hidden>
-            <h2 style="color:#111;margin:4px 0;">down chart 作業區</h2>
-            <p style="color:#555;">(建置中)</p>
+            <div id="downAdderSummary" style="display:flex;gap:24px;flex-wrap:wrap;margin:8px 0 16px;"></div>
         </section>
     </div>
 
@@ -595,6 +601,28 @@
             updateTableByStats('tblAdder',stats,days,true,picked);
             updateTableByStats('tblNonAdder',stats,days,false,picked);
             renderInlineChartDetails(picked);
+            renderDownAdderSummary(stats,picked);
+        }
+
+        // down chart 作業區上方：各 entity 的 ADDER Target vs 本週 alarm 數
+        function fmtMD(d){return String(d.getMonth()+1).padStart(2,'0')+'/'+String(d.getDate()).padStart(2,'0');}
+        function renderDownAdderSummary(stats,picked){
+            const box=document.getElementById('downAdderSummary');
+            if(!box)return;
+            const start=startTuesdayFor(picked);
+            const end=new Date(start.getFullYear(),start.getMonth(),start.getDate()+6);
+            const wk='W'+getWeekNumber(start)+'('+fmtMD(start)+'~'+fmtMD(end)+')';
+            let html='';
+            ['NISACVD','SACVD'].forEach(ent=>{
+                const target=getWeeklyTargetCount(ent,true);
+                const cnt=(stats[ent]&&stats[ent].sum.alarmAdder)||0;
+                html+=`<table class="down-sum"><tbody>
+                    <tr><th class="ds-title" colspan="3">${ent} Alarm Counts</th></tr>
+                    <tr><td class="ds-corner"></td><td class="ds-h">Target</td><td class="ds-h">${wk}</td></tr>
+                    <tr><td class="ds-rowh">ADDER</td><td class="ds-v">${target}</td><td class="ds-v">${cnt}</td></tr>
+                </tbody></table>`;
+            });
+            box.innerHTML=html;
         }
 
         // ===== Chart Alarm Detail =====
