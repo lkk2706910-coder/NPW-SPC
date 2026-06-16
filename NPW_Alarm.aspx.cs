@@ -23,6 +23,19 @@ using System.Web.UI;
 // which can eat the newline after a non-ASCII char and break compilation.
 public partial class NPW_Alarm : Page
 {
+    // Source table: TF1 page -> TF1_NPW_CHART, otherwise TF2_NPW_CHART.
+    // Decided by the requested page name so the same code serves both.
+    protected string ChartTable
+    {
+        get
+        {
+            string p = (Request != null && Request.Path != null) ? Request.Path : "";
+            return (p.IndexOf("TF1", StringComparison.OrdinalIgnoreCase) >= 0)
+                ? "GPTDB_USPC.dbo.TF1_NPW_CHART"
+                : "GPTDB_USPC.dbo.TF2_NPW_CHART";
+        }
+    }
+
     protected void Page_Load(object sender, EventArgs e)
     {
         string opStr = Request.QueryString["op"];
@@ -130,7 +143,7 @@ public partial class NPW_Alarm : Page
         string sql =
             "SELECT PROCESSUNIT, CONVERT(varchar(10), UPDATE_TIME, 23) AS UPDATE_TIME, " +
             "MONITOR_TYPE, CHART_TYPE, CHART_NAME, CHART_ID, CHART_SEQ, CHART_DESC, ALARM_COUNT, MEASUREPU, MEAN_VALUE, WAFER, PARAMETER " +
-            "FROM GPTDB_USPC.dbo.TF2_NPW_CHART WITH (NOLOCK) " +
+            "FROM " + ChartTable + " WITH (NOLOCK) " +
             "WHERE UPDATE_TIME >= @p0 AND UPDATE_TIME < @p1 " +
             "AND MONITOR_TYPE = 'NORMAL' " +
             "AND ISNULL(CHART_DESC,'') <> 'Engineering' " +
@@ -185,8 +198,8 @@ public partial class NPW_Alarm : Page
 
         string sql =
             "SELECT CHART_ID, CHART_SEQ, CONVERT(varchar(19), UPDATE_TIME, 120) AS D, " +
-            "XBAR, SIGMA, UCL, LCL, MEAN_VALUE, ALARM_COUNT, LOT, WAFER " +
-            "FROM GPTDB_USPC.dbo.TF2_NPW_CHART WITH (NOLOCK) " +
+            "XBAR, SIGMA, UCL, LCL, AVG1STD, AVG_1STD, AVG2STD, AVG_2STD, MEAN_VALUE, ALARM_COUNT, LOT, WAFER " +
+            "FROM " + ChartTable + " WITH (NOLOCK) " +
             "WHERE CHART_ID IN (" + string.Join(",", ph) + ") " +
             "AND UPDATE_TIME >= @p" + pStart + " AND UPDATE_TIME < @p" + pEnd + " " +
             "ORDER BY CHART_ID, UPDATE_TIME";
@@ -207,6 +220,10 @@ public partial class NPW_Alarm : Page
                 { "sigma", row["SIGMA"] },
                 { "ucl", row["UCL"] },
                 { "lcl", row["LCL"] },
+                { "avg1", row["AVG1STD"] },
+                { "avgn1", row["AVG_1STD"] },
+                { "avg2", row["AVG2STD"] },
+                { "avgn2", row["AVG_2STD"] },
                 { "mean", row["MEAN_VALUE"] },
                 { "alarm", row["ALARM_COUNT"] },
                 { "lot", row["LOT"] },
@@ -233,7 +250,7 @@ public partial class NPW_Alarm : Page
         if (pu.Length > 0) { conds.Add("PROCESSUNIT LIKE @p" + args.Count + " + '%'"); args.Add(pu); }
         string where = conds.Count > 0 ? " WHERE " + string.Join(" AND ", conds) : "";
 
-        string sql = "SELECT TOP " + top + " * FROM GPTDB_USPC.dbo.TF2_NPW_CHART WITH (NOLOCK)"
+        string sql = "SELECT TOP " + top + " * FROM " + ChartTable + " WITH (NOLOCK)"
                      + where + " ORDER BY UPDATE_TIME DESC";
         var rows = QueryRows(sql, args.ToArray());
 

@@ -1,10 +1,10 @@
-<%@ Page Language="C#" AutoEventWireup="true" Inherits="NPW_Alarm" CodeFile="NPW_Alarm.aspx.cs" %>
+<%@ Page Language="C#" AutoEventWireup="true" Inherits="NPW_Alarm_TF1" CodeFile="NPW_Alarm_TF1.aspx.cs" %>
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>TF2 NPW Alarm 週報</title>
+    <title>TF1 NPW Alarm 週報</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.3.0/dist/chart.umd.min.js"></script>
     <style>
         :root {
@@ -133,7 +133,7 @@
 </head>
 <body>
     <div class="topbar">
-        <h1>TF2 NPW Alarm 週報</h1>
+        <h1>TF1 NPW Alarm 週報</h1>
     </div>
 
     <div class="wrap">
