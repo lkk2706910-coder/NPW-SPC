@@ -57,6 +57,9 @@
         .down-sum .ds-corner { background: #bcd6ee; }
         .down-sum .ds-rowh { background: #bcd6ee; font-weight: 700; }
         .down-sum .ds-v { background: #fff; }
+        .dc-toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 4px 0 14px; }
+        .dc-toolbar button { padding: 6px 14px; border: 0; border-radius: 6px; background: #1976d2; color: #fff; cursor: pointer; }
+        .dc-toolbar input[type="date"] { padding: 6px 8px; border: 1px solid #999; border-radius: 4px; background: #fff; color: #111; font-size: 14px; }
         .sched-title { font-weight: 700; color: #c00; margin: 12px 0 4px; }
         .sched-scroll { overflow-x: auto; margin-bottom: 16px; }
         .sched { border-collapse: collapse; font-size: 12px; color: #111; background: #fff; }
@@ -354,6 +357,12 @@
         </section>
 
         <section id="sec-downchart" hidden>
+            <div class="dc-toolbar">
+                <button id="dcPrev" type="button">◀ 上週</button>
+                <input id="dcDate" type="date" />
+                <button id="dcNext" type="button">下週 ▶</button>
+                <span id="dcWeek" class="npw-week-hint"></span>
+            </div>
             <div id="downAdderSummary" style="display:flex;gap:24px;flex-wrap:wrap;margin:8px 0 16px;"></div>
             <div id="downSchedule"></div>
         </section>
@@ -1007,9 +1016,20 @@
             setHeadersByPickedDate(today);
             updateWeekHint(today);
 
+            const dcDate=document.getElementById('dcDate');
+            const dcWeek=document.getElementById('dcWeek');
+            // 報表日期選擇器與作業區週別選擇器同步同一週
+            function syncWeekControls(picked){
+                const iso=toISODateLocal(picked);
+                if(input.value!==iso)input.value=iso;
+                if(dcDate&&dcDate.value!==iso)dcDate.value=iso;
+                if(dcWeek){const s=startTuesdayFor(picked);const e=new Date(s.getFullYear(),s.getMonth(),s.getDate()+6);dcWeek.textContent='W'+getWeekNumber(s)+'（'+fmtMD(s)+'~'+fmtMD(e)+'）';}
+            }
+
             async function reload(picked){
                 setHeadersByPickedDate(picked);
                 updateWeekHint(picked);
+                syncWeekControls(picked);
                 try{await loadFromDb(picked);refreshTables(picked);}catch(e){/* 已顯示 */}
             }
 
@@ -1027,6 +1047,13 @@
                 if(!input.value)return;
                 reload(new Date(input.value+'T00:00:00'));
             });
+
+            // 作業區週別選擇
+            const curWeek=()=>{const v=(dcDate&&dcDate.value)||input.value;return v?new Date(v+'T00:00:00'):new Date();};
+            if(dcDate)dcDate.addEventListener('change',()=>{if(dcDate.value)reload(new Date(dcDate.value+'T00:00:00'));});
+            const dcPrev=document.getElementById('dcPrev'),dcNext=document.getElementById('dcNext');
+            if(dcPrev)dcPrev.addEventListener('click',()=>{const d=curWeek();d.setDate(d.getDate()-7);reload(d);});
+            if(dcNext)dcNext.addEventListener('click',()=>{const d=curWeek();d.setDate(d.getDate()+7);reload(d);});
 
             reload(today);
         })();
