@@ -183,6 +183,7 @@
         .npw-report-card .npw-spark canvas{display:block;width:100%!important;height:100%!important;}
         .npw-report-card .npw-cell-map{text-align:center;padding:2px!important;}
         .npw-report-card .adder-map-thumb{width:184px;max-width:184px;height:auto;border:1px solid #bbb;background:#fafafa;object-fit:contain;display:block;margin:0 auto;cursor:zoom-in;}
+        .npw-report-card .npw-profile-frame{width:392px;height:230px;border:1px solid #bbb;background:#fff;display:block;}
         .npw-report-card .dup-chart{background:#ffe19a!important;}
         .npw-report-card .dim-row{background:#d9d9d9!important;}
         .npw-report-card .inline-empty{padding:8px 10px;color:#666;font-size:12px;background:#fff;border:1px dashed #999;}
@@ -621,7 +622,7 @@
                 <tr><th style="width:80px;">Entity</th><th style="width:80px;">CHART_ID</th><th class="cn-col">CHART_NAME</th>
                 <th style="width:70px;text-align:center;">Alarm 次數</th><th style="width:160px;">ALARM 日期</th>`;
             if(isAdder)head+=`<th style="width:380px;text-align:center;">Trend_Chart</th><th style="width:200px;text-align:center;">PRE_Map</th><th style="width:200px;text-align:center;">ADDER_Map</th><th style="width:110px;">Measure_Tool</th>`;
-            else head+=`<th style="width:380px;text-align:center;">Trend_Chart</th><th style="width:200px;text-align:center;">Profile</th><th style="width:110px;">Measure_Tool</th>`;
+            else head+=`<th style="width:380px;text-align:center;">Trend_Chart</th><th style="width:400px;text-align:center;">Profile</th><th style="width:110px;">Measure_Tool</th>`;
             head+=`</tr>`;
 
             let html=`<table class="chart-detail"><thead>${head}</thead><tbody>`;
@@ -650,9 +651,9 @@
                           `<td class="npw-cell-map"><span class="adder-map" ${da} style="color:#999;">...</span></td>`+
                           measureCell;
                 }else{
-                    const profileUrl=buildProfileUrl(r.chartId,r.chartSeq,r.parameter);
+                    const profileUrl=buildProfileUrl(site,r.chartId,r.chartSeq,r.pointValue);
                     const profileCell=profileUrl
-                        ? `<td class="npw-cell-map"><a href="openie:${encodeURIComponent(profileUrl)}" target="_blank" rel="noopener noreferrer" class="npw-mini-btn" title="開啟 Profile (IE)">開啟 Profile</a></td>`
+                        ? `<td class="npw-cell-map"><iframe class="npw-profile-frame" src="${escapeHtml(profileUrl)}" loading="lazy" title="Profile"></iframe></td>`
                         : `<td class="npw-cell-map">-</td>`;
                     extra=previewCell+profileCell+measureCell;
                 }
@@ -668,25 +669,14 @@
         // Map / MeasurePU 代理（與 refer.html 相同）。路徑相對於本頁，視部署位置調整。
         const MAP_PROXY = 'TF2api/SpcMapInfoProxy.ashx';
 
-        // NON-ADDER profile：直接連到 contour 檢視器（以 alarm 點的 CHART_SEQ 對齊 WAFERID）
-        const PROFILE_BASE = 'http://10.10.101.170/Project1/_Contour_Multi_DataShowMap.asp';
-        const PROFILE_SUFFIXES = ['GOF', 'RAW', 'RI']; // 藍色關鍵字 RAW 在其中
-        function profileBase(parameter){
-            const parts=String(parameter||'').split('-').filter(x=>x!=='');
-            const upper=parts.map(x=>x.toUpperCase());
-            const ti=upper.lastIndexOf('THK');
-            if(ti>=0)return parts.slice(0,ti+1).join('-');                 // 取到 -THK 為止
-            if(parts.length>1&&PROFILE_SUFFIXES.indexOf(upper[upper.length-1])>=0)return parts.slice(0,-1).join('-');
-            return parts.join('-');
-        }
-        function buildProfileUrl(chartId,chartSeq,parameter){
+        // NON-ADDER profile：內嵌 contour 檢視器入口。
+        // 用 _Contour_Multi.asp（非 DataShowMap）— 伺服器會自行帶出正確的 myParaList，
+        // 不需我們從欄位猜 base；以 alarm 點的 CHART_SEQ 對齊 WAFERID。
+        const CONTOUR_BASE = 'http://10.10.101.170/Project1/_Contour_Multi.asp';
+        function buildProfileUrl(site,chartId,chartSeq,pointValue){
             if(!chartId||chartSeq==null||String(chartSeq)==='')return '';
-            const base=profileBase(parameter);
-            if(!base)return '';
-            let paraList='';
-            PROFILE_SUFFIXES.forEach(s=>{paraList+=base+'-'+s+'^'+base+'-'+s+'^';});
-            const p=new URLSearchParams({AutoScale:'N',ChartID:String(chartId),ChartSEQ:String(chartSeq),myMinMax:''});
-            return PROFILE_BASE+'?'+p.toString()+'&myParaList='+encodeURIComponent(paraList);
+            const p=new URLSearchParams({site:site||'12AP58',ChartID:String(chartId),ChartSEQ:String(chartSeq),PointValue:(pointValue==null?'':String(pointValue))});
+            return CONTOUR_BASE+'?'+p.toString();
         }
 
         // MEASUREPU 顯示用：取 ^SP5^ 後面那段（如 KLA-Tencor^SP5^CUSFSCAN-B05 -> CUSFSCAN-B05）
