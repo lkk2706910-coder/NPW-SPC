@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Configuration;
+using System.Data;
+using System.Data.SqlClient;
 using System.IO;
 using System.Net;
 using System.Text;
@@ -107,7 +109,7 @@ public partial class NPW_Alarm : Page
             "AND ISNULL(CHART_DESC,'') <> 'Engineering' " +
             "AND CHART_TYPE IN ('C-C','XBAR') " +
             "AND (PROCESSUNIT LIKE 'NISACVD%' OR PROCESSUNIT LIKE 'SACVD%')";
-        var rows = DbHelper.QueryRows(sql, weekStart, weekEndExcl);
+        var rows = QueryRows(sql, weekStart, weekEndExcl);
 
         var ser = new JavaScriptSerializer { MaxJsonLength = int.MaxValue };
         Response.Write(ser.Serialize(new Dictionary<string, object> {
@@ -139,7 +141,7 @@ public partial class NPW_Alarm : Page
 
         string sql = "SELECT TOP " + top + " * FROM GPTDB_USPC.dbo.TF2_NPW_CHART WITH (NOLOCK)"
                      + where + " ORDER BY UPDATE_TIME DESC";
-        var rows = DbHelper.QueryRows(sql, args.ToArray());
+        var rows = QueryRows(sql, args.ToArray());
 
         // DateTime -> string for the client (avoid /Date(ms)/).
         foreach (var row in rows)
@@ -232,5 +234,48 @@ public partial class NPW_Alarm : Page
     {
         if (s == null) return "";
         return s.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "");
+    }
+
+    // ---- Inlined DB helper (self-contained, no App_Code dependency) ----
+    // App_Code only auto-compiles at the application root. This page may be
+    // dropped into a subfolder of an existing app, so the helper lives here.
+    private static string ConnStr()
+    {
+        ConnectionStringSettings cs = ConfigurationManager.ConnectionStrings["EMST"];
+        if (cs != null && !string.IsNullOrWhiteSpace(cs.ConnectionString))
+            return cs.ConnectionString;
+        // Fallback if the app's web.config has no EMST entry.
+        return "Server=UMCESIDB02;Database=GPTPoCDB;User ID=GPTPoCDBUser;Password=DB02.2026;TrustServerCertificate=True;";
+    }
+
+    // Parameters map to @p0, @p1, ... in order.
+    private static List<Dictionary<string, object>> QueryRows(string sql, params object[] args)
+    {
+        var rows = new List<Dictionary<string, object>>();
+        using (SqlConnection conn = new SqlConnection(ConnStr()))
+        {
+            conn.Open();
+            using (SqlCommand cmd = conn.CreateCommand())
+            {
+                cmd.CommandType = CommandType.Text;
+                cmd.CommandText = sql;
+                cmd.CommandTimeout = 120;
+                if (args != null)
+                    for (int i = 0; i < args.Length; i++)
+                        cmd.Parameters.AddWithValue("@p" + i, args[i] ?? DBNull.Value);
+
+                using (SqlDataReader rdr = cmd.ExecuteReader())
+                {
+                    while (rdr.Read())
+                    {
+                        var row = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+                        for (int i = 0; i < rdr.FieldCount; i++)
+                            row[rdr.GetName(i)] = rdr.IsDBNull(i) ? null : rdr.GetValue(i);
+                        rows.Add(row);
+                    }
+                }
+            }
+        }
+        return rows;
     }
 }
