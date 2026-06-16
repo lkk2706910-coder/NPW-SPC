@@ -149,53 +149,108 @@
         </div>
 
         <div class="card">
-            <h2>NPW 資料 (TF2_NPW_CHART)</h2>
-            <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:10px;">
-                <input id="fArea" placeholder="AREA(選填,如 TF2)" style="padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;" />
-                <input id="fPu" placeholder="PROCESSUNIT 前綴(選填)" style="padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;min-width:180px;" />
-                <input id="fTop" type="number" value="100" min="1" max="5000" title="筆數" style="width:90px;padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;" />
-                <button id="fLoad" type="button" style="padding:6px 14px;border:0;border-radius:6px;background:#1976d2;color:#fff;cursor:pointer;font-size:13px;">讀取</button>
-                <span id="fStatus" style="color:#64748b;font-size:12px;"></span>
+            <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
+                <h2 style="margin:0;">NPW Alarm 週報</h2>
+                <span id="awWeek" style="color:#0f4aa8; font-weight:700;"></span>
+                <label style="font-size:13px;color:#64748b;">週(任一天)
+                    <input id="awDate" type="date" style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;" />
+                </label>
+                <button id="awLoad" type="button" style="padding:6px 14px;border:0;border-radius:6px;background:#1976d2;color:#fff;cursor:pointer;">讀取</button>
+                <span id="awStatus" style="color:#64748b;font-size:12px;"></span>
             </div>
-            <div style="overflow:auto; max-height:480px; border:1px solid #e5e7eb; border-radius:8px;">
-                <table id="dataTable" style="border-collapse:collapse; width:100%; font-size:12px;"></table>
-            </div>
+            <div id="awContent"></div>
         </div>
     </div>
 
     <script>
-    // NPW 資料預覽：呼叫 NPW_Alarm.aspx?op=data 讀 TF2_NPW_CHART
+    // NPW Alarm 週報：呼叫 NPW_Alarm.aspx?op=alarm
     (function () {
-        const KEYS = ['CHART_NAME','AREA','PROCESSUNIT','RECIPE','MEAN_VALUE','UCL','LCL',
-                      'SPEC_HIGH','SPEC_LOW','SPEC_TARGET','ALARM_COUNT','OOS_COUNT','OOC_COUNT',
-                      'MONITOR_TYPE','PARAMETER','UPDATE_TIME'];
-        const tbl = document.getElementById('dataTable');
-        const st = document.getElementById('fStatus');
+        // 週目標率(%)：依截圖預設，可在此調整（Target 算法待確認）
+        const TARGET_RATE = {
+            'ADDER':     { 'NISACVD': 1.17, 'SACVD': 1.35 },
+            'NON-ADDER': { 'NISACVD': 0.60, 'SACVD': 0.75 }
+        };
+        const BLOCKS = ['ADDER', 'NON-ADDER'];
+        const ENTITIES = ['NISACVD', 'SACVD'];
+        const $ = id => document.getElementById(id);
         const esc = v => v == null ? '' : String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;');
-        function render(rows) {
-            const head = '<thead><tr>' + KEYS.map(k =>
-                '<th style="border:1px solid #e2e8f0;padding:5px 7px;background:#f5f7fb;position:sticky;top:0;white-space:nowrap;">' + k + '</th>').join('') + '</tr></thead>';
-            const body = rows.map(r => '<tr>' + KEYS.map(k =>
-                '<td style="border:1px solid #eef2f7;padding:5px 7px;white-space:nowrap;">' + esc(r[k]) + '</td>').join('') + '</tr>').join('');
-            tbl.innerHTML = head + '<tbody>' + body + '</tbody>';
+        const th = t => '<th style="border:1px solid #e2e8f0;padding:5px 7px;background:#f5f7fb;white-space:nowrap;">' + esc(t) + '</th>';
+        const td = (t, a) => '<td style="border:1px solid #eef2f7;padding:4px 7px;text-align:' + (a || 'center') + ';white-space:nowrap;">' + esc(t) + '</td>';
+
+        function render(data) {
+            const wk = data.week || {};
+            $('awWeek').textContent = (wk.label || '') + '  ' + (wk.start || '') + ' ~ ' + (wk.end || '');
+            const days = wk.days || [];
+            const alarms = data.alarms || [];
+            const monMap = {};
+            (data.monitor || []).forEach(m => { monMap[m.Block + '|' + m.Entity] = Number(m.MonitorCount) || 0; });
+
+            let html = '';
+            BLOCKS.forEach(block => {
+                const blockAlarms = alarms.filter(a => a.Block === block);
+
+                // ---- 摘要表 ----
+                html += '<h3 style="margin:14px 0 6px;background:#dbeafe;padding:6px 10px;border-radius:6px;">' + block + '</h3>';
+                html += '<div style="overflow:auto;"><table style="border-collapse:collapse;width:100%;font-size:12px;margin-bottom:8px;">';
+                html += '<thead><tr>' + th('Entity') + days.map(d => th(d)).join('') +
+                        th('Alarm Counts') + th('Alarm rate') + th('Weekly Target Rate') + th('Weekly Target Count') + th('Total Monitor Count') + '</tr></thead><tbody>';
+                let totAlarm = 0, totMon = 0;
+                ENTITIES.forEach(ent => {
+                    const rows = blockAlarms.filter(a => a.Entity === ent);
+                    const perDay = {}; days.forEach(d => perDay[d] = 0);
+                    rows.forEach(a => { if (perDay[a.D] != null) perDay[a.D]++; });
+                    const alarmCount = rows.length;
+                    const mon = monMap[block + '|' + ent] || 0;
+                    const rate = mon ? (alarmCount / mon * 100) : 0;
+                    const tRate = (TARGET_RATE[block] && TARGET_RATE[block][ent]) || 0;
+                    const tCount = Math.round(mon * tRate / 100);
+                    totAlarm += alarmCount; totMon += mon;
+                    html += '<tr>' + td(ent, 'left') + days.map(d => td(perDay[d] || '')).join('') +
+                            td(alarmCount) + td(rate.toFixed(2) + '%') + td(tRate.toFixed(2) + '%') + td(tCount) + td(mon) + '</tr>';
+                });
+                const totRate = totMon ? (totAlarm / totMon * 100) : 0;
+                html += '<tr style="font-weight:700;background:#f1f5f9;">' + td('Total Alarm', 'left') +
+                        days.map(() => td('')).join('') + td(totAlarm) + td(totRate.toFixed(2) + '%') + td('') + td('') + td(totMon) + '</tr>';
+                html += '</tbody></table></div>';
+
+                // ---- 明細表 ----
+                const detail = {};
+                blockAlarms.forEach(a => {
+                    if (!detail[a.CHART_NAME]) detail[a.CHART_NAME] = { entity: a.Entity, chartId: a.CHART_ID, name: a.CHART_NAME, dates: [] };
+                    if (detail[a.CHART_NAME].dates.indexOf(a.D) < 0) detail[a.CHART_NAME].dates.push(a.D);
+                });
+                const dlist = Object.keys(detail).map(k => detail[k])
+                    .sort((x, y) => x.entity.localeCompare(y.entity) || x.name.localeCompare(y.name));
+                html += '<div style="font-weight:700;color:#0f4aa8;margin:4px 0;">' + block + ' — Chart Alarm Detail (' + (wk.label || '') + ')</div>';
+                html += '<div style="overflow:auto;max-height:360px;border:1px solid #e5e7eb;border-radius:8px;"><table style="border-collapse:collapse;width:100%;font-size:12px;">';
+                html += '<thead><tr>' + th('Entity') + th('CHART_ID') + th('CHART_NAME') + th('Alarm 次數') + th('ALARM 日期') + th('重複') + '</tr></thead><tbody>';
+                dlist.forEach(r => {
+                    const cnt = r.dates.length;
+                    html += '<tr>' + td(r.entity, 'left') + td(r.chartId) +
+                            '<td style="border:1px solid #eef2f7;padding:4px 7px;text-align:left;white-space:nowrap;color:#1d4ed8;">' + esc(r.name) + '</td>' +
+                            td(cnt) + td(r.dates.sort().join(', '), 'left') + td(cnt > 1 ? 'Y' : '') + '</tr>';
+                });
+                if (!dlist.length) html += '<tr><td colspan="6" style="padding:8px;color:#94a3b8;">本週無 alarm</td></tr>';
+                html += '</tbody></table></div>';
+            });
+            $('awContent').innerHTML = html;
         }
+
         async function load() {
-            const qs = new URLSearchParams({ op: 'data', top: (document.getElementById('fTop').value || '100') });
-            const area = document.getElementById('fArea').value.trim();
-            const pu = document.getElementById('fPu').value.trim();
-            if (area) qs.set('area', area);
-            if (pu) qs.set('pu', pu);
-            st.textContent = '讀取中…';
+            const qs = new URLSearchParams({ op: 'alarm' });
+            const date = $('awDate').value;
+            if (date) qs.set('date', date);
+            $('awStatus').textContent = '讀取中…';
             try {
                 const res = await fetch('NPW_Alarm.aspx?' + qs.toString(), { cache: 'no-store' });
                 const data = await res.json();
                 if (!data.ok) throw new Error(data.error || ('HTTP ' + res.status));
-                render(data.rows || []);
-                st.textContent = '共 ' + data.count + ' 列';
-            } catch (e) { st.textContent = '錯誤：' + e.message; }
+                render(data);
+                $('awStatus').textContent = '';
+            } catch (e) { $('awStatus').textContent = '錯誤：' + e.message; }
         }
-        document.getElementById('fLoad').addEventListener('click', load);
-        load(); // 開頁先載入一次
+        $('awLoad').addEventListener('click', load);
+        load();
     })();
     </script>
 
