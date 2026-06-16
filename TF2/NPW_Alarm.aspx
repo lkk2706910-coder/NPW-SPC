@@ -46,6 +46,10 @@
             gap: 14px;
         }
         .topbar h1 { font-size: 16px; margin: 0; }
+        .seg-tabs { display: flex; gap: 8px; margin-left: auto; }
+        .seg-btn { padding: 6px 16px; border: 1px solid #1976d2; border-radius: 6px; background: #fff; color: #1976d2; cursor: pointer; font-size: 14px; font-weight: 600; }
+        .seg-btn:hover { background: #eef4ff; }
+        .seg-btn.active { background: #1976d2; color: #fff; }
         .wrap { max-width: none; margin: 0 auto; padding: 24px 18px; }
         .card {
             background: var(--panel);
@@ -134,7 +138,11 @@
 </head>
 <body>
     <div class="topbar">
-        <h1>TF2 NPW Alarm 週報</h1>
+        <h1>TF2 NPW</h1>
+        <div class="seg-tabs">
+            <button type="button" class="seg-btn active" data-sec="weekly">NPW Alarm 週報</button>
+            <button type="button" class="seg-btn" data-sec="downchart">down chart 作業區</button>
+        </div>
     </div>
 
     <div class="wrap">
@@ -188,6 +196,7 @@
         .npw-report-card .dim-row{background:#d9d9d9!important;}
         .npw-report-card .inline-empty{padding:8px 10px;color:#666;font-size:12px;background:#fff;border:1px dashed #999;}
         </style>
+        <section id="sec-weekly">
         <div class="card npw-report-card">
             <div class="npw-toolbar">
                 <h2 style="margin:0;">NPW Alarm 週報</h2>
@@ -329,7 +338,26 @@
             </div>
             <div id="nonAdderChartDetail"></div>
         </div>
+        </section>
+
+        <section id="sec-downchart" hidden>
+            <h2 style="color:#111;margin:4px 0;">down chart 作業區</h2>
+            <p style="color:#555;">(建置中)</p>
+        </section>
     </div>
+
+    <script>
+    // 上方區塊切換：NPW Alarm 週報 / down chart 作業區
+    (function(){
+        const btns=[...document.querySelectorAll('.seg-btn')];
+        const secs={weekly:document.getElementById('sec-weekly'),downchart:document.getElementById('sec-downchart')};
+        function show(name){
+            for(const k in secs){if(secs[k])secs[k].hidden=(k!==name);}
+            btns.forEach(b=>b.classList.toggle('active',b.getAttribute('data-sec')===name));
+        }
+        btns.forEach(b=>b.addEventListener('click',()=>show(b.getAttribute('data-sec'))));
+    })();
+    </script>
 
     <script>
     // NPW Alarm 週報：沿用原工具(TF2_NPW.html)的判讀邏輯，資料來源改為
