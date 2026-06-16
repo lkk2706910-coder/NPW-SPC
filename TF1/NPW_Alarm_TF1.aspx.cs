@@ -240,9 +240,9 @@ public partial class NPW_Alarm_TF1 : Page
     // NON-ADDER profile single image (contour RAW). See TF2 page for details.
     private void HandleProfileImg()
     {
-        string site = Regex.Replace(Request.QueryString["site"] ?? "12AP58", "[^0-9A-Za-z]", "");
-        if (!string.Equals(site, "12AP58", StringComparison.OrdinalIgnoreCase) &&
-            !string.Equals(site, "12AP14", StringComparison.OrdinalIgnoreCase)) site = "12AP58";
+        string site = Regex.Replace(Request.QueryString["site"] ?? "12AP14", "[^0-9A-Za-z]", "");
+        if (!string.Equals(site, "12AP14", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(site, "12AP14", StringComparison.OrdinalIgnoreCase)) site = "12AP14";
         string chartId = Regex.Replace(Request.QueryString["chartId"] ?? "", "[^0-9]", "");
         string chartSeq = Regex.Replace(Request.QueryString["chartSeq"] ?? "", "[^0-9]", "");
         string pointValue = Regex.Replace(Request.QueryString["pointValue"] ?? "", "[^0-9.]", "");

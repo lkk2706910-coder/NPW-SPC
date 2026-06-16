@@ -572,7 +572,7 @@
         function escapeHtml(s){return String(s==null?'':s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;');}
         function getChartAlarmDetail(start,entity,isAdder){return chartAlarmStats[fmtYMDDash(start)+'|'+entity+'|'+(isAdder?'ADDER':'NON_ADDER')]||null;}
         function getChartAlarmDateDetail(start,entity,isAdder){return chartAlarmDateStats[fmtYMDDash(start)+'|'+entity+'|'+(isAdder?'ADDER':'NON_ADDER')]||null;}
-        function buildChartUrl(chartId){if(!chartId)return null;return 'http://10.10.101.170/projectsite/SPCTool/PreviewMultiSPCTypeChart.aspx?site=12AP58&ChartList=NPW:'+encodeURIComponent(chartId);}
+        function buildChartUrl(chartId){if(!chartId)return null;return 'http://10.10.101.170/projectsite/SPCTool/PreviewMultiSPCTypeChart.aspx?site=12AP14&ChartList=NPW:'+encodeURIComponent(chartId);}
 
         function buildInlineChartDetailHtml(picked,isAdder){
             const start=startTuesdayFor(picked);
@@ -638,7 +638,7 @@
                 const rowClass=isDup?'dup-chart':(nonAdderDim?'dim-row':'');
                 const cid=escapeHtml(r.chartId||''),cname=escapeHtml(r.chartName||'');
                 const puUp=String(r.processUnit||'').trim().toUpperCase();
-                const site=puUp.startsWith('OXSE-A')?'12AP14':'12AP58';
+                const site=puUp.startsWith('OXSE-A')?'12AP14':'12AP14';
                 const seq=escapeHtml(r.chartSeq||'');
                 const pv=escapeHtml(r.pointValue==null?'':String(r.pointValue));
                 const da=`data-site="${site}" data-uchart-id="${cid}" data-chart-seq="${seq}" data-point-value="${pv}"`;
@@ -833,7 +833,7 @@
         }
         async function hydrateOne(el){
             if(el.dataset.hydrated)return; el.dataset.hydrated='1';
-            const site=el.getAttribute('data-site')||'12AP58';
+            const site=el.getAttribute('data-site')||'12AP14';
             if(el.classList.contains('profile-img')){
                 const cid=el.getAttribute('data-cid')||'',seq=el.getAttribute('data-seq')||'',pv=el.getAttribute('data-pv')||'',wafer=el.getAttribute('data-wafer')||'';
                 if(!cid||!seq){el.textContent='-';return;}
