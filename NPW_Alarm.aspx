@@ -662,19 +662,25 @@
             return m?m[1]:str;
         }
 
+        // ADDER 趨勢圖 Y 軸上限（避免單一高 alarm 點把管制線擠到最下方）
+        const ADDER_Y_MAX = 50;
+
         // Chart.js 趨勢圖（沿用 Tool-ABC 樣式：MEAN_VALUE/UCL/XBAR(CL)/+1σ/+2σ + 圖例 + 軸）
         function drawSpark(canvas,pts,days,cid){
             if(!canvas||!window.Chart||!pts||!pts.length)return;
             const labels=pts.map(p=>String(p.d||'').replace('T',' '));
-            const mean=pts.map(p=>p.mean==null?null:Number(p.mean));
+            const meanRaw=pts.map(p=>p.mean==null?null:Number(p.mean));
             const ucl=pts.map(p=>p.ucl==null?null:Number(p.ucl));
             const cl=pts.map(p=>p.xbar==null?null:Number(p.xbar));
             const p1=pts.map(p=>(p.xbar==null||p.sigma==null)?null:Number(p.xbar)+Number(p.sigma));
             const p2=pts.map(p=>(p.xbar==null||p.sigma==null)?null:Number(p.xbar)+2*Number(p.sigma));
             const set=new Set(days);
             const alarmPt=pts.map(p=>Number(p.alarm)>=1 && set.has(String(p.d||'').substring(0,10)));
-            const ptColor=alarmPt.map(a=>a?'red':'#000');
-            const ptRadius=alarmPt.map(a=>a?5:3);
+            // 超過上限的點裁到頂端並標紅（tooltip 仍顯示真值），確保管制線看得見
+            const overTop=meanRaw.map(v=>Number.isFinite(v)&&v>ADDER_Y_MAX);
+            const mean=meanRaw.map((v,i)=>overTop[i]?ADDER_Y_MAX:v);
+            const ptColor=alarmPt.map((a,i)=>(a||overTop[i])?'red':'#000');
+            const ptRadius=alarmPt.map((a,i)=>(a||overTop[i])?5:3);
             const inst=new Chart(canvas.getContext('2d'),{
                 type:'line',
                 data:{labels,datasets:[
@@ -688,11 +694,14 @@
                     layout:{padding:{top:4}},
                     plugins:{
                         legend:{display:true,position:'top',align:'end',labels:{usePointStyle:true,pointStyle:'line',boxWidth:26,boxHeight:8,padding:8,font:{size:9,weight:'700'}}},
-                        tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.formattedValue}}
+                        tooltip:{callbacks:{label:c=>{
+                            if(c.dataset.label==='MEAN_VALUE'){const rv=meanRaw[c.dataIndex];return 'MEAN_VALUE: '+(rv==null?'-':rv)+(overTop[c.dataIndex]?' (>上限)':'');}
+                            return c.dataset.label+': '+c.formattedValue;
+                        }}}
                     },
                     scales:{
                         x:{ticks:{font:{size:8},maxRotation:90,minRotation:90,autoSkip:true,maxTicksLimit:14}},
-                        y:{beginAtZero:true,ticks:{font:{size:9}}}
+                        y:{min:0,max:ADDER_Y_MAX,ticks:{font:{size:9}}}
                     }
                 }
             });
