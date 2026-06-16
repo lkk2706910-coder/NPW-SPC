@@ -8,15 +8,16 @@ using System.Web;
 using System.Web.Script.Serialization;
 using System.Web.UI;
 
-// No-auth home page + AI chat proxy.
+// No-auth home page + AI chat proxy + NPW weekly alarm data.
 //
 // Routes:
 //   GET  NPW_Alarm.aspx            -> renders the page (no auth required)
 //   POST NPW_Alarm.aspx?op=chat    -> proxy to LLM
+//   GET  NPW_Alarm.aspx?op=data    -> generic TF2_NPW_CHART query
+//   GET  NPW_Alarm.aspx?op=alarm   -> raw rows for the weekly alarm report
 //
-// The page itself is rendered by NPW_Alarm.aspx markup; this code-behind
-// only handles the chat API op. DB queries from your own .aspx pages
-// go through DbHelper directly.
+// NOTE: keep this file pure ASCII. Some servers compile .cs as Big5/CP950,
+// which can eat the newline after a non-ASCII char and break compilation.
 public partial class NPW_Alarm : Page
 {
     protected void Page_Load(object sender, EventArgs e)
@@ -64,7 +65,7 @@ public partial class NPW_Alarm : Page
         // Otherwise fall through to render the page.
     }
 
-    // ISO 週數（用於 W## 標籤）
+    // ISO week number (for the W## label).
     private static int IsoWeek(DateTime d)
     {
         var cal = System.Globalization.CultureInfo.InvariantCulture.Calendar;
@@ -73,26 +74,26 @@ public partial class NPW_Alarm : Page
         return cal.GetWeekOfYear(d, System.Globalization.CalendarWeekRule.FirstFourDayWeek, DayOfWeek.Monday);
     }
 
-    // NPW 週 alarm 報表用的「週原始資料」。?date=YYYY-MM-DD（週內任一天，預設今天）
-    //
-    // 沿用原工具(TF2_NPW.html)的判讀邏輯，由前端 JS 做彙總；後端只負責把該週
-    // 需要的欄位撈出來。對應規則：
-    //   - 資料區間：週二~週一（以 UPDATE_TIME 分日）
-    //   - ADDER / NON-ADDER：CHART_TYPE 'C-C' / 'XBAR'
-    //   - Entity：PROCESSUNIT 取 '-' 前字串（只看 NISACVD / SACVD）
-    //   - 排除 Engineering：CHART_DESC <> 'Engineering'
+    // Raw weekly rows for the NPW alarm report. ?date=YYYY-MM-DD (any day in the
+    // week, defaults to today). The browser does the aggregation, mirroring the
+    // original TF2_NPW.html tool. Rules:
+    //   - week range: Tuesday..Monday (bucketed by UPDATE_TIME)
+    //   - ADDER / NON-ADDER: CHART_TYPE 'C-C' / 'XBAR'
+    //   - Entity: PROCESSUNIT prefix before '-' (only NISACVD / SACVD shown)
+    //   - exclude Engineering: CHART_DESC <> 'Engineering'
     //   - MONITOR_TYPE = 'NORMAL'
-    //   - Alarm：ALARM_COUNT >= 1（前端判斷）
-    // 預先過濾的條件都只會剔除前端本來就會丟掉的列，故不影響結果，只是縮小傳輸量。
+    //   - Alarm: ALARM_COUNT >= 1 (decided on the client)
+    // The SQL pre-filters only drop rows the client would discard anyway, so it
+    // does not change results, it only shrinks the payload.
     private void HandleAlarm()
     {
         DateTime refDate;
         if (!DateTime.TryParse(Request.QueryString["date"], out refDate)) refDate = DateTime.Today;
-        // 週起點 = 不晚於 refDate 的最近「週二」
+        // week start = most recent Tuesday on or before refDate
         int diff = (((int)refDate.DayOfWeek) - ((int)DayOfWeek.Tuesday) + 7) % 7;
-        DateTime weekStart = refDate.Date.AddDays(-diff);   // 週二
-        DateTime weekEndExcl = weekStart.AddDays(7);        // 下週二(不含)
-        DateTime weekEnd = weekStart.AddDays(6);            // 週一
+        DateTime weekStart = refDate.Date.AddDays(-diff);   // Tuesday
+        DateTime weekEndExcl = weekStart.AddDays(7);        // next Tuesday (exclusive)
+        DateTime weekEnd = weekStart.AddDays(6);            // Monday
 
         var days = new List<string>();
         for (int i = 0; i < 7; i++) days.Add(weekStart.AddDays(i).ToString("yyyy-MM-dd"));
@@ -121,8 +122,8 @@ public partial class NPW_Alarm : Page
         }));
     }
 
-    // 讀取 GPTDB_USPC.dbo.TF2_NPW_CHART，回傳 JSON。
-    // 選填查詢參數：?area=TF2  &pu=NISACVD  &top=200
+    // Generic read from GPTDB_USPC.dbo.TF2_NPW_CHART, returns JSON.
+    // Optional query params: ?area=TF2  &pu=NISACVD  &top=200
     private void HandleData()
     {
         string area = (Request.QueryString["area"] ?? "").Trim();
@@ -140,7 +141,7 @@ public partial class NPW_Alarm : Page
                      + where + " ORDER BY UPDATE_TIME DESC";
         var rows = DbHelper.QueryRows(sql, args.ToArray());
 
-        // DateTime → 字串，方便前端顯示（避免 /Date(ms)/）
+        // DateTime -> string for the client (avoid /Date(ms)/).
         foreach (var row in rows)
         {
             var keys = new List<string>(row.Keys);

@@ -4,11 +4,15 @@ using System.Configuration;
 using System.Data;
 using System.Data.SqlClient;
 
-// 共用 DB 查詢工具。連線字串取自 web.config 的 ConnectionStrings["EMST"]。
-// 表 GPTDB_USPC.dbo.TF2_NPW_CHART 用三段式名稱跨庫查詢即可。
-// 用法：
+// Shared DB query helper. Connection string comes from web.config
+// ConnectionStrings["EMST"]. Use a 3-part name to reach
+// GPTDB_USPC.dbo.TF2_NPW_CHART across databases.
+//
+// Usage:
 //   var rows = DbHelper.QueryRows(
 //       "SELECT TOP 10 * FROM GPTDB_USPC.dbo.TF2_NPW_CHART WHERE AREA = @p0", "TF2");
+//
+// NOTE: keep this file pure ASCII (some servers compile .cs as Big5/CP950).
 public static class DbHelper
 {
     private static string ConnStr()
@@ -16,11 +20,11 @@ public static class DbHelper
         ConnectionStringSettings cs = ConfigurationManager.ConnectionStrings["EMST"];
         if (cs != null && !string.IsNullOrWhiteSpace(cs.ConnectionString))
             return cs.ConnectionString;
-        // 後備（萬一 web.config 沒設）
+        // Fallback if web.config has no entry.
         return "Server=UMCESIDB02;Database=GPTPoCDB;User ID=GPTPoCDBUser;Password=DB02.2026;TrustServerCertificate=True;";
     }
 
-    // 參數以 @p0, @p1, ... 對應 args 順序
+    // Parameters map to @p0, @p1, ... in order.
     public static List<Dictionary<string, object>> QueryRows(string sql, params object[] args)
     {
         var rows = new List<Dictionary<string, object>>();
