@@ -73,9 +73,17 @@ public partial class NPW_Alarm : Page
         return cal.GetWeekOfYear(d, System.Globalization.CalendarWeekRule.FirstFourDayWeek, DayOfWeek.Monday);
     }
 
-    // NPW 週 alarm 報表。?date=YYYY-MM-DD（週內任一天，預設今天）
-    // 規則：資料區間 週二~週一；CHART_NAME 分 ADDER/NON-ADDER 與 NISACVD/SACVD；
-    //       CHART_DESC<>Engineering；ALARM_COUNT>=1；MONITOR_TYPE='NORMAL'。日期欄用 DataDate。
+    // NPW 週 alarm 報表用的「週原始資料」。?date=YYYY-MM-DD（週內任一天，預設今天）
+    //
+    // 沿用原工具(TF2_NPW.html)的判讀邏輯，由前端 JS 做彙總；後端只負責把該週
+    // 需要的欄位撈出來。對應規則：
+    //   - 資料區間：週二~週一（以 UPDATE_TIME 分日）
+    //   - ADDER / NON-ADDER：CHART_TYPE 'C-C' / 'XBAR'
+    //   - Entity：PROCESSUNIT 取 '-' 前字串（只看 NISACVD / SACVD）
+    //   - 排除 Engineering：CHART_DESC <> 'Engineering'
+    //   - MONITOR_TYPE = 'NORMAL'
+    //   - Alarm：ALARM_COUNT >= 1（前端判斷）
+    // 預先過濾的條件都只會剔除前端本來就會丟掉的列，故不影響結果，只是縮小傳輸量。
     private void HandleAlarm()
     {
         DateTime refDate;
@@ -89,35 +97,16 @@ public partial class NPW_Alarm : Page
         var days = new List<string>();
         for (int i = 0; i < 7; i++) days.Add(weekStart.AddDays(i).ToString("yyyy-MM-dd"));
 
-        // 共用篩選片段
-        const string monitorFilter =
-            " MONITOR_TYPE = 'NORMAL' AND ISNULL(CHART_DESC,'') <> 'Engineering' " +
-            " AND DataDate >= @p0 AND DataDate < @p1 " +
-            " AND CHART_NAME LIKE '%SACVD%' ";  // 同時涵蓋 NISACVD 與 SACVD
-
-        const string entityCase =
-            "CASE WHEN CHART_NAME LIKE '%NISACVD%' THEN 'NISACVD' " +
-            "     WHEN CHART_NAME LIKE '%SACVD%' THEN 'SACVD' ELSE 'OTHER' END";
-        const string blockCase =
-            "CASE WHEN CHART_NAME LIKE '%ADDER%' THEN 'ADDER' ELSE 'NON-ADDER' END";
-
-        // 1) alarm 明細（ALARM_COUNT>=1）
-        string alarmSql =
-            "SELECT CHART_ID, CHART_NAME, CONVERT(varchar(10), DataDate, 23) AS D, " +
-            entityCase + " AS Entity, " + blockCase + " AS Block " +
+        string sql =
+            "SELECT PROCESSUNIT, CONVERT(varchar(10), UPDATE_TIME, 23) AS UPDATE_TIME, " +
+            "MONITOR_TYPE, CHART_TYPE, CHART_NAME, CHART_ID, CHART_DESC, ALARM_COUNT " +
             "FROM GPTDB_USPC.dbo.TF2_NPW_CHART WITH (NOLOCK) " +
-            "WHERE ALARM_COUNT >= 1 AND " + monitorFilter +
-            "ORDER BY Block, Entity, CHART_NAME, D";
-        var alarms = DbHelper.QueryRows(alarmSql, weekStart, weekEndExcl);
-
-        // 2) Total Monitor Count（不論有無 alarm 的監控張數，去重 CHART_NAME）
-        string monSql =
-            "SELECT " + entityCase + " AS Entity, " + blockCase + " AS Block, " +
-            "COUNT(DISTINCT CHART_NAME) AS MonitorCount " +
-            "FROM GPTDB_USPC.dbo.TF2_NPW_CHART WITH (NOLOCK) " +
-            "WHERE " + monitorFilter +
-            "GROUP BY " + entityCase + ", " + blockCase;
-        var monitor = DbHelper.QueryRows(monSql, weekStart, weekEndExcl);
+            "WHERE UPDATE_TIME >= @p0 AND UPDATE_TIME < @p1 " +
+            "AND MONITOR_TYPE = 'NORMAL' " +
+            "AND ISNULL(CHART_DESC,'') <> 'Engineering' " +
+            "AND CHART_TYPE IN ('C-C','XBAR') " +
+            "AND (PROCESSUNIT LIKE 'NISACVD%' OR PROCESSUNIT LIKE 'SACVD%')";
+        var rows = DbHelper.QueryRows(sql, weekStart, weekEndExcl);
 
         var ser = new JavaScriptSerializer { MaxJsonLength = int.MaxValue };
         Response.Write(ser.Serialize(new Dictionary<string, object> {
@@ -128,8 +117,7 @@ public partial class NPW_Alarm : Page
                 { "end", weekEnd.ToString("yyyy-MM-dd") },
                 { "days", days }
             }},
-            { "alarms", alarms },
-            { "monitor", monitor }
+            { "rows", rows }
         }));
     }
 

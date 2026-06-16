@@ -148,109 +148,497 @@
             <p>要加新 .aspx 頁面就直接加,沒有 auth gate 需要繞過。</p>
         </div>
 
-        <div class="card">
-            <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
+        <style>
+        .npw-report-card{background:#fff;color:#111;}
+        .npw-report-card h2{color:#111;}
+        .npw-report-card .npw-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 12px;}
+        .npw-report-card .npw-toolbar label{font-weight:700;}
+        .npw-report-card input[type="date"]{padding:6px 8px;border:1px solid #999;border-radius:4px;background:#fff;color:#111;font-size:14px;}
+        .npw-report-card #reloadBtn{padding:6px 14px;border:0;border-radius:6px;background:#1976d2;color:#fff;cursor:pointer;}
+        .npw-report-card .npw-week-hint{color:#0f4aa8;font-weight:700;}
+        .npw-report-card .npw-status{color:#555;font-size:12px;}
+        .npw-report-card .npw-error{color:#c00;font-size:12px;white-space:pre-line;margin-bottom:8px;}
+        .npw-report-card .report-scroll{overflow:auto;}
+        .npw-report-card .report{width:100%;border-collapse:collapse;table-layout:fixed;background:#fff;border:2px solid #222;margin:0 0 18px;}
+        .npw-report-card .report th,.npw-report-card .report td{border:1px solid #222;font-size:12px;padding:4px 6px;line-height:1.2;text-align:center;vertical-align:middle;color:#111;}
+        .npw-report-card .section-title{background:#b7d2ea;font-weight:700;text-align:left;padding:6px 10px!important;border-bottom:2px solid #222!important;}
+        .npw-report-card .h-green{background:#d9f2c2;font-weight:700;}
+        .npw-report-card .h-amber{background:#ffe19a;font-weight:700;}
+        .npw-report-card .left{text-align:left;}
+        .npw-report-card .barcell{position:relative;overflow:hidden;}
+        .npw-report-card .barcell .bar{position:absolute;left:0;top:3px;bottom:3px;width:var(--w,0%);background:linear-gradient(to right,#ff6b6b,#ffd1d1);}
+        .npw-report-card .barcell .txt{position:relative;z-index:1;font-weight:700;}
+        .npw-report-card tfoot td{font-weight:700;}
+        .npw-report-card .total-label{text-align:right;background:#f4f4f4;}
+        .npw-report-card .total-good{background:#cfe8b6;}
+        .npw-report-card .total-warn{background:#fff0b3;}
+        .npw-report-card col.entity{width:92px;}
+        .npw-report-card col.date{width:74px;}
+        .npw-report-card col.statS{width:72px;}
+        .npw-report-card col.statM{width:92px;}
+        .npw-report-card .alarm-over-target{background-color:#ffd1e6!important;}
+        .npw-report-card .total-green-over-yellow{background-color:#ffd1e6!important;}
+        .npw-report-card .chart-detail{width:100%;border-collapse:collapse;table-layout:fixed;background:#fff;border:2px solid #222;margin:-6px 0 18px;}
+        .npw-report-card .chart-detail th,.npw-report-card .chart-detail td{border:1px solid #222;font-size:12px;padding:4px 6px;line-height:1.2;vertical-align:middle;color:#111;text-align:left;word-break:break-all;}
+        .npw-report-card .chart-detail th{background:#f5f5f5;font-weight:700;}
+        .npw-report-card .chart-detail a{color:#1d4ed8;}
+        .npw-report-card .dup-chart{background:#ffe19a!important;}
+        .npw-report-card .dim-row{background:#d9d9d9!important;}
+        .npw-report-card .inline-empty{padding:8px 10px;color:#666;font-size:12px;background:#fff;border:1px dashed #999;}
+        </style>
+        <div class="card npw-report-card">
+            <div class="npw-toolbar">
                 <h2 style="margin:0;">NPW Alarm 週報</h2>
-                <span id="awWeek" style="color:#0f4aa8; font-weight:700;"></span>
-                <label style="font-size:13px;color:#64748b;">週(任一天)
-                    <input id="awDate" type="date" style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;" />
-                </label>
-                <button id="awLoad" type="button" style="padding:6px 14px;border:0;border-radius:6px;background:#1976d2;color:#fff;cursor:pointer;">讀取</button>
-                <span id="awStatus" style="color:#64748b;font-size:12px;"></span>
+                <label for="pickDate">選擇日期</label>
+                <input id="pickDate" type="date" />
+                <span class="npw-week-hint" id="weekHint"></span>
+                <button id="reloadBtn" type="button">讀取</button>
+                <span id="status" class="npw-status">資料載入中...</span>
             </div>
-            <div id="awContent"></div>
+            <div id="error" class="npw-error" style="display:none;"></div>
+
+            <!-- ========== ADDER ========== -->
+            <div class="report-scroll">
+            <table class="report" id="tblAdder">
+                <colgroup>
+                    <col class="entity">
+                    <col class="date"><col class="date"><col class="date"><col class="date"><col class="date"><col class="date"><col class="date">
+                    <col class="statS"><col class="statM"><col class="statS"><col class="statS">
+                    <col class="statS"><col class="statS"><col class="statM">
+                </colgroup>
+                <thead>
+                    <tr><th class="section-title" colspan="15">ADDER</th></tr>
+                    <tr>
+                        <th class="h-green">Entity</th>
+                        <th class="h-green date-head"></th>
+                        <th class="h-green date-head"></th>
+                        <th class="h-green date-head"></th>
+                        <th class="h-green date-head"></th>
+                        <th class="h-green date-head"></th>
+                        <th class="h-green date-head"></th>
+                        <th class="h-green date-head"></th>
+                        <th class="h-amber">Alarm<br/>Counts</th>
+                        <th class="h-amber">Over Weekly to<br/>Day Count</th>
+                        <th class="h-amber">Weekly to<br/>Day Target</th>
+                        <th class="h-amber">Weekly<br/>Target Count</th>
+                        <th class="h-amber">Alarm<br/>rate</th>
+                        <th class="h-amber">Weekly<br/>Target Rate</th>
+                        <th class="h-amber">Total Monitor<br/>Count</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr data-entity="NISACVD">
+                        <td class="left entity-cell">NISACVD</td>
+                        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+                        <td>0</td>
+                        <td class="barcell"><span class="bar"></span><span class="txt">0</span></td>
+                        <td>0</td><td>0</td>
+                        <td>0%</td><td>0%</td><td>0</td>
+                    </tr>
+                    <tr data-entity="SACVD">
+                        <td class="left entity-cell">SACVD</td>
+                        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+                        <td>0</td>
+                        <td class="barcell"><span class="bar"></span><span class="txt">0</span></td>
+                        <td>0</td><td>0</td>
+                        <td>0%</td><td>0%</td><td>0</td>
+                    </tr>
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td class="total-label" colspan="8">Total Alarm</td>
+                        <td id="adderTotalAlarm">0</td>
+                        <td class="total-good" colspan="2" id="adderTotalAlarmRate">0%</td>
+                        <td></td><td></td>
+                        <td class="total-warn" colspan="2" id="adderTotalWeeklyTargetRate">0%</td>
+                    </tr>
+                </tfoot>
+            </table>
+            </div>
+            <div id="adderChartDetail"></div>
+
+            <!-- ========== NON-ADDER ========== -->
+            <div class="report-scroll">
+            <table class="report" id="tblNonAdder">
+                <colgroup>
+                    <col class="entity">
+                    <col class="date"><col class="date"><col class="date"><col class="date"><col class="date"><col class="date"><col class="date">
+                    <col class="statS"><col class="statM"><col class="statS"><col class="statS">
+                    <col class="statS"><col class="statS"><col class="statM">
+                </colgroup>
+                <thead>
+                    <tr><th class="section-title" colspan="15">NON-ADDER</th></tr>
+                    <tr>
+                        <th class="h-green">Entity</th>
+                        <th class="h-green date-head"></th>
+                        <th class="h-green date-head"></th>
+                        <th class="h-green date-head"></th>
+                        <th class="h-green date-head"></th>
+                        <th class="h-green date-head"></th>
+                        <th class="h-green date-head"></th>
+                        <th class="h-green date-head"></th>
+                        <th class="h-amber">Alarm<br/>Counts</th>
+                        <th class="h-amber">Over Weekly to<br/>Day Count</th>
+                        <th class="h-amber">Weekly to<br/>Day Target</th>
+                        <th class="h-amber">Weekly<br/>Target Count</th>
+                        <th class="h-amber">Alarm<br/>rate</th>
+                        <th class="h-amber">Weekly<br/>Target Rate</th>
+                        <th class="h-amber">Total Monitor<br/>Count</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr data-entity="NISACVD">
+                        <td class="left entity-cell">NISACVD</td>
+                        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+                        <td>0</td>
+                        <td class="barcell"><span class="bar"></span><span class="txt">0</span></td>
+                        <td>0</td><td>0</td>
+                        <td>0%</td><td>0%</td><td>0</td>
+                    </tr>
+                    <tr data-entity="SACVD">
+                        <td class="left entity-cell">SACVD</td>
+                        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+                        <td>0</td>
+                        <td class="barcell"><span class="bar"></span><span class="txt">0</span></td>
+                        <td>0</td><td>0</td>
+                        <td>0%</td><td>0%</td><td>0</td>
+                    </tr>
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td class="total-label" colspan="8">Total Alarm</td>
+                        <td id="nonAdderTotalAlarm">0</td>
+                        <td class="total-good" colspan="2" id="nonAdderTotalAlarmRate">0%</td>
+                        <td></td><td></td>
+                        <td class="total-warn" colspan="2" id="nonAdderTotalWeeklyTargetRate">0%</td>
+                    </tr>
+                </tfoot>
+            </table>
+            </div>
+            <div id="nonAdderChartDetail"></div>
         </div>
     </div>
 
     <script>
-    // NPW Alarm 週報：呼叫 NPW_Alarm.aspx?op=alarm
+    // NPW Alarm 週報：沿用原工具(TF2_NPW.html)的判讀邏輯，資料來源改為
+    // NPW_Alarm.aspx?op=alarm（DB: GPTDB_USPC.dbo.TF2_NPW_CHART）。
     (function () {
-        // 週目標率(%)：依截圖預設，可在此調整（Target 算法待確認）
-        const TARGET_RATE = {
-            'ADDER':     { 'NISACVD': 1.17, 'SACVD': 1.35 },
-            'NON-ADDER': { 'NISACVD': 0.60, 'SACVD': 0.75 }
-        };
-        const BLOCKS = ['ADDER', 'NON-ADDER'];
-        const ENTITIES = ['NISACVD', 'SACVD'];
-        const $ = id => document.getElementById(id);
-        const esc = v => v == null ? '' : String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;');
-        const th = t => '<th style="border:1px solid #e2e8f0;padding:5px 7px;background:#f5f7fb;white-space:nowrap;">' + esc(t) + '</th>';
-        const td = (t, a) => '<td style="border:1px solid #eef2f7;padding:4px 7px;text-align:' + (a || 'center') + ';white-space:nowrap;">' + esc(t) + '</td>';
+        // ===== 日期工具 =====
+        function toISODateLocal(d){const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),dd=String(d.getDate()).padStart(2,'0');return `${y}-${m}-${dd}`;}
+        function fmtYMD(d){const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),dd=String(d.getDate()).padStart(2,'0');return `${y}/${m}/${dd}`;}
+        function fmtYMDDash(d){const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),dd=String(d.getDate()).padStart(2,'0');return `${y}-${m}-${dd}`;}
+        // 以「選擇日往前的禮拜二」為第一天
+        function startTuesdayFor(sel){const d=new Date(sel.getFullYear(),sel.getMonth(),sel.getDate());const diff=((d.getDay()-2)+7)%7;d.setDate(d.getDate()-diff);return d;}
+        function getWeekNumber(d){const date=new Date(d.getFullYear(),d.getMonth(),d.getDate());const dayNr=(date.getDay()+6)%7;date.setDate(date.getDate()-dayNr+3);const ft=new Date(date.getFullYear(),0,4);const fd=(ft.getDay()+6)%7;ft.setDate(ft.getDate()-fd+3);return 1+Math.round((date-ft)/(7*24*3600*1000));}
 
-        function render(data) {
-            const wk = data.week || {};
-            $('awWeek').textContent = (wk.label || '') + '  ' + (wk.start || '') + ' ~ ' + (wk.end || '');
-            const days = wk.days || [];
-            const alarms = data.alarms || [];
-            const monMap = {};
-            (data.monitor || []).forEach(m => { monMap[m.Block + '|' + m.Entity] = Number(m.MonitorCount) || 0; });
+        function setHeadersByPickedDate(picked){
+            const start=startTuesdayFor(picked);
+            const a=document.querySelectorAll('#tblAdder .date-head');
+            const n=document.querySelectorAll('#tblNonAdder .date-head');
+            for(let i=0;i<7;i++){const d=new Date(start.getFullYear(),start.getMonth(),start.getDate());d.setDate(start.getDate()+i);const t=fmtYMD(d);if(a[i])a[i].textContent=t;if(n[i])n[i].textContent=t;}
+        }
 
-            let html = '';
-            BLOCKS.forEach(block => {
-                const blockAlarms = alarms.filter(a => a.Block === block);
+        // ===== 目標設定（沿用原工具給定值）=====
+        const WEEKLY_TARGET_ADDER={NISACVD:6,ULKCVD:6,SACVD:7,TEOSPE:10,CUSILPE:5,BLOKCVD:5,DARC:1,OXSE:1,APF:1,TTOX:0,ALDOX:0,HKG:2,CUTTOX:1,SILPE:0,CULKCVD:0};
+        const WEEKLY_TARGET_NON_ADDER={CUSILPE:19,ULKCVD:20,TEOSPE:17,SACVD:14,NISACVD:17,OXSE:2,HKG:3,TTOX:2,DARC:5,SILPE:1,BLOKCVD:2,APF:5,CUTTOX:3,CUKVALUE:0,CULKCVD:1,ALDOX:1};
+        function getWeeklyTargetCount(e,isAdder){const t=isAdder?WEEKLY_TARGET_ADDER:WEEKLY_TARGET_NON_ADDER;return t[e]!=null?t[e]:0;}
+        const WEEKLY_TARGET_RATE_ADDER={ULKCVD:1.49,TEOSPE:1.26,SACVD:1.35,BLOKCVD:1.95,CUSILPE:1.09,CUTTOX:0.52,NISACVD:1.17,HKG:1.46,DARC:1.84,SILPE:2.10,APF:0.62,OXSE:2.22,TTOX:0.68,CULKCVD:0.00};
+        const WEEKLY_TARGET_RATE_NON_ADDER={TEOSPE:0.90,SACVD:0.60,ULKCVD:0.90,CUSILPE:0.60,HKG:0.60,NISACVD:0.60,TTOX:0.60,SILPE:0.60,DARC:0.60,BLOKCVD:0.60,CUTTOX:0.60,APF:0.60,OXSE:0.60,CULKCVD:0.60,CUKVALUE:0.60,ALDOX:0.60};
+        function getWeeklyTargetRate(e,isAdder){const t=isAdder?WEEKLY_TARGET_RATE_ADDER:WEEKLY_TARGET_RATE_NON_ADDER;return t[e]!=null?t[e]:0;}
 
-                // ---- 摘要表 ----
-                html += '<h3 style="margin:14px 0 6px;background:#dbeafe;padding:6px 10px;border-radius:6px;">' + block + '</h3>';
-                html += '<div style="overflow:auto;"><table style="border-collapse:collapse;width:100%;font-size:12px;margin-bottom:8px;">';
-                html += '<thead><tr>' + th('Entity') + days.map(d => th(d)).join('') +
-                        th('Alarm Counts') + th('Alarm rate') + th('Weekly Target Rate') + th('Weekly Target Count') + th('Total Monitor Count') + '</tr></thead><tbody>';
-                let totAlarm = 0, totMon = 0;
-                ENTITIES.forEach(ent => {
-                    const rows = blockAlarms.filter(a => a.Entity === ent);
-                    const perDay = {}; days.forEach(d => perDay[d] = 0);
-                    rows.forEach(a => { if (perDay[a.D] != null) perDay[a.D]++; });
-                    const alarmCount = rows.length;
-                    const mon = monMap[block + '|' + ent] || 0;
-                    const rate = mon ? (alarmCount / mon * 100) : 0;
-                    const tRate = (TARGET_RATE[block] && TARGET_RATE[block][ent]) || 0;
-                    const tCount = Math.round(mon * tRate / 100);
-                    totAlarm += alarmCount; totMon += mon;
-                    html += '<tr>' + td(ent, 'left') + days.map(d => td(perDay[d] || '')).join('') +
-                            td(alarmCount) + td(rate.toFixed(2) + '%') + td(tRate.toFixed(2) + '%') + td(tCount) + td(mon) + '</tr>';
-                });
-                const totRate = totMon ? (totAlarm / totMon * 100) : 0;
-                html += '<tr style="font-weight:700;background:#f1f5f9;">' + td('Total Alarm', 'left') +
-                        days.map(() => td('')).join('') + td(totAlarm) + td(totRate.toFixed(2) + '%') + td('') + td('') + td(totMon) + '</tr>';
-                html += '</tbody></table></div>';
+        // ===== 狀態 =====
+        let rawData=[];
+        let chartAlarmStats={};
+        let chartAlarmDateStats={};
+        function setStatus(t,c){const s=document.getElementById('status');s.textContent=t||'';if(c)s.style.color=c;}
+        function showError(t){const e=document.getElementById('error');e.textContent=t||'';e.style.display=t?'block':'none';}
 
-                // ---- 明細表 ----
-                const detail = {};
-                blockAlarms.forEach(a => {
-                    if (!detail[a.CHART_NAME]) detail[a.CHART_NAME] = { entity: a.Entity, chartId: a.CHART_ID, name: a.CHART_NAME, dates: [] };
-                    if (detail[a.CHART_NAME].dates.indexOf(a.D) < 0) detail[a.CHART_NAME].dates.push(a.D);
-                });
-                const dlist = Object.keys(detail).map(k => detail[k])
-                    .sort((x, y) => x.entity.localeCompare(y.entity) || x.name.localeCompare(y.name));
-                html += '<div style="font-weight:700;color:#0f4aa8;margin:4px 0;">' + block + ' — Chart Alarm Detail (' + (wk.label || '') + ')</div>';
-                html += '<div style="overflow:auto;max-height:360px;border:1px solid #e5e7eb;border-radius:8px;"><table style="border-collapse:collapse;width:100%;font-size:12px;">';
-                html += '<thead><tr>' + th('Entity') + th('CHART_ID') + th('CHART_NAME') + th('Alarm 次數') + th('ALARM 日期') + th('重複') + '</tr></thead><tbody>';
-                dlist.forEach(r => {
-                    const cnt = r.dates.length;
-                    html += '<tr>' + td(r.entity, 'left') + td(r.chartId) +
-                            '<td style="border:1px solid #eef2f7;padding:4px 7px;text-align:left;white-space:nowrap;color:#1d4ed8;">' + esc(r.name) + '</td>' +
-                            td(cnt) + td(r.dates.sort().join(', '), 'left') + td(cnt > 1 ? 'Y' : '') + '</tr>';
-                });
-                if (!dlist.length) html += '<tr><td colspan="6" style="padding:8px;color:#94a3b8;">本週無 alarm</td></tr>';
-                html += '</tbody></table></div>';
+        // ===== 從 DB 載入該週原始資料 =====
+        async function loadFromDb(picked){
+            showError('');
+            setStatus('資料載入中...','#555');
+            try{
+                const qs=new URLSearchParams({op:'alarm'});
+                if(picked)qs.set('date',toISODateLocal(picked));
+                const res=await fetch('NPW_Alarm.aspx?'+qs.toString(),{cache:'no-store'});
+                const data=await res.json();
+                if(!data.ok)throw new Error(data.error||('HTTP '+res.status));
+                rawData=data.rows||[];
+                setStatus('資料載入完成（'+(data.week?data.week.label:'')+'　'+rawData.length+' 筆）','#006400');
+            }catch(err){
+                console.error(err);
+                setStatus('','');
+                showError('讀取資料發生錯誤：\n'+err.message);
+                rawData=[];
+                throw err;
+            }
+        }
+
+        // ===== 統計（沿用原工具，欄位改為 DB）=====
+        function buildStats(picked){
+            const start=startTuesdayFor(picked);
+            const days=[];
+            for(let i=0;i<7;i++){const d=new Date(start.getFullYear(),start.getMonth(),start.getDate());d.setDate(start.getDate()+i);days.push(fmtYMDDash(d));}
+            const stats={};
+            chartAlarmStats={};chartAlarmDateStats={};
+            function entOf(pu){if(!pu)return null;const s=String(pu).toUpperCase();const i=s.indexOf('-');return i===-1?s:s.substring(0,i);}
+
+            for(const row of rawData){
+                const entity=entOf(row.PROCESSUNIT);
+                if(!entity)continue;
+
+                let ut=row.UPDATE_TIME;
+                if(!ut)continue;
+                if(typeof ut==='string'){ut=ut.substring(0,10);}
+                else{const j=new Date(ut);if(isNaN(j.getTime()))continue;ut=fmtYMDDash(j);}
+                if(!days.includes(ut))continue;
+
+                const MT=String(row.MONITOR_TYPE||'').toUpperCase();
+                const CT=String(row.CHART_TYPE||'').trim().toUpperCase();
+                const CN=row.CHART_NAME||'';
+                const CID=row.CHART_ID||'';
+                const isEng=String(row.CHART_DESC||'').trim().toUpperCase()==='ENGINEERING';
+                const alarmCnt=Number(row.ALARM_COUNT)||0;
+
+                if(!stats[entity])stats[entity]={daily:{},sum:{alarmAdder:0,alarmNonAdder:0,totalMonAdder:0,totalMonNonAdder:0}};
+                const es=stats[entity];
+                if(!es.daily[ut])es.daily[ut]={alarmAdder:0,alarmNonAdder:0,totalMonAdder:0,totalMonNonAdder:0};
+                const ds=es.daily[ut];
+
+                const MON=1; // DB 無 MON_CNT，一列算 1（同原工具預設）
+
+                // Total Monitor Count（MONITOR_TYPE=NORMAL 且非 Engineering）
+                if(MT==='NORMAL'&&!isEng){
+                    if(CT==='C-C'){ds.totalMonAdder+=MON;es.sum.totalMonAdder+=MON;}
+                    else if(CT==='XBAR'){ds.totalMonNonAdder+=MON;es.sum.totalMonNonAdder+=MON;}
+                }
+
+                // Alarm 條件
+                if(MT!=='NORMAL')continue;
+                if(!(alarmCnt>=1))continue;
+                if(isEng)continue;
+
+                let isAdder;
+                if(CT==='C-C'){isAdder=true;ds.alarmAdder+=1;es.sum.alarmAdder+=1;}
+                else if(CT==='XBAR'){isAdder=false;ds.alarmNonAdder+=1;es.sum.alarmNonAdder+=1;}
+                else continue;
+
+                // Chart 層級 alarm 統計
+                const key=fmtYMDDash(start)+'|'+entity+'|'+(isAdder?'ADDER':'NON_ADDER');
+                if(!chartAlarmStats[key])chartAlarmStats[key]={};
+                const ck=CID+'||'+CN;
+                chartAlarmStats[key][ck]=(chartAlarmStats[key][ck]||0)+1;
+                if(!chartAlarmDateStats[key])chartAlarmDateStats[key]={};
+                if(!chartAlarmDateStats[key][ck])chartAlarmDateStats[key][ck]=new Set();
+                chartAlarmDateStats[key][ck].add(ut);
+            }
+            return {stats,days};
+        }
+
+        function updateTableByStats(tableId,stats,days,isAdder,picked){
+            const tbl=document.getElementById(tableId);
+            const tbody=tbl.querySelector('tbody');
+            const rows=tbody.querySelectorAll('tr[data-entity]');
+
+            let totalAlarmAll=0,totalMonitorAll=0;
+
+            const start=startTuesdayFor(picked);
+            const pm=new Date(picked);pm.setHours(0,0,0,0);
+            const sm=new Date(start);sm.setHours(0,0,0,0);
+            const dayIndex=Math.floor((pm-sm)/(24*3600*1000));
+            const dayOfRange=Math.min(Math.max(dayIndex+1,1),7);
+
+            rows.forEach(row=>{
+                const entity=row.getAttribute('data-entity');
+                const es=stats[entity]||null;
+
+                const dateTds=Array.from(row.querySelectorAll('td')).slice(1,8);
+                let alarmCount=0;
+                for(let i=0;i<7;i++){
+                    const dayStr=days[i];
+                    let value='';
+                    if(es&&es.daily[dayStr]){const ds=es.daily[dayStr];value=isAdder?(ds.alarmAdder||''):(ds.alarmNonAdder||'');}
+                    dateTds[i].textContent=value?String(value):'';
+                }
+
+                let totalMonitor=0;
+                if(es){
+                    if(isAdder){alarmCount=es.sum.alarmAdder||0;totalMonitor=es.sum.totalMonAdder||0;}
+                    else{alarmCount=es.sum.alarmNonAdder||0;totalMonitor=es.sum.totalMonNonAdder||0;}
+                }
+
+                const tds=row.querySelectorAll('td');
+
+                // Alarm Counts (第 9 欄)
+                const alarmTd=tds[8];
+                alarmTd.textContent=alarmCount?String(alarmCount):'0';
+
+                // Weekly Target Count
+                const weeklyTargetCount=getWeeklyTargetCount(entity,isAdder);
+                // Weekly to Day Target = Weekly Target Count * (今天是第幾天 / 7)
+                let weeklyToDayTarget=0;
+                if(dayOfRange>0)weeklyToDayTarget=Math.round(weeklyTargetCount*(dayOfRange/7));
+
+                // Over Weekly to Day Count (第 10 欄, barcell)
+                const overTd=tds[9];
+                const txt=overTd.querySelector('.txt');
+                const overCount=Math.max(0,alarmCount-weeklyToDayTarget);
+                txt.textContent=overCount?String(overCount):'0';
+                let widthPercent=0;
+                if(overCount>0)widthPercent=Math.min(100,overCount*10);
+                overTd.style.setProperty('--w',widthPercent+'%');
+
+                // Weekly to Day Target (第 11 欄) & Weekly Target Count (第 12 欄)
+                tds[10].textContent=weeklyToDayTarget?String(weeklyToDayTarget):'0';
+                tds[11].textContent=weeklyTargetCount?String(weeklyTargetCount):'0';
+
+                // Alarm rate (第 13 欄)
+                let alarmRate=0;
+                if(totalMonitor>0)alarmRate=alarmCount/totalMonitor;
+                tds[12].textContent=(alarmRate*100).toFixed(2)+'%';
+
+                // Weekly Target Rate (第 14 欄)
+                tds[13].textContent=getWeeklyTargetRate(entity,isAdder).toFixed(2)+'%';
+
+                // Total Monitor Count (第 15 欄)
+                tds[14].textContent=totalMonitor?String(totalMonitor):'0';
+
+                // Alarm Counts > Weekly Target Count 粉紅標記
+                if(alarmCount>weeklyTargetCount)alarmTd.classList.add('alarm-over-target');
+                else alarmTd.classList.remove('alarm-over-target');
+
+                totalAlarmAll+=alarmCount;totalMonitorAll+=totalMonitor;
             });
-            $('awContent').innerHTML = html;
+
+            // 表尾
+            if(isAdder){
+                document.getElementById('adderTotalAlarm').textContent=String(totalAlarmAll);
+                document.getElementById('adderTotalAlarmRate').textContent=totalMonitorAll>0?(totalAlarmAll/totalMonitorAll*100).toFixed(2)+'%':'0%';
+                document.getElementById('adderTotalWeeklyTargetRate').textContent='1.48%';
+            }else{
+                document.getElementById('nonAdderTotalAlarm').textContent=String(totalAlarmAll);
+                document.getElementById('nonAdderTotalAlarmRate').textContent=totalMonitorAll>0?(totalAlarmAll/totalMonitorAll*100).toFixed(2)+'%':'0%';
+                document.getElementById('nonAdderTotalWeeklyTargetRate').textContent='0.75%';
+            }
+
+            // 綠色(Total Alarm rate) > 黃色(Total Weekly Target Rate) 時綠色變粉紅
+            const tf=tbl.querySelector('tfoot tr');
+            if(tf){
+                const cells=tf.querySelectorAll('td');
+                const g=cells[2],y=cells[5];
+                if(g&&y){
+                    const gv=parseFloat(g.textContent.replace('%','').trim())||0;
+                    const yv=parseFloat(y.textContent.replace('%','').trim())||0;
+                    if(gv>yv)g.classList.add('total-green-over-yellow');else g.classList.remove('total-green-over-yellow');
+                }
+            }
         }
 
-        async function load() {
-            const qs = new URLSearchParams({ op: 'alarm' });
-            const date = $('awDate').value;
-            if (date) qs.set('date', date);
-            $('awStatus').textContent = '讀取中…';
-            try {
-                const res = await fetch('NPW_Alarm.aspx?' + qs.toString(), { cache: 'no-store' });
-                const data = await res.json();
-                if (!data.ok) throw new Error(data.error || ('HTTP ' + res.status));
-                render(data);
-                $('awStatus').textContent = '';
-            } catch (e) { $('awStatus').textContent = '錯誤：' + e.message; }
+        function refreshTables(picked){
+            const {stats,days}=buildStats(picked);
+            updateTableByStats('tblAdder',stats,days,true,picked);
+            updateTableByStats('tblNonAdder',stats,days,false,picked);
+            renderInlineChartDetails(picked);
         }
-        $('awLoad').addEventListener('click', load);
-        load();
+
+        // ===== Chart Alarm Detail =====
+        function escapeHtml(s){return String(s==null?'':s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;');}
+        function getChartAlarmDetail(start,entity,isAdder){return chartAlarmStats[fmtYMDDash(start)+'|'+entity+'|'+(isAdder?'ADDER':'NON_ADDER')]||null;}
+        function getChartAlarmDateDetail(start,entity,isAdder){return chartAlarmDateStats[fmtYMDDash(start)+'|'+entity+'|'+(isAdder?'ADDER':'NON_ADDER')]||null;}
+        function buildChartUrl(chartId){if(!chartId)return null;return 'http://10.10.101.170/projectsite/SPCTool/PreviewMultiSPCTypeChart.aspx?site=12AP58&ChartList=NPW:'+encodeURIComponent(chartId);}
+
+        function buildInlineChartDetailHtml(picked,isAdder){
+            const start=startTuesdayFor(picked);
+            const blockLabel=isAdder?'ADDER':'NON-ADDER';
+            const entities=['NISACVD','SACVD'];
+            const chartNameFreq={};
+            const allRows=[];
+
+            for(const entity of entities){
+                const chartMap=getChartAlarmDetail(start,entity,isAdder)||{};
+                const dateMap=getChartAlarmDateDetail(start,entity,isAdder)||{};
+                for(const ck in chartMap){
+                    const cnt=chartMap[ck];
+                    const [chartId,chartName]=ck.split('||');
+                    const nameKey=(chartName||'').toString().trim().toUpperCase();
+                    if(nameKey)chartNameFreq[nameKey]=(chartNameFreq[nameKey]||0)+1;
+                    const dateSet=dateMap[ck];
+                    const dates=dateSet?Array.from(dateSet).sort():[];
+                    allRows.push({entity,chartId,chartName,cnt,nameKey,dates});
+                }
+            }
+
+            if(allRows.length===0)return `<div class="inline-empty">${blockLabel}：本週 NISACVD / SACVD 無 Alarm 記錄。</div>`;
+
+            function entityOrder(e){if(e==='NISACVD')return 0;if(e==='SACVD')return 1;return 99;}
+            allRows.sort((a,b)=>{
+                if(!isAdder){
+                    const ak=/RANGE|U%/i.test(String(a.chartName||''))?0:1;
+                    const bk=/RANGE|U%/i.test(String(b.chartName||''))?0:1;
+                    if(ak!==bk)return ak-bk;
+                }
+                const ea=entityOrder(a.entity),eb=entityOrder(b.entity);
+                if(ea!==eb)return ea-eb;
+                if(b.cnt!==a.cnt)return b.cnt-a.cnt;
+                return String(a.chartName||'').localeCompare(String(b.chartName||''));
+            });
+
+            let html=`<table class="chart-detail"><thead>
+                <tr><th colspan="6">${blockLabel} - Chart Alarm Detail (W${getWeekNumber(start)})</th></tr>
+                <tr><th style="width:92px;">Entity</th><th style="width:90px;">CHART_ID</th><th>CHART_NAME</th>
+                <th style="width:90px;text-align:center;">Alarm 次數</th><th style="width:190px;">ALARM 日期</th><th style="width:70px;text-align:center;">重複</th></tr>
+                </thead><tbody>`;
+            for(const r of allRows){
+                const url=buildChartUrl(r.chartId);
+                const nameHtml=url?`<a href="${url}" target="_blank" rel="noopener noreferrer">${escapeHtml(r.chartName||'')}</a>`:escapeHtml(r.chartName||'');
+                const dupByName=r.nameKey&&(chartNameFreq[r.nameKey]>=2);
+                const dupByMultiDay=Array.isArray(r.dates)&&r.dates.length>=2;
+                const isDup=dupByName||dupByMultiDay;
+                const datesText=(r.dates&&r.dates.length)?r.dates.join(', '):'';
+                const nonAdderDim=(!isAdder)&&!/RANGE|U%/i.test(String(r.chartName||''));
+                const rowClass=isDup?'dup-chart':(nonAdderDim?'dim-row':'');
+                html+=`<tr class="${rowClass}"><td>${escapeHtml(r.entity)}</td><td>${escapeHtml(r.chartId||'')}</td><td>${nameHtml}</td>
+                    <td style="text-align:center;">${escapeHtml(r.cnt)}</td><td>${escapeHtml(datesText)}</td><td style="text-align:center;">${isDup?'Y':''}</td></tr>`;
+            }
+            html+='</tbody></table>';
+            return html;
+        }
+
+        function renderInlineChartDetails(picked){
+            const a=document.getElementById('adderChartDetail');
+            const n=document.getElementById('nonAdderChartDetail');
+            if(a)a.innerHTML=buildInlineChartDetailHtml(picked,true);
+            if(n)n.innerHTML=buildInlineChartDetailHtml(picked,false);
+        }
+
+        // ===== 初始化 =====
+        (function init(){
+            const input=document.getElementById('pickDate');
+            const weekHint=document.getElementById('weekHint');
+            function updateWeekHint(d){weekHint.textContent='W'+getWeekNumber(startTuesdayFor(d));}
+
+            const today=new Date();
+            input.value=toISODateLocal(today);
+            setHeadersByPickedDate(today);
+            updateWeekHint(today);
+
+            async function reload(picked){
+                setHeadersByPickedDate(picked);
+                updateWeekHint(picked);
+                try{await loadFromDb(picked);refreshTables(picked);}catch(e){/* 已顯示 */}
+            }
+
+            document.getElementById('reloadBtn').addEventListener('click',()=>{
+                const picked=input.value?new Date(input.value+'T00:00:00'):new Date();
+                reload(picked);
+            });
+            input.addEventListener('change',()=>{
+                if(!input.value)return;
+                reload(new Date(input.value+'T00:00:00'));
+            });
+
+            reload(today);
+        })();
     })();
     </script>
 
