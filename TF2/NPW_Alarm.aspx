@@ -636,11 +636,12 @@
                 { name:'NISACVD-B14', shift:'日', cells:{0:'DAILY_PA\nXFER',3:'DAILY_PA\nXFER\nXFER',6:'DAILY_PA\nXFER'} }
             ]},
             { title:'SACVD (5.5K)', rows:[
-                { name:'SACVD-B01', shift:'日', cells:{2:'5.5K\nXFER',5:'5.5K\nXFER'} },
+                { name:'SACVD-B01', shift:'日', cells:{1:'5.5K\nXFER',4:'5.5K\nXFER'} },
                 { name:'SACVD-B04', shift:'夜', cells:{2:'5.5K\nXFER',5:'5.5K\nXFER'} },
-                { name:'SACVD-B06', shift:'夜', cells:{1:'5.5K\nXFER',4:'5.5K\nXFER'} },
+                { name:'SACVD-B06', shift:'夜', cells:{0:'5.5K\nXFER',3:'5.5K\nXFER',6:'5.5K\nXFER'} },
+                { name:'SACVD-B08', shift:'日', cells:{2:'5.5K\nXFER',5:'5.5K\nXFER'} },
                 { name:'SACVD-B09', shift:'日', cells:{0:'5.5K\nXFER',3:'5.5K\nXFER',6:'5.5K\nXFER'} },
-                { name:'SACVD-B10', shift:'夜', cells:{0:'5.5K\nXFER',3:'5.5K\nXFER',6:'5.5K\nXFER'} }
+                { name:'SACVD-B10', shift:'日', cells:{0:'5.5K\nXFER',3:'5.5K\nXFER',6:'5.5K\nXFER'} }
             ]},
             { title:'SACVD (USG50)', rows:[
                 { name:'SACVD-B02', shift:'日', cells:{3:'CHC 2K\nXFER'} },
