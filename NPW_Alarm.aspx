@@ -361,6 +361,7 @@
         let chartMeasurePu={}; // key|chartKey -> MEASUREPU
         let chartAlarmSeq={};  // key|chartKey -> Set(CHART_SEQ)
         let chartProcUnit={};  // key|chartKey -> PROCESSUNIT
+        let chartAlarmMean={}; // key|chartKey -> MEAN_VALUE (代表 alarm 點，與 CHART_SEQ 同一筆)
         function setStatus(t,c){const s=document.getElementById('status');s.textContent=t||'';if(c)s.style.color=c;}
         function showError(t){const e=document.getElementById('error');e.textContent=t||'';e.style.display=t?'block':'none';}
 
@@ -391,7 +392,7 @@
             const days=[];
             for(let i=0;i<7;i++){const d=new Date(start.getFullYear(),start.getMonth(),start.getDate());d.setDate(start.getDate()+i);days.push(fmtYMDDash(d));}
             const stats={};
-            chartAlarmStats={};chartAlarmDateStats={};chartMeasurePu={};chartAlarmSeq={};chartProcUnit={};
+            chartAlarmStats={};chartAlarmDateStats={};chartMeasurePu={};chartAlarmSeq={};chartProcUnit={};chartAlarmMean={};
             function entOf(pu){if(!pu)return null;const s=String(pu).toUpperCase();const i=s.indexOf('-');return i===-1?s:s.substring(0,i);}
 
             for(const row of rawData){
@@ -444,7 +445,11 @@
                 chartAlarmDateStats[key][ck].add(ut);
                 if(row.MEASUREPU!=null&&String(row.MEASUREPU).trim()!=='')chartMeasurePu[key+'|'+ck]=String(row.MEASUREPU);
                 if(row.PROCESSUNIT!=null)chartProcUnit[key+'|'+ck]=String(row.PROCESSUNIT);
-                if(row.CHART_SEQ!=null&&String(row.CHART_SEQ).trim()!==''){const sk=key+'|'+ck;if(!chartAlarmSeq[sk])chartAlarmSeq[sk]=new Set();chartAlarmSeq[sk].add(String(row.CHART_SEQ).trim());}
+                if(row.CHART_SEQ!=null&&String(row.CHART_SEQ).trim()!==''){
+                    const sk=key+'|'+ck;
+                    if(!chartAlarmSeq[sk]){chartAlarmSeq[sk]=new Set();if(chartAlarmMean[sk]==null&&row.MEAN_VALUE!=null)chartAlarmMean[sk]=row.MEAN_VALUE;}
+                    chartAlarmSeq[sk].add(String(row.CHART_SEQ).trim());
+                }
             }
             return {stats,days};
         }
@@ -583,7 +588,8 @@
                     const processUnit=chartProcUnit[mkey]||'';
                     const seqSet=chartAlarmSeq[mkey];
                     const chartSeq=(seqSet&&seqSet.size)?Array.from(seqSet)[0]:'';
-                    allRows.push({entity,chartId,chartName,cnt,nameKey,dates,measurePu,processUnit,chartSeq});
+                    const pointValue=chartAlarmMean[mkey];
+                    allRows.push({entity,chartId,chartName,cnt,nameKey,dates,measurePu,processUnit,chartSeq,pointValue});
                 }
             }
 
@@ -625,7 +631,8 @@
                     const puUp=String(r.processUnit||'').trim().toUpperCase();
                     const site=puUp.startsWith('OXSE-A')?'12AP14':'12AP58';
                     const seq=escapeHtml(r.chartSeq||'');
-                    const da=`data-site="${site}" data-uchart-id="${cid}" data-chart-seq="${seq}"`;
+                    const pv=escapeHtml(r.pointValue==null?'':String(r.pointValue));
+                    const da=`data-site="${site}" data-uchart-id="${cid}" data-chart-seq="${seq}" data-point-value="${pv}"`;
                     const puInit=escapeHtml(parseMeasurePu(r.measurePu));
                     extra=`<td class="npw-cell-preview"><div class="npw-spark" data-cid="${cid}"><canvas></canvas></div></td>`+
                           `<td class="npw-cell-map"><span class="pre-map" ${da} style="color:#999;">...</span></td>`+
@@ -710,9 +717,11 @@
                     const site=el.getAttribute('data-site')||'12AP58';
                     const uchartId=el.getAttribute('data-uchart-id')||'';
                     const chartSeq=el.getAttribute('data-chart-seq')||'';
+                    const pointValue=el.getAttribute('data-point-value')||'';
                     if(!chartSeq){el.textContent='-';continue;}
                     try{
-                        const url=MAP_PROXY+`?site=${encodeURIComponent(site)}&uchart_id=${encodeURIComponent(uchartId)}&chart_seq=${encodeURIComponent(chartSeq)}&PointValue=10`;
+                        const pv=pointValue!==''?pointValue:'10'; // 預設 alarm 點實際 MEAN_VALUE，缺值退回 10
+                        const url=MAP_PROXY+`?site=${encodeURIComponent(site)}&uchart_id=${encodeURIComponent(uchartId)}&chart_seq=${encodeURIComponent(chartSeq)}&PointValue=${encodeURIComponent(pv)}`;
                         const resp=await fetch(url,{credentials:'include'});
                         if(!resp.ok)throw new Error('HTTP '+resp.status);
                         const data=await resp.json();
