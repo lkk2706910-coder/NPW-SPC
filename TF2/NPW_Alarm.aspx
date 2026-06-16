@@ -621,39 +621,57 @@
             renderSchedule(picked);
         }
 
-        // ===== 測機排程表（固定週樣板，日期跟著所選週自動位移）=====
-        // 每個 chamber 只在自己的班別(日測/夜測)欄出現；cells 鍵為週內第幾天(0=週二起)。
-        // 註：以下內容由提供的 3 張照片判讀，低解析處可能需核對。
+        // ===== 測機排程表（連續週期引擎）=====
+        // 每台 chamber 只在自己班別(日測/夜測)出現。
+        // ev: 週期事件 {items:'A+B', every:N天, from:'YYYY-MM-DD' 基準日}；
+        //     某天若 (該天-基準日) 為 every 的整數倍即命中，連續跨週推算。
+        // cells: 尚未提供週期規則者，暫用固定週樣板(鍵=週內第幾天,0=週二)。
+        const ITEM_ORDER=['HTSIN130_11','PEOX50A','5.5K','USG50','CHC 2K','DAILY2_PA','DAILY4_PA','D2_PA','D4_PA','DAILY_PA','XFER','Weekly PA'];
+        function itemRank(t){const i=ITEM_ORDER.indexOf(t);return i<0?ITEM_ORDER.length-0.5:i;}
         const SCHEDULE=[
             { title:'NISACVD', rows:[
-                { name:'NISACVD-B01', shift:'日', cells:{3:'XFER',4:'HTSIN130_11\nPEOX50A',5:'XFER'} },
-                { name:'NISACVD-B06', shift:'日', cells:{3:'HTSIN130_11\nPEOX50A\nXFER',4:'HTSIN130_11\nPEOX50A\nXFER\nWeekly PA',6:'HTSIN130_11\nPEOX50A\nXFER'} },
-                { name:'NISACVD-B07', shift:'日', cells:{0:'HTSIN130_11\nPEOX50A\nXFER',2:'Weekly PA',3:'HTSIN130_11\nPEOX50A\nXFER'} },
-                { name:'NISACVD-B08', shift:'夜', cells:{1:'HTSIN130_11\nPEOX50A\nXFER',4:'HTSIN130_11\nPEOX50A\nXFER',5:'Weekly PA'} },
+                { name:'NISACVD-B01', shift:'日', ev:[ {items:'Weekly PA',every:7,from:'2026-06-17'}, {items:'XFER',every:2,from:'2026-06-17'}, {items:'HTSIN130_11+PEOX50A',every:3,from:'2026-06-17'} ] },
+                { name:'NISACVD-B06', shift:'日', ev:[ {items:'HTSIN130_11+PEOX50A+XFER',every:3,from:'2026-06-16'}, {items:'Weekly PA',every:7,from:'2026-06-16'} ] },
+                { name:'NISACVD-B07', shift:'日', ev:[ {items:'HTSIN130_11+PEOX50A+XFER',every:3,from:'2026-06-16'}, {items:'Weekly PA',every:7,from:'2026-06-18'} ] },
+                { name:'NISACVD-B08', shift:'夜', ev:[ {items:'HTSIN130_11+PEOX50A+XFER',every:3,from:'2026-06-17'}, {items:'Weekly PA',every:7,from:'2026-06-21'} ] },
                 { name:'NISACVD-B03', shift:'夜', cells:{0:'XFER',1:'DAILY_PA',3:'XFER',4:'DAILY_PA',6:'XFER'} },
                 { name:'NISACVD-B12', shift:'日', cells:{1:'DAILY_PA\nXFER',4:'DAILY_PA\nXFER'} },
                 { name:'NISACVD-B13', shift:'夜', cells:{0:'DAILY_PA\nXFER',3:'DAILY_PA\nXFER\nXFER',6:'DAILY_PA\nXFER'} },
                 { name:'NISACVD-B14', shift:'日', cells:{0:'DAILY_PA\nXFER',3:'DAILY_PA\nXFER\nXFER',6:'DAILY_PA\nXFER'} }
             ]},
             { title:'SACVD (5.5K)', rows:[
-                { name:'SACVD-B01', shift:'日', cells:{1:'5.5K\nXFER',4:'5.5K\nXFER'} },
-                { name:'SACVD-B04', shift:'夜', cells:{2:'5.5K\nXFER',5:'5.5K\nXFER'} },
-                { name:'SACVD-B06', shift:'夜', cells:{0:'5.5K\nXFER',3:'5.5K\nXFER',6:'5.5K\nXFER'} },
-                { name:'SACVD-B08', shift:'日', cells:{2:'5.5K\nXFER',5:'5.5K\nXFER'} },
-                { name:'SACVD-B09', shift:'日', cells:{0:'5.5K\nXFER',3:'5.5K\nXFER',6:'5.5K\nXFER'} },
-                { name:'SACVD-B10', shift:'日', cells:{0:'5.5K\nXFER',3:'5.5K\nXFER',6:'5.5K\nXFER'} }
+                { name:'SACVD-B01', shift:'日', ev:[ {items:'5.5K',every:3,from:'2026-06-17'}, {items:'XFER',every:3,from:'2026-06-17'} ] },
+                { name:'SACVD-B04', shift:'夜', ev:[ {items:'5.5K',every:3,from:'2026-06-18'}, {items:'XFER',every:3,from:'2026-06-18'} ] },
+                { name:'SACVD-B06', shift:'夜', ev:[ {items:'5.5K',every:3,from:'2026-06-16'}, {items:'XFER',every:3,from:'2026-06-16'} ] },
+                { name:'SACVD-B08', shift:'日', ev:[ {items:'5.5K',every:3,from:'2026-06-18'}, {items:'XFER',every:3,from:'2026-06-18'} ] },
+                { name:'SACVD-B09', shift:'日', ev:[ {items:'5.5K',every:3,from:'2026-06-16'}, {items:'XFER',every:3,from:'2026-06-16'} ] },
+                { name:'SACVD-B10', shift:'日', ev:[ {items:'5.5K',every:3,from:'2026-06-16'}, {items:'XFER',every:3,from:'2026-06-16'} ] }
             ]},
             { title:'SACVD (USG50)', rows:[
-                { name:'SACVD-B02', shift:'夜', cells:{1:'USG50',2:'CHC 2K\nXFER',3:'USG50',5:'USG50\nCHC 2K\nXFER',6:'USG50'} },
-                { name:'SACVD-B11', shift:'日', cells:{0:'USG50',1:'XFER',2:'USG50',4:'USG50\nXFER',6:'USG50'} },
-                { name:'SACVD-B12', shift:'夜', cells:{0:'USG50\nXFER',2:'USG50',3:'XFER',4:'USG50',6:'USG50\nXFER'} }
+                { name:'SACVD-B02', shift:'夜', ev:[ {items:'USG50',every:2,from:'2026-06-17'}, {items:'XFER',every:3,from:'2026-06-18'}, {items:'CHC 2K',every:3,from:'2026-06-18'} ] },
+                { name:'SACVD-B11', shift:'日', ev:[ {items:'USG50',every:2,from:'2026-06-16'}, {items:'XFER',every:3,from:'2026-06-17'} ] },
+                { name:'SACVD-B12', shift:'夜', ev:[ {items:'USG50',every:2,from:'2026-06-16'}, {items:'XFER',every:3,from:'2026-06-16'} ] }
             ]},
             { title:'SACVD-B03B / B03C / B07A 只測 SABOX110 PA', rows:[
-                { name:'SACVD-B03', shift:'日', cells:{0:'DAILY2_PA\nDAILY4_PA',2:'DAILY2_PA\nXFER',4:'DAILY2_PA\nDAILY4_PA',5:'XFER',6:'DAILY2_PA'} },
-                { name:'SACVD-B05', shift:'夜', cells:{0:'XFER',1:'D2_PA',3:'D2_PA\nD4_PA\nXFER',5:'D2_PA',6:'XFER'} },
-                { name:'SACVD-B07', shift:'夜', cells:{0:'D2_PA',1:'XFER',2:'D2_PA\nD4_PA',4:'D2_PA\nXFER',6:'D2_PA\nD4_PA'} }
+                { name:'SACVD-B03', shift:'日', ev:[ {items:'XFER',every:3,from:'2026-06-18'}, {items:'DAILY2_PA',every:2,from:'2026-06-16'}, {items:'DAILY4_PA',every:4,from:'2026-06-16'} ] },
+                { name:'SACVD-B05', shift:'夜', ev:[ {items:'XFER',every:3,from:'2026-06-16'}, {items:'D2_PA',every:2,from:'2026-06-17'}, {items:'D4_PA',every:4,from:'2026-06-19'} ] },
+                { name:'SACVD-B07', shift:'夜', ev:[ {items:'XFER',every:3,from:'2026-06-17'}, {items:'D2_PA',every:2,from:'2026-06-16'}, {items:'D4_PA',every:4,from:'2026-06-18'} ] }
             ]}
         ];
+        function schedCell(row,date,idx){
+            if(row.ev){
+                const items=[];
+                row.ev.forEach(ev=>{
+                    const a=new Date(ev.from+'T00:00:00');
+                    const diff=Math.round((date-a)/86400000);
+                    if(((diff%ev.every)+ev.every)%ev.every===0)
+                        ev.items.split('+').forEach(t=>{t=t.trim();if(t&&items.indexOf(t)<0)items.push(t);});
+                });
+                items.sort((a,b)=>itemRank(a)-itemRank(b));
+                return items.join('\n');
+            }
+            return (row.cells&&row.cells[idx])||'';
+        }
         function renderSchedule(picked){
             const box=document.getElementById('downSchedule');
             if(!box)return;
@@ -673,7 +691,7 @@
                 g.rows.forEach(r=>{
                     html+='<tr><td class="sched-ent">'+esc(r.name)+'('+esc(r.shift)+')</td>';
                     for(let i=0;i<7;i++){
-                        const t=r.cells[i]||'';
+                        const t=schedCell(r,dates[i],i);
                         html+='<td>'+(r.shift==='日'?cell(t):'')+'</td><td>'+(r.shift==='夜'?cell(t):'')+'</td>';
                     }
                     html+='</tr>';
