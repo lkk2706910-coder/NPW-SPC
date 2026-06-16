@@ -611,11 +611,12 @@
                 return String(a.chartName||'').localeCompare(String(b.chartName||''));
             });
 
-            const colCount=isAdder?9:5;
+            const colCount=isAdder?9:8;
             let head=`<tr><th colspan="${colCount}">${blockLabel} - Chart Alarm Detail (W${getWeekNumber(start)})</th></tr>
                 <tr><th style="width:80px;">Entity</th><th style="width:80px;">CHART_ID</th><th class="cn-col">CHART_NAME</th>
                 <th style="width:70px;text-align:center;">Alarm 次數</th><th style="width:160px;">ALARM 日期</th>`;
             if(isAdder)head+=`<th style="width:380px;text-align:center;">Preview</th><th style="width:200px;text-align:center;">PRE</th><th style="width:200px;text-align:center;">ADDER MAP</th><th style="width:110px;">MeasurePU</th>`;
+            else head+=`<th style="width:380px;text-align:center;">chart</th><th style="width:200px;text-align:center;">profile</th><th style="width:110px;">measure tool</th>`;
             head+=`</tr>`;
 
             let html=`<table class="chart-detail"><thead>${head}</thead><tbody>`;
@@ -629,18 +630,24 @@
                 const nonAdderDim=(!isAdder)&&!/RANGE|U%/i.test(String(r.chartName||''));
                 const rowClass=isDup?'dup-chart':(nonAdderDim?'dim-row':'');
                 const cid=escapeHtml(r.chartId||''),cname=escapeHtml(r.chartName||'');
+                const puUp=String(r.processUnit||'').trim().toUpperCase();
+                const site=puUp.startsWith('OXSE-A')?'12AP14':'12AP58';
+                const seq=escapeHtml(r.chartSeq||'');
+                const pv=escapeHtml(r.pointValue==null?'':String(r.pointValue));
+                const da=`data-site="${site}" data-uchart-id="${cid}" data-chart-seq="${seq}" data-point-value="${pv}"`;
+                const puInit=escapeHtml(parseMeasurePu(r.measurePu));
+                const previewCell=`<td class="npw-cell-preview"><div class="npw-spark" data-cid="${cid}" data-block="${isAdder?'A':'N'}"><canvas></canvas></div></td>`;
+                const measureCell=`<td><span class="map-info" ${da}>${puInit||'<span style="color:#999;">...</span>'}</span></td>`;
                 let extra='';
                 if(isAdder){
-                    const puUp=String(r.processUnit||'').trim().toUpperCase();
-                    const site=puUp.startsWith('OXSE-A')?'12AP14':'12AP58';
-                    const seq=escapeHtml(r.chartSeq||'');
-                    const pv=escapeHtml(r.pointValue==null?'':String(r.pointValue));
-                    const da=`data-site="${site}" data-uchart-id="${cid}" data-chart-seq="${seq}" data-point-value="${pv}"`;
-                    const puInit=escapeHtml(parseMeasurePu(r.measurePu));
-                    extra=`<td class="npw-cell-preview"><div class="npw-spark" data-cid="${cid}"><canvas></canvas></div></td>`+
+                    extra=previewCell+
                           `<td class="npw-cell-map"><span class="pre-map" ${da} style="color:#999;">...</span></td>`+
                           `<td class="npw-cell-map"><span class="adder-map" ${da} style="color:#999;">...</span></td>`+
-                          `<td><span class="map-info" ${da}>${puInit||'<span style="color:#999;">...</span>'}</span></td>`;
+                          measureCell;
+                }else{
+                    extra=previewCell+
+                          `<td class="npw-cell-map"><span class="profile-map" ${da} style="color:#999;">...</span></td>`+
+                          measureCell;
                 }
                 html+=`<tr class="${rowClass}"><td>${escapeHtml(r.entity)}</td><td>${cid}</td><td class="cn-col">${nameHtml}</td>
                     <td style="text-align:center;">${escapeHtml(r.cnt)}</td><td>${escapeHtml(datesText)}</td>${extra}</tr>`;
@@ -666,7 +673,8 @@
         const ADDER_Y_MAX = 50;
 
         // Chart.js 趨勢圖（沿用 Tool-ABC 樣式：MEAN_VALUE/UCL/XBAR(CL)/+1σ/+2σ + 圖例 + 軸）
-        function drawSpark(canvas,pts,days,cid){
+        // yMax: 數字=固定上限(ADDER 用 50)；null=自動縮放(NON-ADDER)
+        function drawSpark(canvas,pts,days,cid,yMax){
             if(!canvas||!window.Chart||!pts||!pts.length)return;
             const labels=pts.map(p=>String(p.d||'').replace('T',' '));
             const meanRaw=pts.map(p=>p.mean==null?null:Number(p.mean));
@@ -676,9 +684,10 @@
             const p2=pts.map(p=>(p.xbar==null||p.sigma==null)?null:Number(p.xbar)+2*Number(p.sigma));
             const set=new Set(days);
             const alarmPt=pts.map(p=>Number(p.alarm)>=1 && set.has(String(p.d||'').substring(0,10)));
+            const capped=(yMax!=null);
             // 超過上限的點裁到頂端並標紅（tooltip 仍顯示真值），確保管制線看得見
-            const overTop=meanRaw.map(v=>Number.isFinite(v)&&v>ADDER_Y_MAX);
-            const mean=meanRaw.map((v,i)=>overTop[i]?ADDER_Y_MAX:v);
+            const overTop=meanRaw.map(v=>capped&&Number.isFinite(v)&&v>yMax);
+            const mean=meanRaw.map((v,i)=>overTop[i]?yMax:v);
             const ptColor=alarmPt.map((a,i)=>(a||overTop[i])?'red':'#000');
             const ptRadius=alarmPt.map((a,i)=>(a||overTop[i])?5:3);
             const inst=new Chart(canvas.getContext('2d'),{
@@ -701,19 +710,17 @@
                     },
                     scales:{
                         x:{ticks:{font:{size:8},maxRotation:90,minRotation:90,autoSkip:true,maxTicksLimit:14}},
-                        y:{min:0,max:ADDER_Y_MAX,ticks:{font:{size:9}}}
+                        y:capped?{min:0,max:yMax,ticks:{font:{size:9}}}:{beginAtZero:true,ticks:{font:{size:9}}}
                     }
                 }
             });
             sparkInstances.push(inst);
         }
 
-        // 畫 Preview 縮圖（Chart.js，資料來自 op=chartdata）
+        // 畫 Preview/Chart 縮圖（Chart.js，資料來自 op=chartdata；ADDER 與 NON-ADDER 皆畫）
         async function hydratePreviews(picked){
-            const box=document.getElementById('adderChartDetail');
-            if(!box)return;
             sparkInstances.forEach(c=>{try{c.destroy();}catch(e){}});sparkInstances=[];
-            const sparks=[...box.querySelectorAll('.npw-spark[data-cid]')];
+            const sparks=[...document.querySelectorAll('#adderChartDetail .npw-spark[data-cid], #nonAdderChartDetail .npw-spark[data-cid]')];
             const cids=[...new Set(sparks.map(e=>e.getAttribute('data-cid')).filter(Boolean))];
             if(!cids.length)return;
             const start=startTuesdayFor(picked);
@@ -726,7 +733,11 @@
                 const data=await res.json();
                 if(data.ok)series=data.series||{};
             }catch(e){console.error(e);}
-            sparks.forEach(el=>{const cid=el.getAttribute('data-cid');drawSpark(el.querySelector('canvas'),series[cid]||[],days,cid);});
+            sparks.forEach(el=>{
+                const cid=el.getAttribute('data-cid');
+                const yMax=el.getAttribute('data-block')==='A'?ADDER_Y_MAX:null; // ADDER 固定 50，NON-ADDER 自動
+                drawSpark(el.querySelector('canvas'),series[cid]||[],days,cid,yMax);
+            });
         }
 
         // 共用：以併發方式對一組節點查 MAP 代理，再交給 apply 回填
@@ -768,6 +779,7 @@
             });
             hydrateMapNodes('.pre-map',(el,d)=>{ el.innerHTML=(d&&d.preMapImgUrl)?mapThumbHtml(String(d.preMapImgUrl),'PRE MAP'):'-'; });
             hydrateMapNodes('.adder-map',(el,d)=>{ el.innerHTML=(d&&d.adderMapImgUrl)?mapThumbHtml(String(d.adderMapImgUrl),'ADDER MAP'):'-'; });
+            hydrateMapNodes('.profile-map',(el,d)=>{ const u=d&&(d.profileMapImgUrl||d.contourMapImgUrl||d.uMapImgUrl); el.innerHTML=u?mapThumbHtml(String(u),'PROFILE'):'-'; });
         }
 
         function renderInlineChartDetails(picked){
