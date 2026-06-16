@@ -179,7 +179,7 @@
                 <label for="pickDate">選擇日期</label>
                 <input id="pickDate" type="date" />
                 <span class="npw-week-hint" id="weekHint"></span>
-                <button id="reloadBtn" type="button">讀取</button>
+                <button id="reloadBtn" type="button">重新整理</button>
                 <span id="status" class="npw-status">資料載入中...</span>
             </div>
             <div id="error" class="npw-error" style="display:none;"></div>
