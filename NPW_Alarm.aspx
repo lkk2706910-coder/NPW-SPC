@@ -365,6 +365,7 @@
         let chartAlarmSeq={};  // key|chartKey -> Set(CHART_SEQ)
         let chartProcUnit={};  // key|chartKey -> PROCESSUNIT
         let chartAlarmMean={}; // key|chartKey -> MEAN_VALUE (代表 alarm 點，與 CHART_SEQ 同一筆)
+        let chartAlarmWafer={};// key|chartKey -> WAFER (同一筆代表 alarm 點)
         function setStatus(t,c){const s=document.getElementById('status');s.textContent=t||'';if(c)s.style.color=c;}
         function showError(t){const e=document.getElementById('error');e.textContent=t||'';e.style.display=t?'block':'none';}
 
@@ -395,7 +396,7 @@
             const days=[];
             for(let i=0;i<7;i++){const d=new Date(start.getFullYear(),start.getMonth(),start.getDate());d.setDate(start.getDate()+i);days.push(fmtYMDDash(d));}
             const stats={};
-            chartAlarmStats={};chartAlarmDateStats={};chartMeasurePu={};chartAlarmSeq={};chartProcUnit={};chartAlarmMean={};
+            chartAlarmStats={};chartAlarmDateStats={};chartMeasurePu={};chartAlarmSeq={};chartProcUnit={};chartAlarmMean={};chartAlarmWafer={};
             function entOf(pu){if(!pu)return null;const s=String(pu).toUpperCase();const i=s.indexOf('-');return i===-1?s:s.substring(0,i);}
 
             for(const row of rawData){
@@ -450,7 +451,7 @@
                 if(row.PROCESSUNIT!=null)chartProcUnit[key+'|'+ck]=String(row.PROCESSUNIT);
                 if(row.CHART_SEQ!=null&&String(row.CHART_SEQ).trim()!==''){
                     const sk=key+'|'+ck;
-                    if(!chartAlarmSeq[sk]){chartAlarmSeq[sk]=new Set();if(chartAlarmMean[sk]==null&&row.MEAN_VALUE!=null)chartAlarmMean[sk]=row.MEAN_VALUE;}
+                    if(!chartAlarmSeq[sk]){chartAlarmSeq[sk]=new Set();if(chartAlarmMean[sk]==null&&row.MEAN_VALUE!=null)chartAlarmMean[sk]=row.MEAN_VALUE;if(chartAlarmWafer[sk]==null&&row.WAFER!=null)chartAlarmWafer[sk]=row.WAFER;}
                     chartAlarmSeq[sk].add(String(row.CHART_SEQ).trim());
                 }
             }
@@ -592,7 +593,8 @@
                     const seqSet=chartAlarmSeq[mkey];
                     const chartSeq=(seqSet&&seqSet.size)?Array.from(seqSet)[0]:'';
                     const pointValue=chartAlarmMean[mkey];
-                    allRows.push({entity,chartId,chartName,cnt,nameKey,dates,measurePu,processUnit,chartSeq,pointValue});
+                    const wafer=chartAlarmWafer[mkey];
+                    allRows.push({entity,chartId,chartName,cnt,nameKey,dates,measurePu,processUnit,chartSeq,pointValue,wafer});
                 }
             }
 
@@ -645,8 +647,9 @@
                           `<td class="npw-cell-map"><span class="adder-map" ${da} style="color:#999;">...</span></td>`+
                           measureCell;
                 }else{
+                    const waferAttr=`data-wafer="${escapeHtml(r.wafer==null?'':String(r.wafer))}"`;
                     extra=previewCell+
-                          `<td class="npw-cell-map"><span class="profile-map" ${da} style="color:#999;">...</span></td>`+
+                          `<td class="npw-cell-map"><span class="profile-map" ${da} ${waferAttr} style="color:#999;">...</span></td>`+
                           measureCell;
                 }
                 html+=`<tr class="${rowClass}"><td>${escapeHtml(r.entity)}</td><td>${cid}</td><td class="cn-col">${nameHtml}</td>
@@ -742,7 +745,8 @@
         }
 
         // 共用：以併發方式對一組節點查 MAP 代理，再交給 apply 回填
-        async function hydrateMapNodes(selector,apply){
+        // extraQuery：額外附加在 URL 後（如 profile 的 &keyword=RAW）
+        async function hydrateMapNodes(selector,apply,extraQuery){
             const nodes=[...document.querySelectorAll(selector+'[data-uchart-id][data-chart-seq]')];
             if(!nodes.length)return;
             const CONC=6;let idx=0;
@@ -753,10 +757,13 @@
                     const uchartId=el.getAttribute('data-uchart-id')||'';
                     const chartSeq=el.getAttribute('data-chart-seq')||'';
                     const pointValue=el.getAttribute('data-point-value')||'';
+                    const wafer=el.getAttribute('data-wafer')||'';
                     if(!chartSeq){el.textContent='-';continue;}
                     try{
                         const pv=pointValue!==''?pointValue:'10'; // 預設 alarm 點實際 MEAN_VALUE，缺值退回 10
-                        const url=MAP_PROXY+`?site=${encodeURIComponent(site)}&uchart_id=${encodeURIComponent(uchartId)}&chart_seq=${encodeURIComponent(chartSeq)}&PointValue=${encodeURIComponent(pv)}`;
+                        let url=MAP_PROXY+`?site=${encodeURIComponent(site)}&uchart_id=${encodeURIComponent(uchartId)}&chart_seq=${encodeURIComponent(chartSeq)}&PointValue=${encodeURIComponent(pv)}`;
+                        if(wafer)url+=`&wafer=${encodeURIComponent(wafer)}`; // profile：對齊 alarm 點的 WAFER
+                        if(extraQuery)url+=extraQuery;
                         const resp=await fetch(url,{credentials:'include'});
                         if(!resp.ok)throw new Error('HTTP '+resp.status);
                         const data=await resp.json();
@@ -780,7 +787,8 @@
             });
             hydrateMapNodes('.pre-map',(el,d)=>{ el.innerHTML=(d&&d.preMapImgUrl)?mapThumbHtml(String(d.preMapImgUrl),'PRE MAP'):'-'; });
             hydrateMapNodes('.adder-map',(el,d)=>{ el.innerHTML=(d&&d.adderMapImgUrl)?mapThumbHtml(String(d.adderMapImgUrl),'ADDER MAP'):'-'; });
-            hydrateMapNodes('.profile-map',(el,d)=>{ const u=d&&(d.profileMapImgUrl||d.contourMapImgUrl||d.uMapImgUrl); el.innerHTML=u?mapThumbHtml(String(u),'PROFILE'):'-'; });
+            // profile：附帶 &keyword=RAW（藍色關鍵字 RAW）；圖以 alarm 點 WAFER 對齊 WAFERID
+            hydrateMapNodes('.profile-map',(el,d)=>{ const u=d&&(d.profileMapImgUrl||d.contourMapImgUrl||d.uMapImgUrl||d.rawMapImgUrl); el.innerHTML=u?mapThumbHtml(String(u),'PROFILE'):'-'; },'&keyword=RAW');
         }
 
         function renderInlineChartDetails(picked){
