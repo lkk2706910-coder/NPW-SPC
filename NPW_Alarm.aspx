@@ -761,69 +761,74 @@
 
         // 共用：以併發方式對一組節點查 MAP 代理，再交給 apply 回填
         // extraQuery：額外附加在 URL 後（如 profile 的 &keyword=RAW）
-        async function hydrateMapNodes(selector,apply,extraQuery){
-            const nodes=[...document.querySelectorAll(selector+'[data-uchart-id][data-chart-seq]')];
-            if(!nodes.length)return;
-            const CONC=6;let idx=0;
-            async function worker(){
-                while(idx<nodes.length){
-                    const el=nodes[idx++];
-                    const site=el.getAttribute('data-site')||'12AP58';
-                    const uchartId=el.getAttribute('data-uchart-id')||'';
-                    const chartSeq=el.getAttribute('data-chart-seq')||'';
-                    const pointValue=el.getAttribute('data-point-value')||'';
-                    const wafer=el.getAttribute('data-wafer')||'';
-                    if(!chartSeq){el.textContent='-';continue;}
-                    try{
-                        const pv=pointValue!==''?pointValue:'10'; // 預設 alarm 點實際 MEAN_VALUE，缺值退回 10
-                        let url=MAP_PROXY+`?site=${encodeURIComponent(site)}&uchart_id=${encodeURIComponent(uchartId)}&chart_seq=${encodeURIComponent(chartSeq)}&PointValue=${encodeURIComponent(pv)}`;
-                        if(wafer)url+=`&wafer=${encodeURIComponent(wafer)}`; // profile：對齊 alarm 點的 WAFER
-                        if(extraQuery)url+=extraQuery;
-                        const resp=await fetch(url,{credentials:'include'});
-                        if(!resp.ok)throw new Error('HTTP '+resp.status);
-                        const data=await resp.json();
-                        apply(el,(data&&data.ok)?data:null);
-                    }catch(e){el.textContent='-';}
-                }
-            }
-            await Promise.all(Array.from({length:Math.min(CONC,nodes.length)},worker));
-        }
-
         function mapThumbHtml(imgUrl,alt){
             return `<a href="openie:${encodeURIComponent(imgUrl)}" target="_blank" rel="noopener noreferrer" title="Open ${alt} (IE)">`
                 + `<img class="adder-map-thumb" src="${escapeHtml(imgUrl)}" alt="${alt}" loading="lazy" /></a>`;
         }
 
-        // NON-ADDER profile：呼叫後端 op=profileimg 取單張 RAW 圖網址，內嵌縮圖
-        async function hydrateProfileImgs(){
-            const nodes=[...document.querySelectorAll('#nonAdderChartDetail .profile-img[data-cid][data-seq]')];
-            if(!nodes.length)return;
-            const CONC=4;let idx=0;
-            async function worker(){
-                while(idx<nodes.length){
-                    const el=nodes[idx++];
-                    const cid=el.getAttribute('data-cid')||'',seq=el.getAttribute('data-seq')||'',pv=el.getAttribute('data-pv')||'',site=el.getAttribute('data-site')||'12AP58',wafer=el.getAttribute('data-wafer')||'';
-                    if(!cid||!seq){el.textContent='-';continue;}
-                    try{
-                        const u='NPW_Alarm.aspx?op=profileimg&chartId='+encodeURIComponent(cid)+'&chartSeq='+encodeURIComponent(seq)+'&pointValue='+encodeURIComponent(pv)+'&site='+encodeURIComponent(site)+'&wafer='+encodeURIComponent(wafer);
-                        const res=await fetch(u,{cache:'no-store'});
-                        const d=await res.json();
-                        if(d&&d.ok&&d.imgUrl)el.innerHTML=mapThumbHtml(String(d.imgUrl),'Profile RAW');
-                        else el.textContent='-';
-                    }catch(e){el.textContent='-';}
-                }
+        // ===== Map/Profile：捲到才載入 + 去重 + 快取 + 限流 =====
+        const MAP_CONC = 3;                 // 對目標伺服器的最大同時請求數
+        let _mapActive = 0; const _mapQueue = [];
+        function _mapSchedule(fn){ return new Promise(res=>{ _mapQueue.push({fn,res}); _mapPump(); }); }
+        function _mapPump(){
+            while(_mapActive<MAP_CONC && _mapQueue.length){
+                const job=_mapQueue.shift(); _mapActive++;
+                Promise.resolve().then(job.fn).then(r=>{_mapActive--;job.res(r);_mapPump();},()=>{_mapActive--;job.res(null);_mapPump();});
             }
-            await Promise.all(Array.from({length:Math.min(CONC,nodes.length)},worker));
+        }
+        const _enc=encodeURIComponent;
+        const _proxyCache={};   // SpcMapInfoProxy 結果（PRE/ADDER/MeasurePU 共用）
+        const _profileCache={}; // op=profileimg 結果
+        function fetchProxy(site,uchartId,chartSeq,pv){
+            const key=site+'|'+uchartId+'|'+chartSeq+'|'+pv;
+            if(_proxyCache[key])return _proxyCache[key];
+            const url=MAP_PROXY+`?site=${_enc(site)}&uchart_id=${_enc(uchartId)}&chart_seq=${_enc(chartSeq)}&PointValue=${_enc(pv!==''?pv:'10')}`;
+            _proxyCache[key]=_mapSchedule(()=>fetch(url,{credentials:'include'}).then(r=>r.ok?r.json():null).catch(()=>null));
+            return _proxyCache[key];
+        }
+        function fetchProfile(site,cid,seq,pv,wafer){
+            const key=site+'|'+cid+'|'+seq+'|'+pv+'|'+wafer;
+            if(_profileCache[key])return _profileCache[key];
+            const u='NPW_Alarm.aspx?op=profileimg&chartId='+_enc(cid)+'&chartSeq='+_enc(seq)+'&pointValue='+_enc(pv)+'&site='+_enc(site)+'&wafer='+_enc(wafer);
+            _profileCache[key]=_mapSchedule(()=>fetch(u,{cache:'no-store'}).then(r=>r.ok?r.json():null).catch(()=>null));
+            return _profileCache[key];
         }
 
-        function hydrateMaps(){
-            hydrateMapNodes('.map-info',(el,d)=>{
-                if(!d){el.textContent=el.textContent&&el.textContent!=='...'?el.textContent:'-';return;}
+        function applyProxy(el,d){
+            if(el.classList.contains('map-info')){
+                if(!d){el.textContent=(el.textContent&&el.textContent!=='...')?el.textContent:'-';return;}
                 el.style.color='#111';
-                el.textContent=d.measurePU?parseMeasurePu(d.measurePU):(el.textContent&&el.textContent!=='...'?el.textContent:'-');
-            });
-            hydrateMapNodes('.pre-map',(el,d)=>{ el.innerHTML=(d&&d.preMapImgUrl)?mapThumbHtml(String(d.preMapImgUrl),'PRE MAP'):'-'; });
-            hydrateMapNodes('.adder-map',(el,d)=>{ el.innerHTML=(d&&d.adderMapImgUrl)?mapThumbHtml(String(d.adderMapImgUrl),'ADDER MAP'):'-'; });
+                el.textContent=d.measurePU?parseMeasurePu(d.measurePU):((el.textContent&&el.textContent!=='...')?el.textContent:'-');
+            }else if(el.classList.contains('pre-map')){
+                el.innerHTML=(d&&d.preMapImgUrl)?mapThumbHtml(String(d.preMapImgUrl),'PRE MAP'):'-';
+            }else if(el.classList.contains('adder-map')){
+                el.innerHTML=(d&&d.adderMapImgUrl)?mapThumbHtml(String(d.adderMapImgUrl),'ADDER MAP'):'-';
+            }
+        }
+        async function hydrateOne(el){
+            if(el.dataset.hydrated)return; el.dataset.hydrated='1';
+            const site=el.getAttribute('data-site')||'12AP58';
+            if(el.classList.contains('profile-img')){
+                const cid=el.getAttribute('data-cid')||'',seq=el.getAttribute('data-seq')||'',pv=el.getAttribute('data-pv')||'',wafer=el.getAttribute('data-wafer')||'';
+                if(!cid||!seq){el.textContent='-';return;}
+                const d=await fetchProfile(site,cid,seq,pv,wafer);
+                if(d&&d.ok&&d.imgUrl)el.innerHTML=mapThumbHtml(String(d.imgUrl),'Profile RAW'); else el.textContent='-';
+            }else{
+                const uchartId=el.getAttribute('data-uchart-id')||'',chartSeq=el.getAttribute('data-chart-seq')||'',pv=el.getAttribute('data-point-value')||'';
+                if(!chartSeq){el.textContent='-';return;}
+                const d=await fetchProxy(site,uchartId,chartSeq,pv);
+                applyProxy(el,(d&&d.ok)?d:null);
+            }
+        }
+        let _mapObserver=null;
+        function setupLazyMaps(){
+            const els=[...document.querySelectorAll('#adderChartDetail .map-info, #adderChartDetail .pre-map, #adderChartDetail .adder-map, #nonAdderChartDetail .map-info, #nonAdderChartDetail .profile-img')];
+            if(_mapObserver)_mapObserver.disconnect();
+            if(!('IntersectionObserver' in window)){ els.forEach(hydrateOne); return; } // 後備：一次載入
+            _mapObserver=new IntersectionObserver((entries)=>{
+                entries.forEach(en=>{ if(en.isIntersecting){ _mapObserver.unobserve(en.target); hydrateOne(en.target); } });
+            },{rootMargin:'250px'});
+            els.forEach(el=>_mapObserver.observe(el));
         }
 
         function renderInlineChartDetails(picked){
@@ -831,9 +836,8 @@
             const n=document.getElementById('nonAdderChartDetail');
             if(a)a.innerHTML=buildInlineChartDetailHtml(picked,true);
             if(n)n.innerHTML=buildInlineChartDetailHtml(picked,false);
-            hydratePreviews(picked);  // Chart.js 趨勢縮圖
-            hydrateMaps();            // PRE / ADDER MAP / MeasurePU（代理）
-            hydrateProfileImgs();     // NON-ADDER profile 單張 RAW 圖
+            hydratePreviews(picked);  // Chart.js 趨勢縮圖（chartdata 單次批次查詢）
+            setupLazyMaps();          // PRE/ADDER/Profile/MeasurePU：捲到才載入+去重+快取+限流
         }
 
         // ===== 初始化 =====
