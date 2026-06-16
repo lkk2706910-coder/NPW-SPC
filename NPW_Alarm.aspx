@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>首頁</title>
+    <title>TF2 NPW Alarm 週報</title>
     <style>
         :root {
             color-scheme: dark;
@@ -44,7 +44,7 @@
             gap: 14px;
         }
         .topbar h1 { font-size: 16px; margin: 0; }
-        .wrap { max-width: 1100px; margin: 0 auto; padding: 24px; }
+        .wrap { max-width: 1360px; margin: 0 auto; padding: 24px; }
         .card {
             background: var(--panel);
             border: 1px solid var(--border);
@@ -131,23 +131,10 @@
 </head>
 <body>
     <div class="topbar">
-        <h1>網頁公版 — 首頁(無登入)</h1>
+        <h1>TF2 NPW Alarm 週報</h1>
     </div>
 
     <div class="wrap">
-        <div class="card">
-            <h2>歡迎</h2>
-            <p>這是 <code>web-template-lite</code> 公版的首頁 — <strong>沒有登入機制</strong>,任何人開網址都看得到。</p>
-            <p>右下角 <strong>AI</strong> 圓鈕點開就有 LLM 對話視窗,圖文輸入都支援。
-                所有 chat 請求送到 <code>NPW_Alarm.aspx?op=chat</code>,後端代理到 LLM gateway(API key 藏在 server)。</p>
-        </div>
-        <div class="card">
-            <h2>下一步</h2>
-            <p>把 <code>NPW_Alarm.aspx</code> 改成你自己的功能畫面。要連 DB 的話,在 code-behind 直接呼叫:</p>
-            <p><code>var rows = DbHelper.QueryRows("SELECT * FROM your_table WHERE x = @p0", value);</code></p>
-            <p>要加新 .aspx 頁面就直接加,沒有 auth gate 需要繞過。</p>
-        </div>
-
         <style>
         .npw-report-card{background:#fff;color:#111;}
         .npw-report-card h2{color:#111;}
