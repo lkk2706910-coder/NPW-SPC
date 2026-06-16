@@ -172,6 +172,8 @@
         .npw-report-card .chart-detail th,.npw-report-card .chart-detail td{border:1px solid #222;font-size:12px;padding:4px 6px;line-height:1.2;vertical-align:middle;color:#111;text-align:left;word-break:break-all;}
         .npw-report-card .chart-detail th{background:#f5f5f5;font-weight:700;}
         .npw-report-card .chart-detail a{color:#1d4ed8;}
+        .npw-report-card .npw-mini-btn{font-size:11px;padding:2px 6px;border:1px solid #1976d2;border-radius:4px;background:#fff;color:#1976d2;cursor:pointer;}
+        .npw-report-card .npw-mini-btn:hover{background:#1976d2;color:#fff;}
         .npw-report-card .dup-chart{background:#ffe19a!important;}
         .npw-report-card .dim-row{background:#d9d9d9!important;}
         .npw-report-card .inline-empty{padding:8px 10px;color:#666;font-size:12px;background:#fff;border:1px dashed #999;}
@@ -350,6 +352,7 @@
         let rawData=[];
         let chartAlarmStats={};
         let chartAlarmDateStats={};
+        let chartMeasurePu={}; // key|chartKey -> MEASUREPU
         function setStatus(t,c){const s=document.getElementById('status');s.textContent=t||'';if(c)s.style.color=c;}
         function showError(t){const e=document.getElementById('error');e.textContent=t||'';e.style.display=t?'block':'none';}
 
@@ -380,7 +383,7 @@
             const days=[];
             for(let i=0;i<7;i++){const d=new Date(start.getFullYear(),start.getMonth(),start.getDate());d.setDate(start.getDate()+i);days.push(fmtYMDDash(d));}
             const stats={};
-            chartAlarmStats={};chartAlarmDateStats={};
+            chartAlarmStats={};chartAlarmDateStats={};chartMeasurePu={};
             function entOf(pu){if(!pu)return null;const s=String(pu).toUpperCase();const i=s.indexOf('-');return i===-1?s:s.substring(0,i);}
 
             for(const row of rawData){
@@ -431,6 +434,7 @@
                 if(!chartAlarmDateStats[key])chartAlarmDateStats[key]={};
                 if(!chartAlarmDateStats[key][ck])chartAlarmDateStats[key][ck]=new Set();
                 chartAlarmDateStats[key][ck].add(ut);
+                if(row.MEASUREPU!=null&&String(row.MEASUREPU).trim()!=='')chartMeasurePu[key+'|'+ck]=String(row.MEASUREPU);
             }
             return {stats,days};
         }
@@ -564,7 +568,9 @@
                     if(nameKey)chartNameFreq[nameKey]=(chartNameFreq[nameKey]||0)+1;
                     const dateSet=dateMap[ck];
                     const dates=dateSet?Array.from(dateSet).sort():[];
-                    allRows.push({entity,chartId,chartName,cnt,nameKey,dates});
+                    const mkey=fmtYMDDash(start)+'|'+entity+'|'+(isAdder?'ADDER':'NON_ADDER')+'|'+ck;
+                    const measurePu=chartMeasurePu[mkey]||'';
+                    allRows.push({entity,chartId,chartName,cnt,nameKey,dates,measurePu});
                 }
             }
 
@@ -583,11 +589,14 @@
                 return String(a.chartName||'').localeCompare(String(b.chartName||''));
             });
 
-            let html=`<table class="chart-detail"><thead>
-                <tr><th colspan="6">${blockLabel} - Chart Alarm Detail (W${getWeekNumber(start)})</th></tr>
-                <tr><th style="width:92px;">Entity</th><th style="width:90px;">CHART_ID</th><th>CHART_NAME</th>
-                <th style="width:90px;text-align:center;">Alarm 次數</th><th style="width:190px;">ALARM 日期</th><th style="width:70px;text-align:center;">重複</th></tr>
-                </thead><tbody>`;
+            const colCount=isAdder?9:5;
+            let head=`<tr><th colspan="${colCount}">${blockLabel} - Chart Alarm Detail (W${getWeekNumber(start)})</th></tr>
+                <tr><th style="width:80px;">Entity</th><th style="width:80px;">CHART_ID</th><th>CHART_NAME</th>
+                <th style="width:70px;text-align:center;">Alarm 次數</th><th style="width:160px;">ALARM 日期</th>`;
+            if(isAdder)head+=`<th style="width:60px;text-align:center;">Chart</th><th style="width:74px;text-align:center;">Pre_map</th><th style="width:74px;text-align:center;">Post_map</th><th style="width:110px;">Measure tool</th>`;
+            head+=`</tr>`;
+
+            let html=`<table class="chart-detail"><thead>${head}</thead><tbody>`;
             for(const r of allRows){
                 const url=buildChartUrl(r.chartId);
                 const nameHtml=url?`<a href="${url}" target="_blank" rel="noopener noreferrer">${escapeHtml(r.chartName||'')}</a>`:escapeHtml(r.chartName||'');
@@ -597,12 +606,25 @@
                 const datesText=(r.dates&&r.dates.length)?r.dates.join(', '):'';
                 const nonAdderDim=(!isAdder)&&!/RANGE|U%/i.test(String(r.chartName||''));
                 const rowClass=isDup?'dup-chart':(nonAdderDim?'dim-row':'');
-                html+=`<tr class="${rowClass}"><td>${escapeHtml(r.entity)}</td><td>${escapeHtml(r.chartId||'')}</td><td>${nameHtml}</td>
-                    <td style="text-align:center;">${escapeHtml(r.cnt)}</td><td>${escapeHtml(datesText)}</td><td style="text-align:center;">${isDup?'Y':''}</td></tr>`;
+                const cid=escapeHtml(r.chartId||''),cname=escapeHtml(r.chartName||'');
+                let extra='';
+                if(isAdder){
+                    const da=`data-cid="${cid}" data-cname="${cname}"`;
+                    extra=`<td style="text-align:center;"><button type="button" class="npw-mini-btn" ${da} data-act="chart" title="SPC Chart">📈</button></td>`+
+                          `<td style="text-align:center;"><button type="button" class="npw-mini-btn" ${da} data-act="pre" title="PRE wafer map">PRE</button></td>`+
+                          `<td style="text-align:center;"><button type="button" class="npw-mini-btn" ${da} data-act="post" title="POST(ADDER) wafer map">POST</button></td>`+
+                          `<td>${escapeHtml(r.measurePu||'')}</td>`;
+                }
+                html+=`<tr class="${rowClass}"><td>${escapeHtml(r.entity)}</td><td>${cid}</td><td>${nameHtml}</td>
+                    <td style="text-align:center;">${escapeHtml(r.cnt)}</td><td>${escapeHtml(datesText)}</td>${extra}</tr>`;
             }
             html+='</tbody></table>';
             return html;
         }
+
+        // 圖表 / wafer map 動作（資料來源確認後實作）
+        function openSpcChart(cid,cname){alert('SPC Chart（Tool-ABC 畫圖）建置中\nCHART_ID: '+cid+'\nCHART_NAME: '+cname);}
+        function openWaferMap(cid,cname,kind){alert(kind+' wafer map 建置中（待確認 MAP 資料來源）\nCHART_ID: '+cid+'\nCHART_NAME: '+cname);}
 
         function renderInlineChartDetails(picked){
             const a=document.getElementById('adderChartDetail');
@@ -627,6 +649,16 @@
                 updateWeekHint(picked);
                 try{await loadFromDb(picked);refreshTables(picked);}catch(e){/* 已顯示 */}
             }
+
+            // ADDER 明細的 Chart / Pre_map / Post_map 按鈕（事件委派）
+            document.addEventListener('click',e=>{
+                const btn=e.target.closest('.npw-mini-btn');
+                if(!btn)return;
+                const cid=btn.getAttribute('data-cid')||'',cname=btn.getAttribute('data-cname')||'',act=btn.getAttribute('data-act');
+                if(act==='chart')openSpcChart(cid,cname);
+                else if(act==='pre')openWaferMap(cid,cname,'PRE');
+                else if(act==='post')openWaferMap(cid,cname,'POST');
+            });
 
             const calBtn=document.getElementById('calBtn');
             if(calBtn)calBtn.addEventListener('click',()=>{
