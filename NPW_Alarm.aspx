@@ -620,8 +620,8 @@
             let head=`<tr><th colspan="${colCount}">${blockLabel} - Chart Alarm Detail (W${getWeekNumber(start)})</th></tr>
                 <tr><th style="width:80px;">Entity</th><th style="width:80px;">CHART_ID</th><th class="cn-col">CHART_NAME</th>
                 <th style="width:70px;text-align:center;">Alarm 次數</th><th style="width:160px;">ALARM 日期</th>`;
-            if(isAdder)head+=`<th style="width:380px;text-align:center;">Preview</th><th style="width:200px;text-align:center;">PRE</th><th style="width:200px;text-align:center;">ADDER MAP</th><th style="width:110px;">MeasurePU</th>`;
-            else head+=`<th style="width:380px;text-align:center;">chart</th><th style="width:200px;text-align:center;">profile</th><th style="width:110px;">measure tool</th>`;
+            if(isAdder)head+=`<th style="width:380px;text-align:center;">Trend_Chart</th><th style="width:200px;text-align:center;">PRE_Map</th><th style="width:200px;text-align:center;">ADDER_Map</th><th style="width:110px;">Measure_Tool</th>`;
+            else head+=`<th style="width:380px;text-align:center;">Trend_Chart</th><th style="width:200px;text-align:center;">Profile</th><th style="width:110px;">Measure_Tool</th>`;
             head+=`</tr>`;
 
             let html=`<table class="chart-detail"><thead>${head}</thead><tbody>`;
