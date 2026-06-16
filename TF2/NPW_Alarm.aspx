@@ -644,9 +644,9 @@
                 { name:'SACVD-B10', shift:'日', cells:{0:'5.5K\nXFER',3:'5.5K\nXFER',6:'5.5K\nXFER'} }
             ]},
             { title:'SACVD (USG50)', rows:[
-                { name:'SACVD-B02', shift:'日', cells:{3:'CHC 2K\nXFER'} },
-                { name:'SACVD-B11', shift:'夜', cells:{0:'USG50',1:'USG50',2:'USG50',3:'USG50',4:'CHC 2K\nXFER',6:'USG50'} },
-                { name:'SACVD-B12', shift:'夜', cells:{0:'USG50\nXFER',3:'USG50',4:'XFER',6:'USG50\nXFER'} }
+                { name:'SACVD-B02', shift:'夜', cells:{1:'USG50',2:'CHC 2K\nXFER',3:'USG50',5:'USG50\nCHC 2K\nXFER',6:'USG50'} },
+                { name:'SACVD-B11', shift:'日', cells:{0:'USG50',1:'XFER',2:'USG50',4:'USG50\nXFER',6:'USG50'} },
+                { name:'SACVD-B12', shift:'夜', cells:{0:'USG50\nXFER',2:'USG50',3:'XFER',4:'USG50',6:'USG50\nXFER'} }
             ]},
             { title:'SACVD-B03B / B03C / B07A 只測 SABOX110 PA', rows:[
                 { name:'SACVD-B03', shift:'日', cells:{0:'DAILY2_PA\nDAILY4_PA',2:'DAILY2_PA\nXFER',4:'DAILY2_PA\nDAILY4_PA',5:'XFER',6:'DAILY2_PA'} },
