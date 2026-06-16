@@ -169,17 +169,18 @@
         .npw-report-card col.statM{width:92px;}
         .npw-report-card .alarm-over-target{background-color:#ffd1e6!important;}
         .npw-report-card .total-green-over-yellow{background-color:#ffd1e6!important;}
-        .npw-report-card .chart-detail{width:100%;border-collapse:collapse;table-layout:fixed;background:#fff;border:2px solid #222;margin:-6px 0 18px;}
+        .npw-report-card #adderChartDetail,.npw-report-card #nonAdderChartDetail{overflow-x:auto;}
+        .npw-report-card .chart-detail{width:100%;border-collapse:collapse;background:#fff;border:2px solid #222;margin:-6px 0 18px;}
         .npw-report-card .chart-detail th,.npw-report-card .chart-detail td{border:1px solid #222;font-size:12px;padding:4px 6px;line-height:1.2;vertical-align:middle;color:#111;text-align:left;word-break:break-all;}
         .npw-report-card .chart-detail th{background:#f5f5f5;font-weight:700;}
         .npw-report-card .chart-detail a{color:#1d4ed8;}
         .npw-report-card .npw-mini-btn{font-size:11px;padding:2px 6px;border:1px solid #1976d2;border-radius:4px;background:#fff;color:#1976d2;cursor:pointer;}
         .npw-report-card .npw-mini-btn:hover{background:#1976d2;color:#fff;}
         .npw-report-card .npw-cell-preview{padding:2px!important;}
-        .npw-report-card .npw-spark{position:relative;width:228px;height:84px;}
+        .npw-report-card .npw-spark{position:relative;width:372px;height:208px;}
         .npw-report-card .npw-spark canvas{display:block;width:100%!important;height:100%!important;}
         .npw-report-card .npw-cell-map{text-align:center;padding:2px!important;}
-        .npw-report-card .adder-map-thumb{width:160px;height:auto;border:1px solid #bbb;background:#fafafa;object-fit:contain;display:block;margin:0 auto;cursor:zoom-in;}
+        .npw-report-card .adder-map-thumb{width:184px;max-width:184px;height:auto;border:1px solid #bbb;background:#fafafa;object-fit:contain;display:block;margin:0 auto;cursor:zoom-in;}
         .npw-report-card .dup-chart{background:#ffe19a!important;}
         .npw-report-card .dim-row{background:#d9d9d9!important;}
         .npw-report-card .inline-empty{padding:8px 10px;color:#666;font-size:12px;background:#fff;border:1px dashed #999;}
@@ -612,7 +613,7 @@
             let head=`<tr><th colspan="${colCount}">${blockLabel} - Chart Alarm Detail (W${getWeekNumber(start)})</th></tr>
                 <tr><th style="width:80px;">Entity</th><th style="width:80px;">CHART_ID</th><th>CHART_NAME</th>
                 <th style="width:70px;text-align:center;">Alarm 次數</th><th style="width:160px;">ALARM 日期</th>`;
-            if(isAdder)head+=`<th style="width:236px;text-align:center;">Preview</th><th style="width:100px;text-align:center;">PRE</th><th style="width:100px;text-align:center;">ADDER MAP</th><th style="width:100px;">MeasurePU</th>`;
+            if(isAdder)head+=`<th style="width:380px;text-align:center;">Preview</th><th style="width:200px;text-align:center;">PRE</th><th style="width:200px;text-align:center;">ADDER MAP</th><th style="width:110px;">MeasurePU</th>`;
             head+=`</tr>`;
 
             let html=`<table class="chart-detail"><thead>${head}</thead><tbody>`;
@@ -659,27 +660,38 @@
             return m?m[1]:str;
         }
 
-        // Chart.js 趨勢縮圖（取代 refer.html 的伺服器縮圖）
+        // Chart.js 趨勢圖（沿用 Tool-ABC 樣式：MEAN_VALUE/UCL/XBAR(CL)/+1σ/+2σ + 圖例 + 軸）
         function drawSpark(canvas,pts,days,cid){
             if(!canvas||!window.Chart||!pts||!pts.length)return;
-            const labels=pts.map(p=>String(p.d||'').substring(5,10));
+            const labels=pts.map(p=>String(p.d||'').replace('T',' '));
             const mean=pts.map(p=>p.mean==null?null:Number(p.mean));
             const ucl=pts.map(p=>p.ucl==null?null:Number(p.ucl));
             const cl=pts.map(p=>p.xbar==null?null:Number(p.xbar));
+            const p1=pts.map(p=>(p.xbar==null||p.sigma==null)?null:Number(p.xbar)+Number(p.sigma));
+            const p2=pts.map(p=>(p.xbar==null||p.sigma==null)?null:Number(p.xbar)+2*Number(p.sigma));
             const set=new Set(days);
             const alarmPt=pts.map(p=>Number(p.alarm)>=1 && set.has(String(p.d||'').substring(0,10)));
-            const ptColor=alarmPt.map(a=>a?'red':'rgba(0,0,0,0.55)');
-            const ptRadius=alarmPt.map(a=>a?4:0);
+            const ptColor=alarmPt.map(a=>a?'red':'#000');
+            const ptRadius=alarmPt.map(a=>a?5:3);
             const inst=new Chart(canvas.getContext('2d'),{
                 type:'line',
                 data:{labels,datasets:[
-                    {label:'MEAN_VALUE',data:mean,borderColor:'#000',borderWidth:1,fill:false,tension:.2,pointBackgroundColor:ptColor,pointBorderColor:ptColor,pointRadius:ptRadius,pointHoverRadius:5},
-                    {label:'UCL',data:ucl,borderColor:'red',borderDash:[4,2],borderWidth:1,pointRadius:0,spanGaps:true},
-                    {label:'CL',data:cl,borderColor:'#0f766e',borderWidth:1,pointRadius:0,spanGaps:true}
+                    {label:'MEAN_VALUE',data:mean,borderColor:'#000',backgroundColor:'rgba(0,0,0,0.1)',pointStyle:'triangle',fill:false,tension:.2,borderWidth:1.5,pointBackgroundColor:ptColor,pointBorderColor:ptColor,pointRadius:ptRadius,pointHoverRadius:6},
+                    {label:'UCL',data:ucl,borderColor:'red',borderDash:[4,2],fill:false,pointRadius:0,borderWidth:1.5,spanGaps:true},
+                    {label:'XBAR (CL)',data:cl,borderColor:'#0f766e',fill:false,pointRadius:0,borderWidth:1.5,spanGaps:true},
+                    {label:'+1σ (XBAR+σ)',data:p1,borderColor:'#1976d2',borderDash:[2,2],fill:false,pointRadius:0,borderWidth:1,spanGaps:true},
+                    {label:'+2σ (XBAR+2σ)',data:p2,borderColor:'orange',borderDash:[6,2],fill:false,pointRadius:0,borderWidth:1,spanGaps:true}
                 ]},
                 options:{animation:false,responsive:true,maintainAspectRatio:false,
-                    plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.formattedValue}}},
-                    scales:{x:{display:false},y:{display:false}}
+                    layout:{padding:{top:4}},
+                    plugins:{
+                        legend:{display:true,position:'top',align:'end',labels:{usePointStyle:true,pointStyle:'line',boxWidth:26,boxHeight:8,padding:8,font:{size:9,weight:'700'}}},
+                        tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.formattedValue}}
+                    },
+                    scales:{
+                        x:{ticks:{font:{size:8},maxRotation:90,minRotation:90,autoSkip:true,maxTicksLimit:14}},
+                        y:{beginAtZero:true,ticks:{font:{size:9}}}
+                    }
                 }
             });
             sparkInstances.push(inst);
