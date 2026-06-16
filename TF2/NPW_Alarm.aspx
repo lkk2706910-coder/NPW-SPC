@@ -47,6 +47,7 @@
         }
         .topbar h1 { font-size: 16px; margin: 0; }
         .seg-tabs { display: flex; gap: 8px; margin-left: auto; }
+        .save-status { margin-left: 14px; font-size: 13px; font-weight: 600; white-space: nowrap; min-width: 70px; }
         .seg-btn { padding: 6px 16px; border: 1px solid #1976d2; border-radius: 6px; background: #fff; color: #1976d2; cursor: pointer; font-size: 14px; font-weight: 600; }
         .seg-btn:hover { background: #eef4ff; }
         .seg-btn.active { background: #1976d2; color: #fff; }
@@ -162,6 +163,7 @@
             <button type="button" class="seg-btn active" data-sec="weekly">NPW Alarm 週報</button>
             <button type="button" class="seg-btn" data-sec="downchart">down chart 作業區</button>
         </div>
+        <span id="saveStatus" class="save-status"></span>
     </div>
 
     <div class="wrap">
@@ -682,8 +684,27 @@
             try{const r=await fetch(PAGE+'?op=getchecks',{cache:'no-store'});const d=await r.json();if(d&&d.ok)schedChecks=d.checks||{};}catch(e){}
             if(_schedPicked)renderSchedule(_schedPicked);
         }
-        function saveSchedCheck(k,checked){
-            try{fetch(PAGE+'?op=savecheck',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:k,checked:!!checked})});}catch(e){}
+        let _saveTimer=null;
+        function setSaveStatus(text,color,autoHide){
+            const el=document.getElementById('saveStatus');
+            if(!el)return;
+            el.textContent=text||'';
+            el.style.color=color||'#555';
+            if(_saveTimer){clearTimeout(_saveTimer);_saveTimer=null;}
+            if(autoHide)_saveTimer=setTimeout(()=>{el.textContent='';},2500);
+        }
+        async function saveSchedCheck(k,checked){
+            setSaveStatus('儲存中…','#b45309');
+            try{
+                const r=await fetch(PAGE+'?op=savecheck',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:k,checked:!!checked})});
+                const d=await r.json().catch(()=>null);
+                if(!r.ok||!d||!d.ok){
+                    console.error('savecheck failed',r.status,d);
+                    setSaveStatus('儲存失敗：'+((d&&d.error)?d.error:('HTTP '+r.status)),'#c00');
+                }else{
+                    setSaveStatus('已儲存 ✓','#15803d',true);
+                }
+            }catch(e){console.error(e);setSaveStatus('儲存失敗：'+e.message,'#c00');}
         }
         function renderSchedule(picked){
             const box=document.getElementById('downSchedule');
