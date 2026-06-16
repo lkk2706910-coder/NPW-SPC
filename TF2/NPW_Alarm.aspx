@@ -69,6 +69,7 @@
         .sched .sched-ent { background: #fff; text-align: left; font-weight: 700; white-space: nowrap; position: sticky; left: 0; z-index: 1; }
         .sched td .sched-chk { display: block; text-align: left; white-space: nowrap; cursor: pointer; line-height: 1.5; }
         .sched td .sched-chk input { margin: 0 4px 0 0; vertical-align: middle; }
+        .sched td .sched-chk.chk-done { color: #15803d; background: #eafaf0; }
         .sched td:has(.sched-chk) { text-align: left; }
         .wrap { max-width: none; margin: 0 auto; padding: 24px 18px; }
         .card {
@@ -677,12 +678,32 @@
             }
             return ((row.cells&&row.cells[idx])||'').split('\n').filter(Boolean);
         }
-        // 勾選狀態：存在伺服器 JSON 檔，所有人共用
+        // 勾選狀態：存在伺服器 JSON 檔，所有人共用；值為 {by,at} 記錄勾選人/時間
         let schedChecks={};
         let _schedPicked=null;
+        let schedUser=(localStorage.getItem('npw.user')||'').trim();
+        function ensureUser(){
+            if(!schedUser){schedUser=((window.prompt('請輸入你的名字（用於記錄勾選人）')||'').trim());if(schedUser)localStorage.setItem('npw.user',schedUser);}
+            return schedUser;
+        }
+        function checkMeta(v){
+            if(v&&typeof v==='object')return (v.by?('勾選人：'+v.by):'勾選')+(v.at?('　時間：'+v.at):'');
+            return v?'已勾選':'';
+        }
+        function applyChecksToDOM(){
+            const box=document.getElementById('downSchedule');if(!box)return;
+            box.querySelectorAll('input[type=checkbox][data-k]').forEach(cb=>{
+                const v=schedChecks[cb.getAttribute('data-k')];
+                cb.checked=!!v;
+                const lbl=cb.closest('.sched-chk');
+                if(lbl){lbl.title=checkMeta(v);lbl.classList.toggle('chk-done',!!v);}
+            });
+        }
         async function loadSchedChecksServer(){
             try{const r=await fetch(PAGE+'?op=getchecks',{cache:'no-store'});const d=await r.json();if(d&&d.ok)schedChecks=d.checks||{};}catch(e){}
-            if(_schedPicked)renderSchedule(_schedPicked);
+            const box=document.getElementById('downSchedule');
+            if(box&&box.querySelector('input[data-k]'))applyChecksToDOM();   // 已建表→只更新勾選(不重繪、不跳動)
+            else if(_schedPicked)renderSchedule(_schedPicked);
         }
         let _saveTimer=null;
         function setSaveStatus(text,color,autoHide){
@@ -694,15 +715,18 @@
             if(autoHide)_saveTimer=setTimeout(()=>{el.textContent='';},2500);
         }
         async function saveSchedCheck(k,checked){
+            const by=ensureUser();
             setSaveStatus('儲存中…','#b45309');
             try{
-                const r=await fetch(PAGE+'?op=savecheck',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:k,checked:!!checked})});
+                const r=await fetch(PAGE+'?op=savecheck',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:k,checked:!!checked,by:by})});
                 const d=await r.json().catch(()=>null);
                 if(!r.ok||!d||!d.ok){
                     console.error('savecheck failed',r.status,d);
                     setSaveStatus('儲存失敗：'+((d&&d.error)?d.error:('HTTP '+r.status)),'#c00');
                 }else{
-                    setSaveStatus('已儲存 ✓','#15803d',true);
+                    if(checked)schedChecks[k]={by:by,at:(d.at||'')}; else delete schedChecks[k];
+                    applyChecksToDOM();
+                    setSaveStatus('已儲存 ✓'+(by?('（'+by+'）'):''),'#15803d',true);
                 }
             }catch(e){console.error(e);setSaveStatus('儲存失敗：'+e.message,'#c00');}
         }
@@ -716,8 +740,8 @@
             const esc=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
             const checks=schedChecks;
             const cellHtml=(items,iso,name)=>items.map(t=>{
-                const k=name+'|'+iso+'|'+t;
-                return '<label class="sched-chk"><input type="checkbox" data-k="'+esc(k)+'"'+(checks[k]?' checked':'')+'>'+esc(t)+'</label>';
+                const k=name+'|'+iso+'|'+t;const v=checks[k];
+                return '<label class="sched-chk'+(v?' chk-done':'')+'" title="'+esc(checkMeta(v))+'"><input type="checkbox" data-k="'+esc(k)+'"'+(v?' checked':'')+'>'+esc(t)+'</label>';
             }).join('');
             let html='';
             SCHEDULE.forEach(g=>{
@@ -1129,6 +1153,11 @@
 
             reload(today);
             loadSchedChecksServer(); // 載入共用勾選狀態，完成後會重繪排程
+            // 多人即時同步：作業區開著時每 12 秒重抓一次別人的勾選
+            setInterval(()=>{
+                const sec=document.getElementById('sec-downchart');
+                if(sec&&!sec.hidden)loadSchedChecksServer();
+            },12000);
         })();
     })();
     </script>

@@ -163,11 +163,14 @@ public partial class NPW_Alarm : Page
         try { req = ser.Deserialize<Dictionary<string, object>>(body) ?? new Dictionary<string, object>(); }
         catch { req = new Dictionary<string, object>(); }
 
-        object ko, co;
+        object ko, co, bo;
         req.TryGetValue("key", out ko);
         req.TryGetValue("checked", out co);
+        req.TryGetValue("by", out bo);
         string key = ko == null ? null : Convert.ToString(ko);
         bool isChecked = co != null && (co is bool ? (bool)co : (Convert.ToString(co) == "true" || Convert.ToString(co) == "1"));
+        string by = bo == null ? "" : Convert.ToString(bo).Trim();
+        if (by.Length > 40) by = by.Substring(0, 40);
         if (string.IsNullOrEmpty(key))
         {
             Response.Write("{\"ok\":false,\"error\":\"key required\"}");
@@ -175,6 +178,7 @@ public partial class NPW_Alarm : Page
         }
 
         string path = SchedFile();
+        string at = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
         lock (_schedLock)
         {
             Dictionary<string, object> map;
@@ -190,10 +194,11 @@ public partial class NPW_Alarm : Page
             }
             catch { map = new Dictionary<string, object>(); }
 
-            if (isChecked) map[key] = 1; else map.Remove(key);
+            if (isChecked) map[key] = new Dictionary<string, object> { { "by", by }, { "at", at } };
+            else map.Remove(key);
             File.WriteAllText(path, ser.Serialize(map), Encoding.UTF8);
         }
-        Response.Write("{\"ok\":true}");
+        Response.Write("{\"ok\":true,\"at\":\"" + at + "\"}");
     }
 
     // ISO week number (for the W## label).
