@@ -618,8 +618,10 @@
             }
         }
 
+        let _lastStats=null;
         function refreshTables(picked){
             const {stats,days}=buildStats(picked);
+            _lastStats=stats;
             updateTableByStats('tblAdder',stats,days,true,picked);
             updateTableByStats('tblNonAdder',stats,days,false,picked);
             renderInlineChartDetails(picked);
@@ -777,6 +779,51 @@
 
         // down chart 作業區上方：各 entity 的 ADDER Target vs 本週 alarm 數
         function fmtMD(d){return String(d.getMonth()+1).padStart(2,'0')+'/'+String(d.getDate()).padStart(2,'0');}
+
+        // 供 AI 聊天讀取：本週週報 + 作業區排程(含勾選人/時間) 的文字摘要
+        function buildPageContext(){
+            try{
+                const picked=_schedPicked||new Date();
+                const start=startTuesdayFor(picked);
+                const end=new Date(start.getFullYear(),start.getMonth(),start.getDate()+6);
+                const dates=[];for(let i=0;i<7;i++)dates.push(new Date(start.getFullYear(),start.getMonth(),start.getDate()+i));
+                const wlabel='W'+getWeekNumber(start)+'（'+fmtMD(start)+'~'+fmtMD(end)+'）';
+                let out='【目前頁面即時資料｜本週 '+wlabel+'；一週為週二~週一】\n';
+                if(_lastStats){
+                    out+='\n== NPW Alarm 週報（本週）==\n';
+                    [['ADDER',true],['NON-ADDER',false]].forEach(function(p){
+                        const blk=p[0],isA=p[1];
+                        out+='['+blk+']\n';
+                        ['NISACVD','SACVD'].forEach(function(ent){
+                            const es=_lastStats[ent];
+                            const ac=es?(isA?es.sum.alarmAdder:es.sum.alarmNonAdder):0;
+                            const mon=es?(isA?es.sum.totalMonAdder:es.sum.totalMonNonAdder):0;
+                            const rate=mon?((ac/mon*100).toFixed(2)+'%'):'0%';
+                            out+='  '+ent+': Alarm '+ac+' / Monitor '+mon+'（rate '+rate+'），Weekly Target '+getWeeklyTargetCount(ent,isA)+'\n';
+                            const key=fmtYMDDash(start)+'|'+ent+'|'+(isA?'ADDER':'NON_ADDER');
+                            const cm=chartAlarmStats[key]||{},dm=chartAlarmDateStats[key]||{};
+                            Object.keys(cm).forEach(function(ck){const a=ck.split('||');const ds=dm[ck]?Array.from(dm[ck]).sort().join(','):'';out+='    - '+a[1]+'（ID '+a[0]+'）次數'+cm[ck]+' 日期'+ds+'\n';});
+                        });
+                    });
+                }
+                out+='\n== 測機排程（作業區，本週）✓=已完成 ==\n';
+                SCHEDULE.forEach(function(g){
+                    out+='# '+g.title+'\n';
+                    g.rows.forEach(function(r){
+                        for(let i=0;i<7;i++){
+                            const items=schedCell(r,dates[i],i);
+                            if(!items.length)continue;
+                            const iso=fmtYMDDash(dates[i]);
+                            const parts=items.map(function(t){const v=schedChecks[r.name+'|'+iso+'|'+t];return t+(v?('[✓'+((v&&v.by)?v.by:'')+((v&&v.at)?(' '+v.at):'')+']'):'');});
+                            out+='  '+r.name+'('+r.shift+') '+fmtMD(dates[i])+'：'+parts.join('、')+'\n';
+                        }
+                    });
+                });
+                return out;
+            }catch(e){return '';}
+        }
+        window.__npwPageContext=buildPageContext;
+
         function renderDownAdderSummary(stats,picked){
             const box=document.getElementById('downAdderSummary');
             if(!box)return;
@@ -1418,10 +1465,15 @@
                 busy = true; sendBtn.disabled = true;
                 const typing = appendTyping();
                 try {
+                    let msgs = s.history;
+                    try {
+                        const ctx = (window.__npwPageContext && window.__npwPageContext()) || '';
+                        if (ctx) msgs = [{ role: 'system', content: '以下是使用者目前畫面上的即時資料（NPW Alarm 週報與測機排程作業區）。回答相關問題時請以此為依據：\n' + ctx }].concat(s.history);
+                    } catch (e) { }
                     const res = await fetch(PROXY_URL, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json; charset=utf-8' },
-                        body: JSON.stringify({ messages: s.history })
+                        body: JSON.stringify({ messages: msgs })
                     });
                     const data = await res.json();
                     typing.remove();
