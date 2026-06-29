@@ -195,6 +195,19 @@
         .npw-report-card col.statS{width:72px;}
         .npw-report-card col.statM{width:92px;}
         .npw-report-card .alarm-over-target{background-color:#ffd1e6!important;}
+        .npw-report-card .entity-cell{cursor:pointer;color:#1d4ed8;text-decoration:underline;}
+        .npw-report-card .rhrl-cell.rhrl-link{cursor:pointer;color:#1d4ed8;text-decoration:underline;font-weight:700;}
+        .npw-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10000;}
+        .npw-modal.open{display:block;}
+        .npw-modal-box{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#fff;color:#111;border-radius:6px;max-width:94vw;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.4);}
+        .npw-modal-head{display:flex;align-items:center;justify-content:space-between;gap:24px;background:#2c5fa8;color:#fff;padding:8px 14px;}
+        .npw-modal-head b{font-size:14px;}
+        .npw-modal-head button{background:transparent;border:0;color:#fff;font-size:16px;cursor:pointer;line-height:1;}
+        .npw-modal-body{padding:10px 14px;overflow:auto;}
+        .npw-modal-body table{border-collapse:collapse;font-size:13px;width:100%;}
+        .npw-modal-body th,.npw-modal-body td{border:1px solid #ccc;padding:5px 9px;text-align:left;white-space:nowrap;}
+        .npw-modal-body th{background:#f0f0f0;}
+        .npw-modal-body a{color:#1d4ed8;}
         .npw-report-card .total-green-over-yellow{background-color:#ffd1e6!important;}
         .npw-report-card #adderChartDetail,.npw-report-card #nonAdderChartDetail{overflow-x:auto;}
         .npw-report-card .chart-detail{width:100%;border-collapse:collapse;background:#fff;border:2px solid #222;margin:-6px 0 18px;}
@@ -363,9 +376,9 @@
         function getOwner(e,isAdder){const t=isAdder?OWNER_ADDER:OWNER_NON_ADDER;return t[e]!=null?t[e]:'';}
 
         // ===== RHRL（讀同資料夾 TF2 RHRL.xlsx）=====
-        let rhrlMap={};   // entity -> RH/RL 次數（本週）
+        let rhrlRows=[];   // 本週 RH/RL 原始列（供明細）
         async function loadRhrl(picked){
-            rhrlMap={};
+            rhrlRows=[];
             if(typeof XLSX==='undefined')return;
             try{
                 const res=await fetch(encodeURI('TF2 RHRL.xlsx'),{cache:'no-store'});
@@ -379,9 +392,14 @@
                 const kDate=keys.find(k=>norm(k)==='date')||keys.find(k=>norm(k).includes('date'));
                 const kOhol=keys.find(k=>/oh\s*or\s*ol/i.test(k))||keys.find(k=>norm(k).includes('ohorol'))||keys.find(k=>/rhrl/i.test(k));
                 const kEqp=keys.find(k=>/eqp\s*id/i.test(k))||keys.find(k=>norm(k).includes('eqpid'));
+                const kName=keys.find(k=>/chart\s*name/i.test(k))||keys.find(k=>norm(k).includes('measequipment'))||keys.find(k=>norm(k).includes('chartname'));
+                const kChartId=keys.find(k=>/chart\s*id/i.test(k))||keys.find(k=>norm(k).includes('kqfid'))||keys.find(k=>norm(k).includes('chartid'));
+                const kTrack=keys.find(k=>String(k).includes('是否需'))||keys.find(k=>/lot\s*tracking/i.test(k)&&!/原因|reason/i.test(k));
+                const kReason=keys.find(k=>/原因/.test(k))||keys.find(k=>/reason/i.test(k));
                 if(!kDate||!kOhol||!kEqp)return;
                 const start=startTuesdayFor(picked);
                 const days=new Set();for(let i=0;i<7;i++){const d=new Date(start.getFullYear(),start.getMonth(),start.getDate()+i);days.add(fmtYMDDash(d));}
+                const md=ds=>{const p=ds.split('-');return p.length===3?(p[1]+'/'+p[2]):ds;};
                 rows.forEach(r=>{
                     const dv=r[kDate];let ds;
                     if(dv instanceof Date)ds=fmtYMDDash(dv);
@@ -389,13 +407,46 @@
                     if(!days.has(ds))return;
                     const oh=String(r[kOhol]||'').trim().toUpperCase();
                     if(oh!=='RH'&&oh!=='RL')return;
-                    const eqp=String(r[kEqp]||'').trim().toUpperCase();
-                    const i=eqp.indexOf('-');
-                    const ent=i>=0?eqp.substring(0,i):eqp;
-                    if(!ent)return;
-                    rhrlMap[ent]=(rhrlMap[ent]||0)+1;
+                    const eqp=String(r[kEqp]||'').trim();
+                    rhrlRows.push({
+                        ds:ds, dateDisp:md(ds),
+                        chartName:kName?String(r[kName]||''):'',
+                        chartId:kChartId?String(r[kChartId]==null?'':r[kChartId]):'',
+                        eqp:eqp, eqpU:eqp.toUpperCase(), ohol:oh,
+                        track:kTrack?String(r[kTrack]==null?'':r[kTrack]):'',
+                        reason:kReason?String(r[kReason]||''):''
+                    });
                 });
             }catch(e){console.error('RHRL load',e);}
+        }
+        function rhrlDetailFor(entity){const E=String(entity).toUpperCase();return rhrlRows.filter(r=>r.eqpU.indexOf(E)===0);}
+        function rhrlCountFor(entity){return rhrlDetailFor(entity).length;}
+
+        // 圖表連結 + 明細彈窗
+        function buildChartUrl(chartId){if(!chartId)return null;return 'http://10.10.101.170/projectsite/SPCTool/PreviewMultiSPCTypeChart.aspx?site=12AP58&ChartList=NPW:'+encodeURIComponent(chartId);}
+        function mEsc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+        function mLink(name,chartId){const u=buildChartUrl(chartId);return u?'<a href="'+mEsc(u)+'" target="_blank" rel="noopener noreferrer">'+mEsc(name)+'</a>':mEsc(name);}
+        function openModal(title,html){document.getElementById('npwModalTitle').textContent=title;document.getElementById('npwModalBody').innerHTML=html;document.getElementById('npwModal').classList.add('open');}
+        function closeModal(){document.getElementById('npwModal').classList.remove('open');}
+        function curPicked(){const iv=document.getElementById('pickDate');return (iv&&iv.value)?new Date(iv.value+'T00:00:00'):new Date();}
+        function openAlarmDetail(entity,isAdder){
+            const start=startTuesdayFor(curPicked());
+            const key=fmtYMDDash(start)+'|'+entity+'|'+(isAdder?'ADDER':'NON_ADDER');
+            const cm=chartAlarmStats[key]||{};
+            let body='';
+            Object.keys(cm).forEach(ck=>{const a=ck.split('||');body+='<tr><td>'+mEsc(a[0])+'</td><td>'+mLink(a[1],a[0])+'</td><td style="text-align:center">'+cm[ck]+'</td></tr>';});
+            if(!body)body='<tr><td colspan="3" style="color:#888">本週無 alarm</td></tr>';
+            openModal((isAdder?'ADDER':'NON-ADDER')+' - '+entity+' - Alarm Detail (W'+getWeekNumber(start)+')',
+                '<table><thead><tr><th>CHART_ID</th><th>CHART_NAME</th><th>Alarm 次數</th></tr></thead><tbody>'+body+'</tbody></table>');
+        }
+        function openRhrlDetail(entity){
+            const start=startTuesdayFor(curPicked());
+            const list=rhrlDetailFor(entity);
+            let body='';
+            list.forEach(r=>{body+='<tr><td>'+mEsc(r.dateDisp)+'</td><td>'+mLink(r.chartName,r.chartId)+'</td><td>'+mEsc(r.chartId)+'</td><td>'+mEsc(r.eqp)+'</td><td style="text-align:center">'+mEsc(r.ohol)+'</td><td style="text-align:center">'+mEsc(r.track)+'</td><td>'+mEsc(r.reason)+'</td></tr>';});
+            if(!body)body='<tr><td colspan="7" style="color:#888">本週無 RH/RL</td></tr>';
+            openModal('RHRL - '+entity+' - Detail (W'+getWeekNumber(start)+')',
+                '<table><thead><tr><th>Date</th><th>Chart Name</th><th>Chart ID</th><th>EQP ID</th><th>OH or OL?</th><th>是否需 lot tracking ?</th><th>不需 lot tracking 的原因 ?</th></tr></thead><tbody>'+body+'</tbody></table>');
         }
 
         // ===== 狀態 =====
@@ -539,11 +590,12 @@
                 const alarmTd=tds[8];
                 alarmTd.textContent=alarmCount?String(alarmCount):'0';
 
-                // RHRL (td9) — 本週 RH/RL 次數，>0 粉紅標記
-                const rhrl=rhrlMap[entity]||0;
+                // RHRL (td9) — 本週 RH/RL 次數，>0 粉紅標記、可點開明細
+                const rhrl=rhrlCountFor(entity);
                 const rhrlTd=tds[9];
                 rhrlTd.textContent=rhrl?String(rhrl):'0';
                 if(rhrl>0)rhrlTd.classList.add('alarm-over-target');else rhrlTd.classList.remove('alarm-over-target');
+                rhrlTd.classList.toggle('rhrl-link',rhrl>0);
 
                 // Weekly Target Count
                 const weeklyTargetCount=getWeeklyTargetCount(entity,isAdder);
@@ -627,7 +679,7 @@
                     +'<td class="left entity-cell">'+ee+'</td>'
                     +'<td></td><td></td><td></td><td></td><td></td><td></td><td></td>'
                     +'<td>0</td>'
-                    +'<td>0</td>'
+                    +'<td class="rhrl-cell">0</td>'
                     +'<td class="barcell"><span class="bar"></span><span class="txt">0</span></td>'
                     +'<td>0</td><td>0</td>'
                     +'<td>0%</td><td>0%</td><td>0</td>'
@@ -680,10 +732,29 @@
                 reload(new Date(input.value+'T00:00:00'));
             });
 
+            // 點 Entity → alarm 明細；點 RHRL 數值 → RH/RL 明細
+            document.addEventListener('click',e=>{
+                const ec=e.target.closest('.entity-cell');
+                if(ec){const tbl=ec.closest('table.report'),tr=ec.closest('tr[data-entity]');if(tbl&&tr){openAlarmDetail(tr.getAttribute('data-entity'),tbl.id==='tblAdder');return;}}
+                const rc=e.target.closest('.rhrl-cell.rhrl-link');
+                if(rc){const tr=rc.closest('tr[data-entity]');if(tr){openRhrlDetail(tr.getAttribute('data-entity'));return;}}
+            });
+            const mClose=document.getElementById('npwModalClose');
+            if(mClose)mClose.addEventListener('click',closeModal);
+            const mBack=document.getElementById('npwModal');
+            if(mBack)mBack.addEventListener('click',e=>{if(e.target===mBack)closeModal();});
+            document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+
             reload(today);
         })();
     })();
     </script>
 
+    <div id="npwModal" class="npw-modal">
+        <div class="npw-modal-box">
+            <div class="npw-modal-head"><b id="npwModalTitle">Detail</b><button id="npwModalClose" type="button">&#10005;</button></div>
+            <div class="npw-modal-body" id="npwModalBody"></div>
+        </div>
+    </div>
 </body>
 </html>
