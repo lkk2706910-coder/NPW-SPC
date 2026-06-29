@@ -732,17 +732,16 @@
                 reload(new Date(input.value+'T00:00:00'));
             });
 
-            // 點 Entity → alarm 明細；點 RHRL 數值 → RH/RL 明細
+            // 點 Entity → alarm 明細；點 RHRL 數值 → RH/RL 明細；關閉彈窗（事件委派，不依賴元素已存在）
             document.addEventListener('click',e=>{
+                if(e.target.closest('#npwModalClose')){closeModal();return;}        // ✕
+                const modal=document.getElementById('npwModal');
+                if(modal&&e.target===modal){closeModal();return;}                   // 點黑底
                 const ec=e.target.closest('.entity-cell');
                 if(ec){const tbl=ec.closest('table.report'),tr=ec.closest('tr[data-entity]');if(tbl&&tr){openAlarmDetail(tr.getAttribute('data-entity'),tbl.id==='tblAdder');return;}}
                 const rc=e.target.closest('.rhrl-cell.rhrl-link');
                 if(rc){const tr=rc.closest('tr[data-entity]');if(tr){openRhrlDetail(tr.getAttribute('data-entity'));return;}}
             });
-            const mClose=document.getElementById('npwModalClose');
-            if(mClose)mClose.addEventListener('click',closeModal);
-            const mBack=document.getElementById('npwModal');
-            if(mBack)mBack.addEventListener('click',e=>{if(e.target===mBack)closeModal();});
             document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
 
             reload(today);
