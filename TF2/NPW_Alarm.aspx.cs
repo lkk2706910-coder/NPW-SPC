@@ -3,19 +3,15 @@ using System.Collections.Generic;
 using System.Configuration;
 using System.Data;
 using System.Data.SqlClient;
-using System.IO;
-using System.Net;
 using System.Text;
 using System.Web;
 using System.Web.Script.Serialization;
 using System.Web.UI;
 
-// No-auth home page + AI chat proxy + NPW weekly alarm data.
+// No-auth NPW weekly alarm data page (all machines). No AI.
 //
 // Routes:
 //   GET  NPW_Alarm.aspx            -> renders the page (no auth required)
-//   POST NPW_Alarm.aspx?op=chat    -> proxy to LLM
-//   GET  NPW_Alarm.aspx?op=data    -> generic TF2_NPW_CHART query
 //   GET  NPW_Alarm.aspx?op=alarm   -> raw rows for the weekly alarm report
 //
 // NOTE: keep this file pure ASCII. Some servers compile .cs as Big5/CP950,
@@ -38,19 +34,6 @@ public partial class NPW_Alarm : Page
     protected void Page_Load(object sender, EventArgs e)
     {
         string opStr = Request.QueryString["op"];
-        if (string.Equals(opStr, "chat", StringComparison.OrdinalIgnoreCase))
-        {
-            Response.ContentType = "application/json; charset=utf-8";
-            Response.Cache.SetCacheability(HttpCacheability.NoCache);
-            try { HandleChat(); }
-            catch (Exception ex)
-            {
-                Response.StatusCode = 500;
-                Response.Write("{\"ok\":false,\"error\":\"" + JsonEscape(ex.Message) + "\"}");
-            }
-            Response.End();
-            return;
-        }
         if (string.Equals(opStr, "alarm", StringComparison.OrdinalIgnoreCase))
         {
             Response.ContentType = "application/json; charset=utf-8";
@@ -121,79 +104,6 @@ public partial class NPW_Alarm : Page
             }},
             { "rows", rows }
         }));
-    }
-
-    private void HandleChat()
-    {
-        string url = ConfigurationManager.AppSettings["AiGatewayUrl"];
-        string apiKey = ConfigurationManager.AppSettings["AiApiKey"];
-        string userId = ConfigurationManager.AppSettings["AiUserId"];
-        string systemPrompt = ConfigurationManager.AppSettings["AiSystemPrompt"];
-        if (string.IsNullOrEmpty(systemPrompt)) systemPrompt = "You are a helpful assistant.";
-        if (string.IsNullOrEmpty(url) || string.IsNullOrEmpty(apiKey))
-        {
-            Response.StatusCode = 500;
-            Response.Write("{\"ok\":false,\"error\":\"AiGatewayUrl / AiApiKey not configured\"}");
-            return;
-        }
-
-        string body;
-        using (var sr = new StreamReader(Request.InputStream, Encoding.UTF8)) body = sr.ReadToEnd();
-        var ser = new JavaScriptSerializer { MaxJsonLength = 200 * 1024 * 1024 };
-        Dictionary<string, object> req;
-        try { req = ser.Deserialize<Dictionary<string, object>>(body) ?? new Dictionary<string, object>(); }
-        catch
-        {
-            Response.StatusCode = 400;
-            Response.Write("{\"ok\":false,\"error\":\"invalid json\"}");
-            return;
-        }
-
-        var messages = new System.Collections.ArrayList();
-        messages.Add(new Dictionary<string, object> { { "role", "system" }, { "content", systemPrompt } });
-        object clientMessages;
-        if (req.TryGetValue("messages", out clientMessages) && clientMessages is System.Collections.ArrayList)
-        {
-            foreach (var m in (System.Collections.ArrayList)clientMessages)
-                if (m != null) messages.Add(m);
-        }
-        var payload = new Dictionary<string, object> { { "messages", messages } };
-        byte[] payloadBytes = Encoding.UTF8.GetBytes(ser.Serialize(payload));
-
-        var hreq = (HttpWebRequest)WebRequest.Create(url);
-        hreq.Method = "POST";
-        hreq.Accept = "*/*";
-        hreq.ContentType = "application/json";
-        hreq.Headers["api-key"] = apiKey;
-        if (!string.IsNullOrEmpty(userId)) hreq.Headers["user-id"] = userId;
-        hreq.Timeout = 120000;
-        hreq.ReadWriteTimeout = 120000;
-        hreq.ContentLength = payloadBytes.Length;
-        try
-        {
-            using (var s = hreq.GetRequestStream()) s.Write(payloadBytes, 0, payloadBytes.Length);
-            using (var resp = (HttpWebResponse)hreq.GetResponse())
-            using (var sr = new StreamReader(resp.GetResponseStream(), Encoding.UTF8))
-                Response.Write(sr.ReadToEnd());
-        }
-        catch (WebException wex)
-        {
-            string detail = "";
-            int status = 502;
-            var http = wex.Response as HttpWebResponse;
-            if (http != null)
-            {
-                status = (int)http.StatusCode;
-                try
-                {
-                    using (var sr = new StreamReader(http.GetResponseStream(), Encoding.UTF8))
-                        detail = sr.ReadToEnd();
-                }
-                catch { }
-            }
-            Response.StatusCode = status;
-            Response.Write("{\"ok\":false,\"error\":\"" + JsonEscape(wex.Message) + "\",\"detail\":" + ser.Serialize(detail) + "}");
-        }
     }
 
     private static string JsonEscape(string s)
