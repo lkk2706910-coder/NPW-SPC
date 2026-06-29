@@ -5,7 +5,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>TF2 NPW Alarm 週報</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.3.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         :root {
             color-scheme: dark;
@@ -240,11 +240,11 @@
                 <colgroup>
                     <col class="entity">
                     <col class="date"><col class="date"><col class="date"><col class="date"><col class="date"><col class="date"><col class="date">
-                    <col class="statS"><col class="statM"><col class="statS"><col class="statS">
-                    <col class="statS"><col class="statS"><col class="statM">
+                    <col class="statS"><col class="statS"><col class="statM"><col class="statS"><col class="statS">
+                    <col class="statS"><col class="statS"><col class="statM"><col class="statM">
                 </colgroup>
                 <thead>
-                    <tr><th class="section-title" colspan="15">ADDER</th></tr>
+                    <tr><th class="section-title" colspan="17">ADDER</th></tr>
                     <tr>
                         <th class="h-green">Entity</th>
                         <th class="h-green date-head"></th>
@@ -255,12 +255,14 @@
                         <th class="h-green date-head"></th>
                         <th class="h-green date-head"></th>
                         <th class="h-amber">Alarm<br/>Counts</th>
+                        <th class="h-amber">RHRL</th>
                         <th class="h-amber">Over Weekly to<br/>Day Count</th>
                         <th class="h-amber">Weekly to<br/>Day Target</th>
                         <th class="h-amber">Weekly<br/>Target Count</th>
                         <th class="h-amber">Alarm<br/>rate</th>
                         <th class="h-amber">Weekly<br/>Target Rate</th>
                         <th class="h-amber">Total Monitor<br/>Count</th>
+                        <th class="h-amber">Owner</th>
                     </tr>
                 </thead>
                 <tbody></tbody>
@@ -268,9 +270,11 @@
                     <tr>
                         <td class="total-label" colspan="8">Total Alarm</td>
                         <td id="adderTotalAlarm">0</td>
+                        <td></td>
                         <td class="total-good" colspan="2" id="adderTotalAlarmRate">0%</td>
                         <td></td><td></td>
                         <td class="total-warn" colspan="2" id="adderTotalWeeklyTargetRate">0%</td>
+                        <td></td>
                     </tr>
                 </tfoot>
             </table>
@@ -282,11 +286,11 @@
                 <colgroup>
                     <col class="entity">
                     <col class="date"><col class="date"><col class="date"><col class="date"><col class="date"><col class="date"><col class="date">
-                    <col class="statS"><col class="statM"><col class="statS"><col class="statS">
-                    <col class="statS"><col class="statS"><col class="statM">
+                    <col class="statS"><col class="statS"><col class="statM"><col class="statS"><col class="statS">
+                    <col class="statS"><col class="statS"><col class="statM"><col class="statM">
                 </colgroup>
                 <thead>
-                    <tr><th class="section-title" colspan="15">NON-ADDER</th></tr>
+                    <tr><th class="section-title" colspan="17">NON-ADDER</th></tr>
                     <tr>
                         <th class="h-green">Entity</th>
                         <th class="h-green date-head"></th>
@@ -297,12 +301,14 @@
                         <th class="h-green date-head"></th>
                         <th class="h-green date-head"></th>
                         <th class="h-amber">Alarm<br/>Counts</th>
+                        <th class="h-amber">RHRL</th>
                         <th class="h-amber">Over Weekly to<br/>Day Count</th>
                         <th class="h-amber">Weekly to<br/>Day Target</th>
                         <th class="h-amber">Weekly<br/>Target Count</th>
                         <th class="h-amber">Alarm<br/>rate</th>
                         <th class="h-amber">Weekly<br/>Target Rate</th>
                         <th class="h-amber">Total Monitor<br/>Count</th>
+                        <th class="h-amber">Owner</th>
                     </tr>
                 </thead>
                 <tbody></tbody>
@@ -310,9 +316,11 @@
                     <tr>
                         <td class="total-label" colspan="8">Total Alarm</td>
                         <td id="nonAdderTotalAlarm">0</td>
+                        <td></td>
                         <td class="total-good" colspan="2" id="nonAdderTotalAlarmRate">0%</td>
                         <td></td><td></td>
                         <td class="total-warn" colspan="2" id="nonAdderTotalWeeklyTargetRate">0%</td>
+                        <td></td>
                     </tr>
                 </tfoot>
             </table>
@@ -348,6 +356,47 @@
         const WEEKLY_TARGET_RATE_ADDER={ULKCVD:1.49,TEOSPE:1.26,SACVD:1.35,BLOKCVD:1.95,CUSILPE:1.09,CUTTOX:0.52,NISACVD:1.17,HKG:1.46,DARC:1.84,SILPE:2.10,APF:0.62,OXSE:2.22,TTOX:0.68,CULKCVD:0.00};
         const WEEKLY_TARGET_RATE_NON_ADDER={TEOSPE:0.90,SACVD:0.60,ULKCVD:0.90,CUSILPE:0.60,HKG:0.60,NISACVD:0.60,TTOX:0.60,SILPE:0.60,DARC:0.60,BLOKCVD:0.60,CUTTOX:0.60,APF:0.60,OXSE:0.60,CULKCVD:0.60,CUKVALUE:0.60,ALDOX:0.60};
         function getWeeklyTargetRate(e,isAdder){const t=isAdder?WEEKLY_TARGET_RATE_ADDER:WEEKLY_TARGET_RATE_NON_ADDER;return t[e]!=null?t[e]:0;}
+
+        // ===== Owner（依使用者提供）=====
+        const OWNER_ADDER={APF:'瑋修',NISACVD:'宗瑋',SACVD:'宗瑋',TEOSPE:'瑋修',TTOX:'煒翔',CUTTOX:'煒翔',BLOKCVD:'瑋修',ULKCVD:'瑋修',CUSILPE:'添傑',CULKCVD:'添傑',DARC:'添傑',SILPE:'添傑',HKG:'建維',ALDOX:'建維',OXSE:'瑋修',HBWFBOND:'添傑',HBVOIDINP:'添傑'};
+        const OWNER_NON_ADDER={APF:'瑋修/宗漢',NISACVD:'宗瑋/函原',SACVD:'宗瑋/芙潔',TEOSPE:'瑋修/蕭暘',TTOX:'煒翔/孟修',CUTTOX:'煒翔/建賢',BLOKCVD:'瑋修/映臻',ULKCVD:'瑋修/勇叡',CUSILPE:'添傑/裕和',CULKCVD:'添傑/祈綸',DARC:'添傑/孟修',SILPE:'添傑/裕和',HKG:'建維/建志',ALDOX:'建維/怡婷',OXSE:'瑋修/嘉琦'};
+        function getOwner(e,isAdder){const t=isAdder?OWNER_ADDER:OWNER_NON_ADDER;return t[e]!=null?t[e]:'';}
+
+        // ===== RHRL（讀同資料夾 TF2 RHRL.xlsx）=====
+        let rhrlMap={};   // entity -> RH/RL 次數（本週）
+        async function loadRhrl(picked){
+            rhrlMap={};
+            if(typeof XLSX==='undefined')return;
+            try{
+                const res=await fetch(encodeURI('TF2 RHRL.xlsx'),{cache:'no-store'});
+                if(!res.ok)return;
+                const wb=XLSX.read(new Uint8Array(await res.arrayBuffer()),{type:'array',cellDates:true});
+                const ws=wb.Sheets[wb.SheetNames[0]];
+                const rows=XLSX.utils.sheet_to_json(ws,{defval:null});
+                if(!rows.length)return;
+                const keys=Object.keys(rows[0]);
+                const norm=k=>String(k).toLowerCase().replace(/\s+/g,'');
+                const kDate=keys.find(k=>norm(k)==='date')||keys.find(k=>norm(k).includes('date'));
+                const kOhol=keys.find(k=>/oh\s*or\s*ol/i.test(k))||keys.find(k=>norm(k).includes('ohorol'))||keys.find(k=>/rhrl/i.test(k));
+                const kEqp=keys.find(k=>/eqp\s*id/i.test(k))||keys.find(k=>norm(k).includes('eqpid'));
+                if(!kDate||!kOhol||!kEqp)return;
+                const start=startTuesdayFor(picked);
+                const days=new Set();for(let i=0;i<7;i++){const d=new Date(start.getFullYear(),start.getMonth(),start.getDate()+i);days.add(fmtYMDDash(d));}
+                rows.forEach(r=>{
+                    const dv=r[kDate];let ds;
+                    if(dv instanceof Date)ds=fmtYMDDash(dv);
+                    else{const jd=new Date(dv);ds=isNaN(jd.getTime())?String(dv||'').substring(0,10):fmtYMDDash(jd);}
+                    if(!days.has(ds))return;
+                    const oh=String(r[kOhol]||'').trim().toUpperCase();
+                    if(oh!=='RH'&&oh!=='RL')return;
+                    const eqp=String(r[kEqp]||'').trim().toUpperCase();
+                    const i=eqp.indexOf('-');
+                    const ent=i>=0?eqp.substring(0,i):eqp;
+                    if(!ent)return;
+                    rhrlMap[ent]=(rhrlMap[ent]||0)+1;
+                });
+            }catch(e){console.error('RHRL load',e);}
+        }
 
         // ===== 狀態 =====
         let rawData=[];
@@ -486,9 +535,15 @@
 
                 const tds=row.querySelectorAll('td');
 
-                // Alarm Counts (第 9 欄)
+                // Alarm Counts (td8)
                 const alarmTd=tds[8];
                 alarmTd.textContent=alarmCount?String(alarmCount):'0';
+
+                // RHRL (td9) — 本週 RH/RL 次數，>0 粉紅標記
+                const rhrl=rhrlMap[entity]||0;
+                const rhrlTd=tds[9];
+                rhrlTd.textContent=rhrl?String(rhrl):'0';
+                if(rhrl>0)rhrlTd.classList.add('alarm-over-target');else rhrlTd.classList.remove('alarm-over-target');
 
                 // Weekly Target Count
                 const weeklyTargetCount=getWeeklyTargetCount(entity,isAdder);
@@ -496,8 +551,8 @@
                 let weeklyToDayTarget=0;
                 if(dayOfRange>0)weeklyToDayTarget=Math.round(weeklyTargetCount*(dayOfRange/7));
 
-                // Over Weekly to Day Count (第 10 欄, barcell)
-                const overTd=tds[9];
+                // Over Weekly to Day Count (td10, barcell)
+                const overTd=tds[10];
                 const txt=overTd.querySelector('.txt');
                 const overCount=Math.max(0,alarmCount-weeklyToDayTarget);
                 txt.textContent=overCount?String(overCount):'0';
@@ -505,20 +560,23 @@
                 if(overCount>0)widthPercent=Math.min(100,overCount*10);
                 overTd.style.setProperty('--w',widthPercent+'%');
 
-                // Weekly to Day Target (第 11 欄) & Weekly Target Count (第 12 欄)
-                tds[10].textContent=weeklyToDayTarget?String(weeklyToDayTarget):'0';
-                tds[11].textContent=weeklyTargetCount?String(weeklyTargetCount):'0';
+                // Weekly to Day Target (td11) & Weekly Target Count (td12)
+                tds[11].textContent=weeklyToDayTarget?String(weeklyToDayTarget):'0';
+                tds[12].textContent=weeklyTargetCount?String(weeklyTargetCount):'0';
 
-                // Alarm rate (第 13 欄)
+                // Alarm rate (td13)
                 let alarmRate=0;
                 if(totalMonitor>0)alarmRate=alarmCount/totalMonitor;
-                tds[12].textContent=(alarmRate*100).toFixed(2)+'%';
+                tds[13].textContent=(alarmRate*100).toFixed(2)+'%';
 
-                // Weekly Target Rate (第 14 欄)
-                tds[13].textContent=getWeeklyTargetRate(entity,isAdder).toFixed(2)+'%';
+                // Weekly Target Rate (td14)
+                tds[14].textContent=getWeeklyTargetRate(entity,isAdder).toFixed(2)+'%';
 
-                // Total Monitor Count (第 15 欄)
-                tds[14].textContent=totalMonitor?String(totalMonitor):'0';
+                // Total Monitor Count (td15)
+                tds[15].textContent=totalMonitor?String(totalMonitor):'0';
+
+                // Owner (td16)
+                tds[16].textContent=getOwner(entity,isAdder);
 
                 // Alarm Counts > Weekly Target Count 粉紅標記
                 if(alarmCount>weeklyTargetCount)alarmTd.classList.add('alarm-over-target');
@@ -542,7 +600,7 @@
             const tf=tbl.querySelector('tfoot tr');
             if(tf){
                 const cells=tf.querySelectorAll('td');
-                const g=cells[2],y=cells[5];
+                const g=cells[3],y=cells[6];
                 if(g&&y){
                     const gv=parseFloat(g.textContent.replace('%','').trim())||0;
                     const yv=parseFloat(y.textContent.replace('%','').trim())||0;
@@ -569,9 +627,11 @@
                     +'<td class="left entity-cell">'+ee+'</td>'
                     +'<td></td><td></td><td></td><td></td><td></td><td></td><td></td>'
                     +'<td>0</td>'
+                    +'<td>0</td>'
                     +'<td class="barcell"><span class="bar"></span><span class="txt">0</span></td>'
                     +'<td>0</td><td>0</td>'
                     +'<td>0%</td><td>0%</td><td>0</td>'
+                    +'<td class="left"></td>'
                     +'</tr>';
             }).join('');
         }
@@ -632,7 +692,7 @@
             async function reload(picked){
                 setHeadersByPickedDate(picked);
                 updateWeekHint(picked);
-                try{await loadFromDb(picked);refreshTables(picked);}catch(e){/* 已顯示 */}
+                try{await loadFromDb(picked);await loadRhrl(picked);refreshTables(picked);}catch(e){/* 已顯示 */}
             }
 
             const calBtn=document.getElementById('calBtn');
