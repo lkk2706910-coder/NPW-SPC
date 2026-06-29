@@ -241,8 +241,7 @@ public partial class NPW_Alarm : Page
             "WHERE UPDATE_TIME >= @p0 AND UPDATE_TIME < @p1 " +
             "AND MONITOR_TYPE = 'NORMAL' " +
             "AND ISNULL(CHART_DESC,'') <> 'Engineering' " +
-            "AND CHART_TYPE IN ('C-C','XBAR') " +
-            "AND (PROCESSUNIT LIKE 'NISACVD%' OR PROCESSUNIT LIKE 'SACVD%')";
+            "AND CHART_TYPE IN ('C-C','XBAR')";
         var rows = QueryRows(sql, weekStart, weekEndExcl);
 
         var ser = new JavaScriptSerializer { MaxJsonLength = int.MaxValue };

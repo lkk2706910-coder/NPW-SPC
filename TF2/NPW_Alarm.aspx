@@ -159,12 +159,7 @@
 </head>
 <body>
     <div class="topbar">
-        <h1>TF2 NPW</h1>
-        <div class="seg-tabs">
-            <button type="button" class="seg-btn active" data-sec="weekly">NPW Alarm 週報</button>
-            <button type="button" class="seg-btn" data-sec="downchart">down chart 作業區</button>
-        </div>
-        <span id="saveStatus" class="save-status"></span>
+        <h1>TF2 NPW Alarm 週報（全機台）</h1>
     </div>
 
     <div class="wrap">
@@ -218,7 +213,6 @@
         .npw-report-card .dim-row{background:#d9d9d9!important;}
         .npw-report-card .inline-empty{padding:8px 10px;color:#666;font-size:12px;background:#fff;border:1px dashed #999;}
         </style>
-        <section id="sec-weekly">
         <div class="card npw-report-card">
             <div class="npw-toolbar">
                 <h2 style="margin:0;">NPW Alarm 週報</h2>
@@ -269,24 +263,7 @@
                         <th class="h-amber">Total Monitor<br/>Count</th>
                     </tr>
                 </thead>
-                <tbody>
-                    <tr data-entity="NISACVD">
-                        <td class="left entity-cell">NISACVD</td>
-                        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
-                        <td>0</td>
-                        <td class="barcell"><span class="bar"></span><span class="txt">0</span></td>
-                        <td>0</td><td>0</td>
-                        <td>0%</td><td>0%</td><td>0</td>
-                    </tr>
-                    <tr data-entity="SACVD">
-                        <td class="left entity-cell">SACVD</td>
-                        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
-                        <td>0</td>
-                        <td class="barcell"><span class="bar"></span><span class="txt">0</span></td>
-                        <td>0</td><td>0</td>
-                        <td>0%</td><td>0%</td><td>0</td>
-                    </tr>
-                </tbody>
+                <tbody></tbody>
                 <tfoot>
                     <tr>
                         <td class="total-label" colspan="8">Total Alarm</td>
@@ -298,7 +275,6 @@
                 </tfoot>
             </table>
             </div>
-            <div id="adderChartDetail"></div>
 
             <!-- ========== NON-ADDER ========== -->
             <div class="report-scroll">
@@ -329,24 +305,7 @@
                         <th class="h-amber">Total Monitor<br/>Count</th>
                     </tr>
                 </thead>
-                <tbody>
-                    <tr data-entity="NISACVD">
-                        <td class="left entity-cell">NISACVD</td>
-                        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
-                        <td>0</td>
-                        <td class="barcell"><span class="bar"></span><span class="txt">0</span></td>
-                        <td>0</td><td>0</td>
-                        <td>0%</td><td>0%</td><td>0</td>
-                    </tr>
-                    <tr data-entity="SACVD">
-                        <td class="left entity-cell">SACVD</td>
-                        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
-                        <td>0</td>
-                        <td class="barcell"><span class="bar"></span><span class="txt">0</span></td>
-                        <td>0</td><td>0</td>
-                        <td>0%</td><td>0%</td><td>0</td>
-                    </tr>
-                </tbody>
+                <tbody></tbody>
                 <tfoot>
                     <tr>
                         <td class="total-label" colspan="8">Total Alarm</td>
@@ -358,34 +317,8 @@
                 </tfoot>
             </table>
             </div>
-            <div id="nonAdderChartDetail"></div>
         </div>
-        </section>
-
-        <section id="sec-downchart" hidden>
-            <div class="dc-toolbar">
-                <button id="dcPrev" type="button">◀ 上週</button>
-                <input id="dcDate" type="date" />
-                <button id="dcNext" type="button">下週 ▶</button>
-                <span id="dcWeek" class="npw-week-hint"></span>
-            </div>
-            <div id="downAdderSummary" style="display:flex;gap:24px;flex-wrap:wrap;margin:8px 0 16px;"></div>
-            <div id="downSchedule"></div>
-        </section>
     </div>
-
-    <script>
-    // 上方區塊切換：NPW Alarm 週報 / down chart 作業區
-    (function(){
-        const btns=[...document.querySelectorAll('.seg-btn')];
-        const secs={weekly:document.getElementById('sec-weekly'),downchart:document.getElementById('sec-downchart')};
-        function show(name){
-            for(const k in secs){if(secs[k])secs[k].hidden=(k!==name);}
-            btns.forEach(b=>b.classList.toggle('active',b.getAttribute('data-sec')===name));
-        }
-        btns.forEach(b=>b.addEventListener('click',()=>show(b.getAttribute('data-sec'))));
-    })();
-    </script>
 
     <script>
     // NPW Alarm 週報：沿用原工具(TF2_NPW.html)的判讀邏輯，資料來源改為
@@ -619,14 +552,37 @@
         }
 
         let _lastStats=null;
+        // 全機台：entity = 資料內出現的 + 目標表內列的，去重排序
+        function allEntities(stats){
+            const set={};
+            Object.keys(stats||{}).forEach(e=>set[e]=1);
+            Object.keys(WEEKLY_TARGET_ADDER).forEach(e=>set[e]=1);
+            Object.keys(WEEKLY_TARGET_NON_ADDER).forEach(e=>set[e]=1);
+            return Object.keys(set).sort();
+        }
+        function buildEntityRows(tableId,entities){
+            const tb=document.querySelector('#'+tableId+' tbody');
+            if(!tb)return;
+            tb.innerHTML=entities.map(e=>{
+                const ee=String(e).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+                return '<tr data-entity="'+ee+'">'
+                    +'<td class="left entity-cell">'+ee+'</td>'
+                    +'<td></td><td></td><td></td><td></td><td></td><td></td><td></td>'
+                    +'<td>0</td>'
+                    +'<td class="barcell"><span class="bar"></span><span class="txt">0</span></td>'
+                    +'<td>0</td><td>0</td>'
+                    +'<td>0%</td><td>0%</td><td>0</td>'
+                    +'</tr>';
+            }).join('');
+        }
         function refreshTables(picked){
             const {stats,days}=buildStats(picked);
             _lastStats=stats;
+            const entities=allEntities(stats);
+            buildEntityRows('tblAdder',entities);
+            buildEntityRows('tblNonAdder',entities);
             updateTableByStats('tblAdder',stats,days,true,picked);
             updateTableByStats('tblNonAdder',stats,days,false,picked);
-            renderInlineChartDetails(picked);
-            renderDownAdderSummary(stats,picked);
-            renderSchedule(picked);
         }
 
         // ===== 測機排程表（連續週期引擎）=====
@@ -806,19 +762,6 @@
                         });
                     });
                 }
-                out+='\n== 測機排程（作業區，本週）✓=已完成 ==\n';
-                SCHEDULE.forEach(function(g){
-                    out+='# '+g.title+'\n';
-                    g.rows.forEach(function(r){
-                        for(let i=0;i<7;i++){
-                            const items=schedCell(r,dates[i],i);
-                            if(!items.length)continue;
-                            const iso=fmtYMDDash(dates[i]);
-                            const parts=items.map(function(t){const v=schedChecks[r.name+'|'+iso+'|'+t];return t+(v?('[✓'+((v&&v.by)?v.by:'')+((v&&v.at)?(' '+v.at):'')+']'):'');});
-                            out+='  '+r.name+'('+r.shift+') '+fmtMD(dates[i])+'：'+parts.join('、')+'\n';
-                        }
-                    });
-                });
                 return out;
             }catch(e){return '';}
         }
@@ -1155,20 +1098,9 @@
             setHeadersByPickedDate(today);
             updateWeekHint(today);
 
-            const dcDate=document.getElementById('dcDate');
-            const dcWeek=document.getElementById('dcWeek');
-            // 報表日期選擇器與作業區週別選擇器同步同一週
-            function syncWeekControls(picked){
-                const iso=toISODateLocal(picked);
-                if(input.value!==iso)input.value=iso;
-                if(dcDate&&dcDate.value!==iso)dcDate.value=iso;
-                if(dcWeek){const s=startTuesdayFor(picked);const e=new Date(s.getFullYear(),s.getMonth(),s.getDate()+6);dcWeek.textContent='W'+getWeekNumber(s)+'（'+fmtMD(s)+'~'+fmtMD(e)+'）';}
-            }
-
             async function reload(picked){
                 setHeadersByPickedDate(picked);
                 updateWeekHint(picked);
-                syncWeekControls(picked);
                 try{await loadFromDb(picked);refreshTables(picked);}catch(e){/* 已顯示 */}
             }
 
@@ -1187,24 +1119,7 @@
                 reload(new Date(input.value+'T00:00:00'));
             });
 
-            // 作業區週別選擇
-            const curWeek=()=>{const v=(dcDate&&dcDate.value)||input.value;return v?new Date(v+'T00:00:00'):new Date();};
-            if(dcDate)dcDate.addEventListener('change',()=>{if(dcDate.value)reload(new Date(dcDate.value+'T00:00:00'));});
-            const dcPrev=document.getElementById('dcPrev'),dcNext=document.getElementById('dcNext');
-            if(dcPrev)dcPrev.addEventListener('click',()=>{const d=curWeek();d.setDate(d.getDate()-7);reload(d);});
-            if(dcNext)dcNext.addEventListener('click',()=>{const d=curWeek();d.setDate(d.getDate()+7);reload(d);});
-
-            // 切到作業區時重抓共用勾選狀態（看別人最新的勾選）
-            const dcTab=document.querySelector('.seg-btn[data-sec="downchart"]');
-            if(dcTab)dcTab.addEventListener('click',()=>loadSchedChecksServer());
-
             reload(today);
-            loadSchedChecksServer(); // 載入共用勾選狀態，完成後會重繪排程
-            // 多人即時同步：作業區開著時每 12 秒重抓一次別人的勾選
-            setInterval(()=>{
-                const sec=document.getElementById('sec-downchart');
-                if(sec&&!sec.hidden)loadSchedChecksServer();
-            },12000);
         })();
     })();
     </script>
