@@ -217,7 +217,7 @@ public partial class NPW_Alarm : Page
     //   - ADDER / NON-ADDER: CHART_TYPE 'C-C' / 'XBAR'
     //   - Entity: PROCESSUNIT prefix before '-' (only NISACVD / SACVD shown)
     //   - exclude Engineering: CHART_DESC <> 'Engineering'
-    //   - MONITOR_TYPE = 'NORMAL'
+    //   - MONITOR_TYPE IN (NORMAL, PM)
     //   - Alarm: ALARM_COUNT >= 1 (decided on the client)
     // The SQL pre-filters only drop rows the client would discard anyway, so it
     // does not change results, it only shrinks the payload.
@@ -239,7 +239,7 @@ public partial class NPW_Alarm : Page
             "MONITOR_TYPE, CHART_TYPE, CHART_NAME, CHART_ID, CHART_SEQ, CHART_DESC, ALARM_COUNT, MEASUREPU, MEAN_VALUE, WAFER, PARAMETER " +
             "FROM " + ChartTable + " WITH (NOLOCK) " +
             "WHERE UPDATE_TIME >= @p0 AND UPDATE_TIME < @p1 " +
-            "AND MONITOR_TYPE = 'NORMAL' " +
+            "AND MONITOR_TYPE IN ('NORMAL','PM') " +
             "AND ISNULL(CHART_DESC,'') <> 'Engineering' " +
             "AND CHART_TYPE IN ('C-C','XBAR') " +
             "AND (PROCESSUNIT LIKE 'NISACVD%' OR PROCESSUNIT LIKE 'SACVD%')";

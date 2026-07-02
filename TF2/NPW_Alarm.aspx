@@ -483,14 +483,14 @@
 
                 const MON=1; // DB 無 MON_CNT，一列算 1（同原工具預設）
 
-                // Total Monitor Count（MONITOR_TYPE=NORMAL 且非 Engineering）
-                if(MT==='NORMAL'&&!isEng){
+                // Total Monitor Count（MONITOR_TYPE=NORMAL/PM 且非 Engineering）
+                if((MT==='NORMAL'||MT==='PM')&&!isEng){
                     if(CT==='C-C'){ds.totalMonAdder+=MON;es.sum.totalMonAdder+=MON;}
                     else if(CT==='XBAR'){ds.totalMonNonAdder+=MON;es.sum.totalMonNonAdder+=MON;}
                 }
 
                 // Alarm 條件
-                if(MT!=='NORMAL')continue;
+                if(MT!=='NORMAL'&&MT!=='PM')continue;
                 if(!(alarmCnt>=1))continue;
                 if(isEng)continue;
 
