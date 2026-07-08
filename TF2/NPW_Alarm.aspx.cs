@@ -410,6 +410,12 @@ public partial class NPW_Alarm : Page
         try { ServicePointManager.SecurityProtocol |= (SecurityProtocolType)12288; } catch { }
 
         var hreq = (HttpWebRequest)WebRequest.Create(url);
+        // New gateway sits behind Windows Integrated Authentication (Negotiate/
+        // NTLM). Send the server's own Windows identity (app pool account) so the
+        // gateway is satisfied server-to-server -- the browser never sees a 401
+        // challenge, so no Windows login popup for the user.
+        hreq.UseDefaultCredentials = true;
+        hreq.PreAuthenticate = true;
         hreq.Method = "POST";
         hreq.Accept = "*/*";
         hreq.ContentType = "application/json";
@@ -440,7 +446,11 @@ public partial class NPW_Alarm : Page
                 }
                 catch { }
             }
-            Response.StatusCode = status;
+            // Never relay a 401/407 to the browser: the app's IIS would attach a
+            // WWW-Authenticate: Negotiate challenge and the browser would pop up a
+            // Windows login dialog. Surface the failure as 502 instead; the real
+            // status/detail still travels in the JSON body (front-end reads it).
+            Response.StatusCode = (status == 401 || status == 407) ? 502 : status;
             Response.Write("{\"ok\":false,\"error\":\"" + JsonEscape(wex.Message) + "\",\"detail\":" + ser.Serialize(detail) + "}");
         }
     }
