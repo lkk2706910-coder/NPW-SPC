@@ -367,6 +367,7 @@ public partial class NPW_Alarm : Page
         string url = ConfigurationManager.AppSettings["AiGatewayUrl"];
         string apiKey = ConfigurationManager.AppSettings["AiApiKey"];
         string userId = ConfigurationManager.AppSettings["AiUserId"];
+        string model = ConfigurationManager.AppSettings["AiModel"];
         string systemPrompt = ConfigurationManager.AppSettings["AiSystemPrompt"];
         if (string.IsNullOrEmpty(systemPrompt)) systemPrompt = "You are a helpful assistant.";
         if (string.IsNullOrEmpty(url) || string.IsNullOrEmpty(apiKey))
@@ -397,7 +398,16 @@ public partial class NPW_Alarm : Page
                 if (m != null) messages.Add(m);
         }
         var payload = new Dictionary<string, object> { { "messages", messages } };
+        // New gateway routes by the "model" field in the body (not by URL path).
+        // Only include it when AiModel is configured; otherwise leave it off.
+        if (!string.IsNullOrEmpty(model)) payload["model"] = model;
         byte[] payloadBytes = Encoding.UTF8.GetBytes(ser.Serialize(payload));
+
+        // New gateway is HTTPS; older .NET Framework defaults do not enable
+        // TLS 1.2, causing "Could not create SSL/TLS secure channel". Enable
+        // TLS 1.2 (3072) and TLS 1.3 (12288) where supported.
+        try { ServicePointManager.SecurityProtocol |= (SecurityProtocolType)3072; } catch { }
+        try { ServicePointManager.SecurityProtocol |= (SecurityProtocolType)12288; } catch { }
 
         var hreq = (HttpWebRequest)WebRequest.Create(url);
         hreq.Method = "POST";
