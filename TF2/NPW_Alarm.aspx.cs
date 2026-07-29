@@ -235,9 +235,12 @@ public partial class NPW_Alarm : Page
         for (int i = 0; i < 7; i++) days.Add(weekStart.AddDays(i).ToString("yyyy-MM-dd"));
 
         // PORTID comes from [MESI_DB].[dbo].[ews_lothist] (same server), linked by
-        // LOT -> LOTID and RECIPE -> PPID. NPW.RECIPE may carry an extra suffix
-        // (e.g. 'PPID_BS020'), so match RECIPE LIKE PPID + '%'. NPW.LOT may carry a
-        // trailing '_ADD', which is stripped before matching LOTID. The OUTER APPLY
+        // LOT -> LOTID, RECIPE -> PPID, and the alarm date -> JPTIME (same day).
+        // NPW.RECIPE may carry an extra suffix (e.g. 'PPID_BS020'), so match
+        // RECIPE LIKE PPID + '%'. NPW.LOT may carry a trailing '_ADD', which is
+        // stripped before matching LOTID. The date match (CONVERT(date,JPTIME) =
+        // alarm date) collapses the same lot's multiple measurements/steps over
+        // time to the one measured that day, avoiding spurious multi-port results. The OUTER APPLY
         // aggregates ALL distinct matching PORTIDs into one comma-separated value
         // (FOR XML PATH), so a lot mapping to several ports shows all of them while
         // still keeping exactly one row per alarm record (no row multiplication ->
@@ -254,7 +257,9 @@ public partial class NPW_Alarm : Page
             "FROM [MESI_DB].[dbo].[ews_lothist] h WITH (NOLOCK) " +
             "WHERE c.ALARM_COUNT >= 1 AND c.LOT IS NOT NULL AND c.RECIPE IS NOT NULL " +
             "AND h.LOTID = CASE WHEN RIGHT(c.LOT,4)='_ADD' THEN LEFT(c.LOT, LEN(c.LOT)-4) ELSE c.LOT END " +
-            "AND c.RECIPE LIKE h.PPID + '%' AND h.PORTID IS NOT NULL " +
+            "AND c.RECIPE LIKE h.PPID + '%' " +
+            "AND CONVERT(date, h.JPTIME) = CONVERT(date, c.UPDATE_TIME) " +
+            "AND h.PORTID IS NOT NULL " +
             "FOR XML PATH(''), TYPE).value('.','nvarchar(max)'), 1, 2, '')) lh " +
             "WHERE c.UPDATE_TIME >= @p0 AND c.UPDATE_TIME < @p1 " +
             "AND ISNULL(c.CHART_DESC,'') <> 'Engineering' " +
