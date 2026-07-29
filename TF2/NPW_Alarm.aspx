@@ -161,8 +161,8 @@
     <div class="topbar">
         <h1>TF2 NPW</h1>
         <div class="seg-tabs">
-            <button type="button" class="seg-btn active" data-sec="weekly">NPW Alarm 週報</button>
-            <button type="button" class="seg-btn" data-sec="downchart">down chart 作業區</button>
+            <button type="button" class="seg-btn active" data-entity="NISACVD">NISACVD</button>
+            <button type="button" class="seg-btn" data-entity="SACVD">SACVD</button>
         </div>
         <span id="saveStatus" class="save-status"></span>
     </div>
@@ -240,152 +240,11 @@
             </div>
             <div id="error" class="npw-error" style="display:none;"></div>
 
-            <!-- ========== ADDER ========== -->
-            <div class="report-scroll">
-            <table class="report" id="tblAdder">
-                <colgroup>
-                    <col class="entity">
-                    <col class="date"><col class="date"><col class="date"><col class="date"><col class="date"><col class="date"><col class="date">
-                    <col class="statS"><col class="statM"><col class="statS"><col class="statS">
-                    <col class="statS"><col class="statS"><col class="statM">
-                </colgroup>
-                <thead>
-                    <tr><th class="section-title" colspan="15">ADDER</th></tr>
-                    <tr>
-                        <th class="h-green">Entity</th>
-                        <th class="h-green date-head"></th>
-                        <th class="h-green date-head"></th>
-                        <th class="h-green date-head"></th>
-                        <th class="h-green date-head"></th>
-                        <th class="h-green date-head"></th>
-                        <th class="h-green date-head"></th>
-                        <th class="h-green date-head"></th>
-                        <th class="h-amber">Alarm<br/>Counts</th>
-                        <th class="h-amber">Over Weekly to<br/>Day Count</th>
-                        <th class="h-amber">Weekly to<br/>Day Target</th>
-                        <th class="h-amber">Weekly<br/>Target Count</th>
-                        <th class="h-amber">Alarm<br/>rate</th>
-                        <th class="h-amber">Weekly<br/>Target Rate</th>
-                        <th class="h-amber">Total Monitor<br/>Count</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr data-entity="NISACVD">
-                        <td class="left entity-cell">NISACVD</td>
-                        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
-                        <td>0</td>
-                        <td class="barcell"><span class="bar"></span><span class="txt">0</span></td>
-                        <td>0</td><td>0</td>
-                        <td>0%</td><td>0%</td><td>0</td>
-                    </tr>
-                    <tr data-entity="SACVD">
-                        <td class="left entity-cell">SACVD</td>
-                        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
-                        <td>0</td>
-                        <td class="barcell"><span class="bar"></span><span class="txt">0</span></td>
-                        <td>0</td><td>0</td>
-                        <td>0%</td><td>0%</td><td>0</td>
-                    </tr>
-                </tbody>
-                <tfoot>
-                    <tr>
-                        <td class="total-label" colspan="8">Total Alarm</td>
-                        <td id="adderTotalAlarm">0</td>
-                        <td class="total-good" colspan="2" id="adderTotalAlarmRate">0%</td>
-                        <td></td><td></td>
-                        <td class="total-warn" colspan="2" id="adderTotalWeeklyTargetRate">0%</td>
-                    </tr>
-                </tfoot>
-            </table>
-            </div>
             <div id="adderChartDetail"></div>
 
-            <!-- ========== NON-ADDER ========== -->
-            <div class="report-scroll">
-            <table class="report" id="tblNonAdder">
-                <colgroup>
-                    <col class="entity">
-                    <col class="date"><col class="date"><col class="date"><col class="date"><col class="date"><col class="date"><col class="date">
-                    <col class="statS"><col class="statM"><col class="statS"><col class="statS">
-                    <col class="statS"><col class="statS"><col class="statM">
-                </colgroup>
-                <thead>
-                    <tr><th class="section-title" colspan="15">NON-ADDER</th></tr>
-                    <tr>
-                        <th class="h-green">Entity</th>
-                        <th class="h-green date-head"></th>
-                        <th class="h-green date-head"></th>
-                        <th class="h-green date-head"></th>
-                        <th class="h-green date-head"></th>
-                        <th class="h-green date-head"></th>
-                        <th class="h-green date-head"></th>
-                        <th class="h-green date-head"></th>
-                        <th class="h-amber">Alarm<br/>Counts</th>
-                        <th class="h-amber">Over Weekly to<br/>Day Count</th>
-                        <th class="h-amber">Weekly to<br/>Day Target</th>
-                        <th class="h-amber">Weekly<br/>Target Count</th>
-                        <th class="h-amber">Alarm<br/>rate</th>
-                        <th class="h-amber">Weekly<br/>Target Rate</th>
-                        <th class="h-amber">Total Monitor<br/>Count</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr data-entity="NISACVD">
-                        <td class="left entity-cell">NISACVD</td>
-                        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
-                        <td>0</td>
-                        <td class="barcell"><span class="bar"></span><span class="txt">0</span></td>
-                        <td>0</td><td>0</td>
-                        <td>0%</td><td>0%</td><td>0</td>
-                    </tr>
-                    <tr data-entity="SACVD">
-                        <td class="left entity-cell">SACVD</td>
-                        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
-                        <td>0</td>
-                        <td class="barcell"><span class="bar"></span><span class="txt">0</span></td>
-                        <td>0</td><td>0</td>
-                        <td>0%</td><td>0%</td><td>0</td>
-                    </tr>
-                </tbody>
-                <tfoot>
-                    <tr>
-                        <td class="total-label" colspan="8">Total Alarm</td>
-                        <td id="nonAdderTotalAlarm">0</td>
-                        <td class="total-good" colspan="2" id="nonAdderTotalAlarmRate">0%</td>
-                        <td></td><td></td>
-                        <td class="total-warn" colspan="2" id="nonAdderTotalWeeklyTargetRate">0%</td>
-                    </tr>
-                </tfoot>
-            </table>
-            </div>
-            <div id="nonAdderChartDetail"></div>
-        </div>
-        </section>
-
-        <section id="sec-downchart" hidden>
-            <div class="dc-toolbar">
-                <button id="dcPrev" type="button">◀ 上週</button>
-                <input id="dcDate" type="date" />
-                <button id="dcNext" type="button">下週 ▶</button>
-                <span id="dcWeek" class="npw-week-hint"></span>
-            </div>
-            <div id="downAdderSummary" style="display:flex;gap:24px;flex-wrap:wrap;margin:8px 0 16px;"></div>
-            <div id="downSchedule"></div>
+                    </div>
         </section>
     </div>
-
-    <script>
-    // 上方區塊切換：NPW Alarm 週報 / down chart 作業區
-    (function(){
-        const btns=[...document.querySelectorAll('.seg-btn')];
-        const secs={weekly:document.getElementById('sec-weekly'),downchart:document.getElementById('sec-downchart')};
-        function show(name){
-            for(const k in secs){if(secs[k])secs[k].hidden=(k!==name);}
-            btns.forEach(b=>b.classList.toggle('active',b.getAttribute('data-sec')===name));
-        }
-        btns.forEach(b=>b.addEventListener('click',()=>show(b.getAttribute('data-sec'))));
-    })();
-    </script>
 
     <script>
     // NPW Alarm 週報：沿用原工具(TF2_NPW.html)的判讀邏輯，資料來源改為
@@ -418,6 +277,7 @@
 
         // ===== 狀態 =====
         let rawData=[];
+        let selectedEntity='NISACVD';  // 上方分頁選中的 entity（NISACVD / SACVD）
         let chartAlarmStats={};
         let chartAlarmDateStats={};
         let chartMeasurePu={}; // key|chartKey -> MEASUREPU
@@ -521,6 +381,7 @@
 
         function updateTableByStats(tableId,stats,days,isAdder,picked){
             const tbl=document.getElementById(tableId);
+            if(!tbl)return;  // 彙總表已移除時安全略過
             const tbody=tbl.querySelector('tbody');
             const rows=tbody.querySelectorAll('tr[data-entity]');
 
@@ -852,7 +713,7 @@
         function buildInlineChartDetailHtml(picked,isAdder){
             const start=startTuesdayFor(picked);
             const blockLabel=isAdder?'ADDER':'NON-ADDER';
-            const entities=['NISACVD','SACVD'];
+            const entities=[selectedEntity];  // 只顯示上方分頁選中的 entity
             const chartNameFreq={};
             const allRows=[];
 
@@ -878,7 +739,7 @@
                 }
             }
 
-            if(allRows.length===0)return `<div class="inline-empty">${blockLabel}：本週 NISACVD / SACVD 無 Alarm 記錄。</div>`;
+            if(allRows.length===0)return `<div class="inline-empty">${blockLabel}：本週 ${selectedEntity} 無 Alarm 記錄。</div>`;
 
             function entityOrder(e){if(e==='NISACVD')return 0;if(e==='SACVD')return 1;return 99;}
             allRows.sort((a,b)=>{
@@ -1197,6 +1058,15 @@
             // 切到作業區時重抓共用勾選狀態（看別人最新的勾選）
             const dcTab=document.querySelector('.seg-btn[data-sec="downchart"]');
             if(dcTab)dcTab.addEventListener('click',()=>loadSchedChecksServer());
+
+            // 上方 entity 分頁（NISACVD / SACVD）：切換只重繪該 entity 的 ADDER Chart Alarm Detail
+            const segBtns=[...document.querySelectorAll('.seg-btn[data-entity]')];
+            segBtns.forEach(b=>b.addEventListener('click',()=>{
+                selectedEntity=b.getAttribute('data-entity');
+                segBtns.forEach(x=>x.classList.toggle('active',x===b));
+                const picked=input.value?new Date(input.value+'T00:00:00'):new Date();
+                renderInlineChartDetails(picked);
+            }));
 
             reload(today);
             loadSchedChecksServer(); // 載入共用勾選狀態，完成後會重繪排程
