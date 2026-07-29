@@ -242,6 +242,9 @@ public partial class NPW_Alarm : Page
         // (FOR XML PATH), so a lot mapping to several ports shows all of them while
         // still keeping exactly one row per alarm record (no row multiplication ->
         // alarm counts stay correct). The client splits + de-dupes per chart.
+        // Perf: the cross-DB lookup runs only for alarm rows (ALARM_COUNT >= 1,
+        // LOT/RECIPE not null) -- a startup predicate so non-alarm rows skip the
+        // ews_lothist scan entirely; PORTID is simply NULL for them.
         string sql =
             "SELECT c.PROCESSUNIT, CONVERT(varchar(10), c.UPDATE_TIME, 23) AS UPDATE_TIME, " +
             "c.MONITOR_TYPE, c.CHART_TYPE, c.CHART_NAME, c.CHART_ID, c.CHART_SEQ, c.CHART_DESC, c.ALARM_COUNT, c.MEASUREPU, c.MEAN_VALUE, c.WAFER, c.PARAMETER, " +
@@ -249,7 +252,8 @@ public partial class NPW_Alarm : Page
             "FROM " + ChartTable + " c WITH (NOLOCK) " +
             "OUTER APPLY (SELECT PORTID = STUFF((SELECT DISTINCT ', ' + CONVERT(varchar(50), h.PORTID) " +
             "FROM [MESI_DB].[dbo].[ews_lothist] h WITH (NOLOCK) " +
-            "WHERE h.LOTID = CASE WHEN RIGHT(c.LOT,4)='_ADD' THEN LEFT(c.LOT, LEN(c.LOT)-4) ELSE c.LOT END " +
+            "WHERE c.ALARM_COUNT >= 1 AND c.LOT IS NOT NULL AND c.RECIPE IS NOT NULL " +
+            "AND h.LOTID = CASE WHEN RIGHT(c.LOT,4)='_ADD' THEN LEFT(c.LOT, LEN(c.LOT)-4) ELSE c.LOT END " +
             "AND c.RECIPE LIKE h.PPID + '%' AND h.PORTID IS NOT NULL " +
             "FOR XML PATH(''), TYPE).value('.','nvarchar(max)'), 1, 2, '')) lh " +
             "WHERE c.UPDATE_TIME >= @p0 AND c.UPDATE_TIME < @p1 " +
