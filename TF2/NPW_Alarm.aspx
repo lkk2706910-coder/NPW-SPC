@@ -781,6 +781,8 @@
                 const seq=escapeHtml(r.chartSeq||'');
                 const pv=escapeHtml(r.pointValue==null?'':String(r.pointValue));
                 const da=`data-site="${site}" data-uchart-id="${cid}" data-chart-seq="${seq}" data-point-value="${pv}"`;
+                // 對角度用：帶 Tool_name / Port / CHART_NAME，供點 ADDER_map 開 Wafer Match Tool 推導參數
+                const wmAttr=`data-wm-tool="${escapeHtml(r.processUnit||'')}" data-wm-port="${escapeHtml(r.ports||'')}" data-wm-cname="${escapeHtml(r.chartName||'')}"`;
                 const puInit=escapeHtml(parseMeasurePu(r.measurePu));
                 const previewCell=`<td class="npw-cell-preview"><div class="npw-spark" data-cid="${cid}" data-block="${isAdder?'A':'N'}"><canvas></canvas></div></td>`;
                 const measureCell=`<td><span class="map-info" ${da}>${puInit||'<span style="color:#999;">...</span>'}</span></td>`;
@@ -788,7 +790,7 @@
                 if(isAdder){
                     extra=previewCell+
                           `<td class="npw-cell-map"><span class="pre-map" ${da} style="color:#999;">...</span></td>`+
-                          `<td class="npw-cell-map"><span class="adder-map" ${da} style="color:#999;">...</span></td>`+
+                          `<td class="npw-cell-map"><span class="adder-map" ${da} ${wmAttr} style="color:#999;">...</span></td>`+
                           measureCell;
                 }else{
                     const waferAttr=`data-wafer="${escapeHtml(r.wafer==null?'':String(r.wafer))}"`;
@@ -933,6 +935,14 @@
             return `<a href="openie:${encodeURIComponent(imgUrl)}" target="_blank" rel="noopener noreferrer" title="Open ${alt} (IE)">`
                 + `<img class="adder-map-thumb" src="${escapeHtml(imgUrl)}" alt="${alt}" loading="lazy" /></a>`;
         }
+        // ADDER MAP 縮圖：點擊開啟 Wafer Match Tool（對角度），把此 map 當 wafer 貼上並轉到對好的角度。
+        // tool/port/cname 來自該列 data-wm-*，用來推導 mode/CASS/side/station。
+        function adderMapThumbHtml(imgUrl,tool,port,cname){
+            return `<a href="javascript:void(0)" title="點擊對角度（Wafer Match）" `
+                + `onclick="wmOpenFromMap(this)" data-img="${escapeHtml(imgUrl)}" `
+                + `data-tool="${escapeHtml(tool||'')}" data-port="${escapeHtml(port||'')}" data-cname="${escapeHtml(cname||'')}">`
+                + `<img class="adder-map-thumb" src="${escapeHtml(imgUrl)}" alt="ADDER MAP" loading="lazy" /></a>`;
+        }
 
         // ===== Map/Profile：捲到才載入 + 去重 + 快取 + 限流 =====
         const MAP_CONC = 3;                 // 對目標伺服器的最大同時請求數
@@ -970,7 +980,7 @@
             }else if(el.classList.contains('pre-map')){
                 el.innerHTML=(d&&d.preMapImgUrl)?mapThumbHtml(String(d.preMapImgUrl),'PRE MAP'):'-';
             }else if(el.classList.contains('adder-map')){
-                el.innerHTML=(d&&d.adderMapImgUrl)?mapThumbHtml(String(d.adderMapImgUrl),'ADDER MAP'):'-';
+                el.innerHTML=(d&&d.adderMapImgUrl)?adderMapThumbHtml(String(d.adderMapImgUrl),el.getAttribute('data-wm-tool'),el.getAttribute('data-wm-port'),el.getAttribute('data-wm-cname')):'-';
             }
         }
         async function hydrateOne(el){
@@ -1080,6 +1090,65 @@
             },12000);
         })();
     })();
+    </script>
+
+    <!-- ============================================================
+         對角度（Wafer Match）：點 ADDER_map 時彈窗，iframe 載入 WaferMatch.html
+         並以推導出的 mode/CASS/side/station + 該 map 圖自動帶入。
+         ============================================================ -->
+    <div id="wmatchModal" style="display:none;position:fixed;z-index:1200;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);">
+        <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:96vw;height:92vh;background:#fff;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,0.4);overflow:hidden;">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px;background:#1976d2;color:#fff;">
+                <span id="wmatchTitle" style="font-weight:700;font-size:14px;">對角度 · Wafer Match</span>
+                <span onclick="wmClose()" style="cursor:pointer;font-size:24px;line-height:1;">&times;</span>
+            </div>
+            <iframe id="wmatchFrame" title="Wafer Match Tool" style="border:0;width:100%;height:calc(100% - 40px);" src="about:blank"></iframe>
+        </div>
+    </div>
+    <script>
+        // 由 ADDER_map 縮圖 onclick 呼叫（全域）。從 data-* 推導對角度參數並開啟 iframe。
+        function wmMode(entity, bnum){
+            entity=String(entity||'').toUpperCase();
+            const n=parseInt(bnum,10);
+            if(entity==='NISACVD'){
+                if((n>=1&&n<=5)||(n>=9&&n<=14))return 'FI5.X';
+                if(n>=6&&n<=8)return 'FI6.4';
+            }else if(entity==='SACVD'){
+                if((n>=1&&n<=5)||n===7)return 'FI5.X';
+                if(n===6||(n>=8&&n<=12)||n===81)return 'FI6.4';
+            }
+            return 'FI5.X';  // 未列入者的預設
+        }
+        function wmDeriveParams(tool, portStr, cname){
+            const m=String(tool||'').toUpperCase().match(/(NISACVD|SACVD)-B(\d+)\s*([A-Z]?)/);
+            if(!m)return null;
+            const entity=m[1], bnum=m[2], letter=m[3]||'';
+            const mode=wmMode(entity,bnum);
+            const firstPort=(String(portStr||'').split(',')[0]||'').trim();
+            const pnum=parseInt(firstPort,10);
+            const cass=(pnum>=1&&pnum<=4)?String.fromCharCode(64+pnum):'A';  // 1->A..4->D
+            const side=/W2/i.test(String(cname||''))?'S2':'S1';              // W1->S1, W2->S2
+            const station=letter==='A'?'CHA':letter==='B'?'CHB':letter==='C'?'CHC':'LL'; // 無字母(XFER NG)->LL
+            return {mode, cass, side, station, entity, bnum, letter};
+        }
+        function wmOpenFromMap(a){
+            const img=a.getAttribute('data-img')||'';
+            const p=wmDeriveParams(a.getAttribute('data-tool'), a.getAttribute('data-port'), a.getAttribute('data-cname'));
+            if(!p){ alert('無法從 Tool_name / Port / CHART_NAME 推導對角度參數'); return; }
+            const qs='mode='+encodeURIComponent(p.mode)+'&cass='+encodeURIComponent(p.cass)
+                    +'&side='+encodeURIComponent(p.side)+'&station='+encodeURIComponent(p.station)
+                    +'&offset=0&img='+encodeURIComponent(img);
+            document.getElementById('wmatchTitle').textContent=
+                `對角度 · ${p.entity}-B${p.bnum}${p.letter}｜${p.mode}｜CASS ${p.cass}｜${p.side}｜${p.station}`;
+            document.getElementById('wmatchFrame').src='WaferMatch.html?'+qs;
+            document.getElementById('wmatchModal').style.display='block';
+        }
+        function wmClose(){
+            document.getElementById('wmatchModal').style.display='none';
+            document.getElementById('wmatchFrame').src='about:blank';  // 停止 iframe、釋放
+        }
+        document.getElementById('wmatchModal').addEventListener('click', function(e){ if(e.target===this) wmClose(); });
+        document.addEventListener('keydown', function(e){ if(e.key==='Escape') wmClose(); });
     </script>
 
     <!-- ============================================================
