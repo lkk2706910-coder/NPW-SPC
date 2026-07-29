@@ -230,10 +230,15 @@ function getFullPath(cassName, side, station) {
   let path = [`C${cassName}`];
   if ((["A", "B"].includes(cassName) && side === "S2") || (["C", "D"].includes(cassName) && side === "S1")) path.push("CS");
   path.push(side === "S1" ? "LL1" : "LL2");
-  if (station !== "LL") {
+  // station 可為複合值（如 "CHC+CHB"）：wafer 經過多個 chamber，每個都納入路徑對位
+  const stations = String(station || '').split('+').filter(s => s && s !== 'LL');
+  if (stations.length) {
     path.push(side === "S1" ? "MF1" : "MF2");
-    let target = {"CHA":"A", "CHB":"B", "CHC":"C"}[station];
-    path.push(`${target}${side === "S1" ? '1' : '2'}`);
+    const map = {"CHA":"A", "CHB":"B", "CHC":"C"};
+    for (const st of stations) {
+      const target = map[st];
+      if (target) path.push(`${target}${side === "S1" ? '1' : '2'}`);
+    }
   }
   return path;
 }
@@ -1239,7 +1244,17 @@ function wmApplyParams() {
   set('mode', q.get('mode'));
   set('cass', q.get('cass'));
   set('side', q.get('side'));
-  set('station', q.get('station'));
+  // 複合 station（如 CHC+CHB：wafer 經過多個 chamber）下拉沒有現成選項，動態補上
+  const st = q.get('station');
+  if (st && st.indexOf('+') >= 0) {
+    const sel = document.getElementById('station');
+    if (![...sel.options].some(o => o.value === st)) {
+      const o = document.createElement('option');
+      o.value = st; o.textContent = st;
+      sel.appendChild(o);
+    }
+  }
+  set('station', st);
   if (q.get('offset') != null) set('offset', q.get('offset'));
   draw();
   const img = q.get('img');

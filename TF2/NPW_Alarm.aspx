@@ -1178,7 +1178,7 @@
             return 'FI5.X';  // 未列入者的預設
         }
         function wmDeriveParams(tool, portStr, cname){
-            const m=String(tool||'').toUpperCase().match(/(NISACVD|SACVD)-B(\d+)\s*([A-Z]?)/);
+            const m=String(tool||'').toUpperCase().match(/(NISACVD|SACVD)-B(\d+)\s*([A-Z]*)/);
             if(!m)return null;
             const entity=m[1], bnum=m[2], letter=m[3]||'';
             const mode=wmMode(entity,bnum);
@@ -1186,7 +1186,12 @@
             const pnum=parseInt(firstPort,10);
             const cass=(pnum>=1&&pnum<=4)?String.fromCharCode(64+pnum):'A';  // 1->A..4->D
             const side=/W2/i.test(String(cname||''))?'S2':'S1';              // W1->S1, W2->S2
-            const station=letter==='A'?'CHA':letter==='B'?'CHB':letter==='C'?'CHC':'LL'; // 無字母(XFER NG)->LL
+            // 尾碼可含多個 chamber 字母（如 CB = CHC+CHB、CA = CHC+CHA），
+            // 每個字母都要對位置；無字母(XFER NG) -> LL
+            const stMap={A:'CHA',B:'CHB',C:'CHC'};
+            const parts=[];
+            for(const ch of letter){ if(stMap[ch]) parts.push(stMap[ch]); }
+            const station=parts.length?parts.join('+'):'LL';
             return {mode, cass, side, station, entity, bnum, letter};
         }
         function wmOpenFromMap(a){
