@@ -1212,6 +1212,27 @@ window.addEventListener('resize', applyResponsiveScale);
 //   ?mode=FI5.X|FI6.4 &cass=A..D &side=S1|S2 &station=LL|CHA|CHB|CHC &offset=0 &img=<map image url>
 // The map image is loaded as the wafer for the given side so it renders rotated
 // to the matched robot angle along the transfer path.
+// SPC map alignment (deterministic, no pixel access needed):
+// these maps are "a full-width wafer disc on top + metadata text below". Map the
+// top disc directly onto the layout circle -- centre (w/2, r), radius r =
+// min(w,h)/2. No getImageData / edge detection, so cross-origin maps align fine;
+// the text region below the disc falls outside the layout circle and is clipped.
+function loadMapImageAligned(url, side) {
+  saveState();
+  const i = new Image();
+  i.onload = () => {
+    const r = Math.min(i.width, i.height) / 2;
+    i._waferCx = i.width / 2;
+    i._waferCy = r;
+    i._waferR  = r;
+    i._bgColor = 'transparent';
+    waferImages[side] = i;
+    updateMgrPreview(side);
+    draw();
+  };
+  i.src = url;
+}
+
 function wmApplyParams() {
   const q = new URLSearchParams(location.search);
   const set = (id, v) => { const el = document.getElementById(id); if (el && v != null && v !== '') el.value = v; };
@@ -1222,7 +1243,7 @@ function wmApplyParams() {
   if (q.get('offset') != null) set('offset', q.get('offset'));
   draw();
   const img = q.get('img');
-  if (img) loadImgToSide(img, (q.get('side') === 'S2') ? 'S2' : 'S1');
+  if (img) loadMapImageAligned(img, (q.get('side') === 'S2') ? 'S2' : 'S1');
 }
 
 window.onload = () => { draw(); wmApplyParams(); applyResponsiveScale(); };

@@ -1132,10 +1132,7 @@
             return {mode, cass, side, station, entity, bnum, letter};
         }
         function wmOpenFromMap(a){
-            const rawImg=a.getAttribute('data-img')||'';
-            // 走同源圖片代理，避免跨網域 tainted canvas 導致偵測失敗、圓盤貼歪
-            const page=location.pathname.split('/').pop()||'NPW_Alarm.aspx';
-            const img=rawImg?(page+'?op=mapimg&u='+encodeURIComponent(rawImg)):'';
+            const img=a.getAttribute('data-img')||'';  // 直接載入 map（不需讀像素，跨網域無妨）
             const p=wmDeriveParams(a.getAttribute('data-tool'), a.getAttribute('data-port'), a.getAttribute('data-cname'));
             if(!p){ alert('無法從 Tool_name / Port / CHART_NAME 推導對角度參數'); return; }
             const qs='mode='+encodeURIComponent(p.mode)+'&cass='+encodeURIComponent(p.cass)

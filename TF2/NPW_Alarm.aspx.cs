@@ -78,22 +78,6 @@ public partial class NPW_Alarm : Page
             Response.End();
             return;
         }
-        if (string.Equals(opStr, "mapimg", StringComparison.OrdinalIgnoreCase))
-        {
-            // Same-origin image proxy: fetch a (cross-origin) SPC map server-side
-            // and stream the bytes back, so the Wafer Match Tool can getImageData
-            // (edge-detect the wafer disc) without the canvas being tainted.
-            try { HandleMapImg(); }
-            catch (Exception ex)
-            {
-                Response.Clear();
-                Response.StatusCode = 502;
-                Response.ContentType = "text/plain; charset=utf-8";
-                Response.Write(ex.Message);
-            }
-            Response.End();
-            return;
-        }
         if (string.Equals(opStr, "chartdata", StringComparison.OrdinalIgnoreCase))
         {
             Response.ContentType = "application/json; charset=utf-8";
@@ -294,48 +278,6 @@ public partial class NPW_Alarm : Page
             }},
             { "rows", rows }
         }));
-    }
-
-    // Same-origin image proxy for the Wafer Match Tool. ?op=mapimg&u=<image url>
-    // Streams the remote image bytes through this page so the browser treats the
-    // image as same-origin and getImageData (wafer edge detection) is not blocked
-    // by a tainted canvas. Only absolute http/https URLs are allowed.
-    private void HandleMapImg()
-    {
-        string u = Request.QueryString["u"];
-        Uri uri;
-        if (string.IsNullOrEmpty(u) || !Uri.TryCreate(u, UriKind.Absolute, out uri)
-            || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
-        {
-            Response.StatusCode = 400;
-            Response.ContentType = "text/plain; charset=utf-8";
-            Response.Write("missing or invalid 'u'");
-            return;
-        }
-
-        try { ServicePointManager.SecurityProtocol |= (SecurityProtocolType)3072; } catch { }
-        try { ServicePointManager.SecurityProtocol |= (SecurityProtocolType)12288; } catch { }
-
-        var req = (HttpWebRequest)WebRequest.Create(uri);
-        req.Method = "GET";
-        req.Timeout = 30000;
-        req.ReadWriteTimeout = 30000;
-        // The internal blob/SPC server may require the site's Windows identity.
-        req.UseDefaultCredentials = true;
-        using (var resp = (HttpWebResponse)req.GetResponse())
-        using (var rs = resp.GetResponseStream())
-        {
-            string ct = resp.ContentType;
-            if (string.IsNullOrEmpty(ct) || ct.IndexOf("image", StringComparison.OrdinalIgnoreCase) < 0)
-                ct = "image/png";
-            Response.ContentType = ct;
-            Response.Cache.SetCacheability(HttpCacheability.Public);
-            Response.Cache.SetMaxAge(TimeSpan.FromHours(1));
-            byte[] buf = new byte[16384];
-            int n;
-            while ((n = rs.Read(buf, 0, buf.Length)) > 0)
-                Response.OutputStream.Write(buf, 0, n);
-        }
     }
 
     // SPC trend series for the inline chart thumbnails. ?cids=ID1,ID2,...
