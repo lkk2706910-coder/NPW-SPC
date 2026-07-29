@@ -78,6 +78,19 @@ public partial class NPW_Alarm : Page
             Response.End();
             return;
         }
+        if (string.Equals(opStr, "port", StringComparison.OrdinalIgnoreCase))
+        {
+            Response.ContentType = "application/json; charset=utf-8";
+            Response.Cache.SetCacheability(HttpCacheability.NoCache);
+            try { HandlePort(); }
+            catch (Exception ex)
+            {
+                Response.StatusCode = 500;
+                Response.Write("{\"ok\":false,\"error\":\"" + JsonEscape(ex.Message) + "\"}");
+            }
+            Response.End();
+            return;
+        }
         if (string.Equals(opStr, "chartdata", StringComparison.OrdinalIgnoreCase))
         {
             Response.ContentType = "application/json; charset=utf-8";
@@ -234,37 +247,20 @@ public partial class NPW_Alarm : Page
         var days = new List<string>();
         for (int i = 0; i < 7; i++) days.Add(weekStart.AddDays(i).ToString("yyyy-MM-dd"));
 
-        // PORTID comes from [MESI_DB].[dbo].[ews_lothist] (same server), linked by
-        // LOT -> LOTID, RECIPE -> PPID, and the alarm date -> JPTIME (same day).
-        // NPW.RECIPE may carry an extra suffix (e.g. 'PPID_BS020'), so match
-        // RECIPE LIKE PPID + '%'. NPW.LOT may carry a trailing '_ADD', which is
-        // stripped before matching LOTID. The date match (CONVERT(date,JPTIME) =
-        // alarm date) collapses the same lot's multiple measurements/steps over
-        // time to the one measured that day, avoiding spurious multi-port results. The OUTER APPLY
-        // aggregates ALL distinct matching PORTIDs into one comma-separated value
-        // (FOR XML PATH), so a lot mapping to several ports shows all of them while
-        // still keeping exactly one row per alarm record (no row multiplication ->
-        // alarm counts stay correct). The client splits + de-dupes per chart.
-        // Perf: the cross-DB lookup runs only for alarm rows (ALARM_COUNT >= 1,
-        // LOT/RECIPE not null) -- a startup predicate so non-alarm rows skip the
-        // ews_lothist scan entirely; PORTID is simply NULL for them.
+        // NOTE: PORTID is NOT joined here any more. The cross-DB ews_lothist
+        // lookup made this (page-blocking) query slow, so it moved to its own
+        // endpoint (?op=port, HandlePort below) which the client calls in the
+        // background after the page has rendered. LOT/RECIPE stay in the SELECT
+        // so the client can match port results back to alarm rows.
         string sql =
-            "SELECT c.PROCESSUNIT, CONVERT(varchar(10), c.UPDATE_TIME, 23) AS UPDATE_TIME, " +
-            "c.MONITOR_TYPE, c.CHART_TYPE, c.CHART_NAME, c.CHART_ID, c.CHART_SEQ, c.CHART_DESC, c.ALARM_COUNT, c.MEASUREPU, c.MEAN_VALUE, c.WAFER, c.PARAMETER, " +
-            "c.LOT, c.RECIPE, lh.PORTID " +
-            "FROM " + ChartTable + " c WITH (NOLOCK) " +
-            "OUTER APPLY (SELECT PORTID = STUFF((SELECT DISTINCT ', ' + CONVERT(varchar(50), h.PORTID) " +
-            "FROM [MESI_DB].[dbo].[ews_lothist] h WITH (NOLOCK) " +
-            "WHERE c.ALARM_COUNT >= 1 AND c.LOT IS NOT NULL AND c.RECIPE IS NOT NULL " +
-            "AND h.LOTID = CASE WHEN RIGHT(c.LOT,4)='_ADD' THEN LEFT(c.LOT, LEN(c.LOT)-4) ELSE c.LOT END " +
-            "AND c.RECIPE LIKE h.PPID + '%' " +
-            "AND CONVERT(date, h.JPTIME) = CONVERT(date, c.UPDATE_TIME) " +
-            "AND h.PORTID IS NOT NULL " +
-            "FOR XML PATH(''), TYPE).value('.','nvarchar(max)'), 1, 2, '')) lh " +
-            "WHERE c.UPDATE_TIME >= @p0 AND c.UPDATE_TIME < @p1 " +
-            "AND ISNULL(c.CHART_DESC,'') <> 'Engineering' " +
-            "AND c.CHART_TYPE IN ('C-C','XBAR') " +
-            "AND (c.PROCESSUNIT LIKE 'NISACVD%' OR c.PROCESSUNIT LIKE 'SACVD%')";
+            "SELECT PROCESSUNIT, CONVERT(varchar(10), UPDATE_TIME, 23) AS UPDATE_TIME, " +
+            "MONITOR_TYPE, CHART_TYPE, CHART_NAME, CHART_ID, CHART_SEQ, CHART_DESC, ALARM_COUNT, MEASUREPU, MEAN_VALUE, WAFER, PARAMETER, " +
+            "LOT, RECIPE " +
+            "FROM " + ChartTable + " WITH (NOLOCK) " +
+            "WHERE UPDATE_TIME >= @p0 AND UPDATE_TIME < @p1 " +
+            "AND ISNULL(CHART_DESC,'') <> 'Engineering' " +
+            "AND CHART_TYPE IN ('C-C','XBAR') " +
+            "AND (PROCESSUNIT LIKE 'NISACVD%' OR PROCESSUNIT LIKE 'SACVD%')";
         var rows = QueryRows(sql, weekStart, weekEndExcl);
 
         var ser = new JavaScriptSerializer { MaxJsonLength = int.MaxValue };
@@ -277,6 +273,50 @@ public partial class NPW_Alarm : Page
                 { "days", days }
             }},
             { "rows", rows }
+        }));
+    }
+
+    // Port lookup for the weekly alarm rows. ?date=YYYY-MM-DD (same week rule as
+    // HandleAlarm). Called by the client in the background AFTER the page has
+    // rendered, so the slow cross-DB join never blocks the initial load.
+    // Links [MESI_DB].[dbo].[ews_lothist] by LOT -> LOTID (trailing '_ADD'
+    // stripped), RECIPE LIKE PPID + '%' (RECIPE may carry an extra suffix), and
+    // same-day JPTIME. Perf notes:
+    //   - one single set-based join for the whole week (with DISTINCT), instead
+    //     of a correlated FOR XML subquery per row;
+    //   - JPTIME uses sargable range predicates (>= day AND < day+1, plus the
+    //     whole-week bound) so an index on JPTIME can seek, unlike the previous
+    //     CONVERT(date, JPTIME) = ... which forced a scan.
+    // Returns { ok, rows: [ { LOT, UPDATE_TIME, PORTID }, ... ] }; the client
+    // groups PORTIDs per LOT+day and fills the Port column in place.
+    private void HandlePort()
+    {
+        DateTime refDate;
+        if (!DateTime.TryParse(Request.QueryString["date"], out refDate)) refDate = DateTime.Today;
+        int diff = (((int)refDate.DayOfWeek) - ((int)DayOfWeek.Tuesday) + 7) % 7;
+        DateTime weekStart = refDate.Date.AddDays(-diff);   // Tuesday
+        DateTime weekEndExcl = weekStart.AddDays(7);        // next Tuesday (exclusive)
+
+        string sql =
+            "SELECT DISTINCT c.LOT, CONVERT(varchar(10), c.UPDATE_TIME, 23) AS UPDATE_TIME, h.PORTID " +
+            "FROM " + ChartTable + " c WITH (NOLOCK) " +
+            "JOIN [MESI_DB].[dbo].[ews_lothist] h WITH (NOLOCK) " +
+            "ON h.LOTID = CASE WHEN RIGHT(c.LOT,4)='_ADD' THEN LEFT(c.LOT, LEN(c.LOT)-4) ELSE c.LOT END " +
+            "AND c.RECIPE LIKE h.PPID + '%' " +
+            "AND h.JPTIME >= CONVERT(date, c.UPDATE_TIME) " +
+            "AND h.JPTIME < DATEADD(day, 1, CONVERT(date, c.UPDATE_TIME)) " +
+            "WHERE c.UPDATE_TIME >= @p0 AND c.UPDATE_TIME < @p1 " +
+            "AND h.JPTIME >= @p0 AND h.JPTIME < @p1 " +
+            "AND c.ALARM_COUNT >= 1 AND c.LOT IS NOT NULL AND c.RECIPE IS NOT NULL " +
+            "AND ISNULL(c.CHART_DESC,'') <> 'Engineering' " +
+            "AND c.CHART_TYPE IN ('C-C','XBAR') " +
+            "AND (c.PROCESSUNIT LIKE 'NISACVD%' OR c.PROCESSUNIT LIKE 'SACVD%') " +
+            "AND h.PORTID IS NOT NULL";
+        var rows = QueryRows(sql, weekStart, weekEndExcl);
+
+        var ser = new JavaScriptSerializer { MaxJsonLength = int.MaxValue };
+        Response.Write(ser.Serialize(new Dictionary<string, object> {
+            { "ok", true }, { "rows", rows }
         }));
     }
 

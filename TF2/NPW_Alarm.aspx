@@ -369,7 +369,7 @@
                 chartAlarmDateStats[key][ck].add(ut);
                 if(row.MEASUREPU!=null&&String(row.MEASUREPU).trim()!=='')chartMeasurePu[key+'|'+ck]=String(row.MEASUREPU);
                 if(row.PROCESSUNIT!=null)chartProcUnit[key+'|'+ck]=String(row.PROCESSUNIT);
-                if(row.PORTID!=null&&String(row.PORTID).trim()!==''){const pk=key+'|'+ck;if(!chartPort[pk])chartPort[pk]=new Set();String(row.PORTID).split(',').forEach(p=>{p=p.trim();if(p)chartPort[pk].add(p);});}
+                {const plk=_portLookup[String(row.LOT||'')+'|'+ut];if(plk&&plk.size){const pk=key+'|'+ck;if(!chartPort[pk])chartPort[pk]=new Set();plk.forEach(p=>chartPort[pk].add(p));}}
                 if(row.PARAMETER!=null&&String(row.PARAMETER).trim()!==''&&chartParameter[key+'|'+ck]==null)chartParameter[key+'|'+ck]=String(row.PARAMETER);
                 if(row.CHART_SEQ!=null&&String(row.CHART_SEQ).trim()!==''){
                     const sk=key+'|'+ck;
@@ -481,6 +481,63 @@
         }
 
         let _lastStats=null;
+        // ===== Port 背景載入（op=port）=====
+        // Port 的跨庫查詢較慢，改為與主查詢平行、不阻塞頁面渲染：
+        // 主表先顯示（Port 欄為 ...），查詢回來後就地填入格子，不重繪表格。
+        let _portLookup={};      // 'LOT|yyyy-mm-dd' -> Set(PORTID)
+        let _portsLoading=false;
+        let _portSeq=0;          // 防止換週後舊回應覆蓋新資料
+        async function loadPorts(picked){
+            const seq=++_portSeq;
+            _portLookup={};_portsLoading=true;
+            try{
+                const qs=new URLSearchParams({op:'port',date:toISODateLocal(picked)});
+                const res=await fetch(PAGE+'?'+qs.toString(),{cache:'no-store'});
+                const data=await res.json();
+                if(seq!==_portSeq)return;
+                if(data.ok)for(const r of (data.rows||[])){
+                    const k=String(r.LOT||'')+'|'+String(r.UPDATE_TIME||'');
+                    const p=String(r.PORTID==null?'':r.PORTID).trim();
+                    if(!p)continue;
+                    if(!_portLookup[k])_portLookup[k]=new Set();
+                    _portLookup[k].add(p);
+                }
+            }catch(e){/* 查不到就留空 */}
+            if(seq!==_portSeq)return;
+            _portsLoading=false;
+            applyPorts(picked);
+        }
+        // 依 rawData + _portLookup 重建 chartPort（與 buildStats 同樣的列篩選）
+        function rebuildChartPort(picked){
+            chartPort={};
+            const start=startTuesdayFor(picked);
+            const days=[];for(let i=0;i<7;i++){const d=new Date(start.getFullYear(),start.getMonth(),start.getDate());d.setDate(start.getDate()+i);days.push(fmtYMDDash(d));}
+            const entOf=pu=>{if(!pu)return null;const s=String(pu).toUpperCase();const i=s.indexOf('-');return i===-1?s:s.substring(0,i);};
+            for(const row of rawData){
+                const entity=entOf(row.PROCESSUNIT);if(!entity)continue;
+                let ut=row.UPDATE_TIME;if(!ut)continue;
+                if(typeof ut==='string'){ut=ut.substring(0,10);}else{const j=new Date(ut);if(isNaN(j.getTime()))continue;ut=fmtYMDDash(j);}
+                if(!days.includes(ut))continue;
+                if(!(Number(row.ALARM_COUNT)>=1))continue;
+                if(String(row.CHART_DESC||'').trim().toUpperCase()==='ENGINEERING')continue;
+                const CT=String(row.CHART_TYPE||'').trim().toUpperCase();
+                let isAdder;if(CT==='C-C')isAdder=true;else if(CT==='XBAR')isAdder=false;else continue;
+                const plk=_portLookup[String(row.LOT||'')+'|'+ut];
+                if(!plk||!plk.size)continue;
+                const pk=fmtYMDDash(start)+'|'+entity+'|'+(isAdder?'ADDER':'NON_ADDER')+'|'+(row.CHART_ID||'')+'||'+(row.CHART_NAME||'');
+                if(!chartPort[pk])chartPort[pk]=new Set();
+                plk.forEach(p=>chartPort[pk].add(p));
+            }
+        }
+        // 把 chartPort 值就地填入 Port 欄（不重繪表格、不重載圖）
+        function applyPorts(picked){
+            rebuildChartPort(picked);
+            document.querySelectorAll('td.port-cell').forEach(td=>{
+                const s=chartPort[td.getAttribute('data-pk')];
+                td.textContent=(s&&s.size)?Array.from(s).sort().join(', '):(_portsLoading?'...':'');
+            });
+        }
+
         function refreshTables(picked){
             const {stats,days}=buildStats(picked);
             _lastStats=stats;
@@ -738,7 +795,7 @@
                     const pointValue=chartAlarmMean[mkey];
                     const wafer=chartAlarmWafer[mkey];
                     const parameter=chartParameter[mkey];
-                    allRows.push({entity,chartId,chartName,cnt,nameKey,dates,ports,measurePu,processUnit,chartSeq,pointValue,wafer,parameter});
+                    allRows.push({entity,chartId,chartName,cnt,nameKey,dates,ports,mkey,measurePu,processUnit,chartSeq,pointValue,wafer,parameter});
                 }
             }
 
@@ -798,7 +855,7 @@
                     extra=previewCell+profileCell+measureCell;
                 }
                 html+=`<tr class="${rowClass}"><td>${escapeHtml(r.entity)}</td><td>${escapeHtml(r.processUnit||'')}</td><td>${cid}</td><td class="cn-col">${nameHtml}</td>
-                    <td style="text-align:center;">${escapeHtml(r.cnt)}</td><td>${escapeHtml(datesText)}</td><td>${escapeHtml(r.ports||'')}</td>${extra}</tr>`;
+                    <td style="text-align:center;">${escapeHtml(r.cnt)}</td><td>${escapeHtml(datesText)}</td><td class="port-cell" data-pk="${escapeHtml(r.mkey)}">${escapeHtml(r.ports||(_portsLoading?'...':''))}</td>${extra}</tr>`;
             }
             html+='</tbody></table>';
             return html;
@@ -1043,6 +1100,7 @@
                 setHeadersByPickedDate(picked);
                 updateWeekHint(picked);
                 syncWeekControls(picked);
+                loadPorts(picked);  // Port 跨庫查詢平行載入，不阻塞主表
                 try{await loadFromDb(picked);refreshTables(picked);}catch(e){/* 已顯示 */}
             }
 
