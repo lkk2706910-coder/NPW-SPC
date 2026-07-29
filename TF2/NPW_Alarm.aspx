@@ -349,8 +349,7 @@
                     else if(CT==='XBAR'){ds.totalMonNonAdder+=MON;es.sum.totalMonNonAdder+=MON;}
                 }
 
-                // Alarm 條件
-                if(MT!=='NORMAL'&&MT!=='PM')continue;
+                // Alarm 條件（不再依 MONITOR_TYPE 篩選，所有類型皆納入）
                 if(!(alarmCnt>=1))continue;
                 if(isEng)continue;
 
