@@ -234,14 +234,24 @@ public partial class NPW_Alarm : Page
         var days = new List<string>();
         for (int i = 0; i < 7; i++) days.Add(weekStart.AddDays(i).ToString("yyyy-MM-dd"));
 
+        // PORTID comes from [MESI_DB].[dbo].[ews_lothist] (same server), linked by
+        // LOT -> LOTID and RECIPE -> PPID. NPW.RECIPE may carry an extra suffix
+        // (e.g. 'PPID_BS020'), so match RECIPE LIKE PPID + '%'. NPW.LOT may carry a
+        // trailing '_ADD', which is stripped before matching LOTID. OUTER APPLY
+        // TOP 1 keeps one PORTID per alarm row (no row multiplication -> alarm
+        // counts stay correct); the client de-dupes PORTID per chart.
         string sql =
-            "SELECT PROCESSUNIT, CONVERT(varchar(10), UPDATE_TIME, 23) AS UPDATE_TIME, " +
-            "MONITOR_TYPE, CHART_TYPE, CHART_NAME, CHART_ID, CHART_SEQ, CHART_DESC, ALARM_COUNT, MEASUREPU, MEAN_VALUE, WAFER, PARAMETER " +
-            "FROM " + ChartTable + " WITH (NOLOCK) " +
-            "WHERE UPDATE_TIME >= @p0 AND UPDATE_TIME < @p1 " +
-            "AND ISNULL(CHART_DESC,'') <> 'Engineering' " +
-            "AND CHART_TYPE IN ('C-C','XBAR') " +
-            "AND (PROCESSUNIT LIKE 'NISACVD%' OR PROCESSUNIT LIKE 'SACVD%')";
+            "SELECT c.PROCESSUNIT, CONVERT(varchar(10), c.UPDATE_TIME, 23) AS UPDATE_TIME, " +
+            "c.MONITOR_TYPE, c.CHART_TYPE, c.CHART_NAME, c.CHART_ID, c.CHART_SEQ, c.CHART_DESC, c.ALARM_COUNT, c.MEASUREPU, c.MEAN_VALUE, c.WAFER, c.PARAMETER, " +
+            "c.LOT, c.RECIPE, lh.PORTID " +
+            "FROM " + ChartTable + " c WITH (NOLOCK) " +
+            "OUTER APPLY (SELECT TOP 1 h.PORTID FROM [MESI_DB].[dbo].[ews_lothist] h WITH (NOLOCK) " +
+            "WHERE h.LOTID = CASE WHEN RIGHT(c.LOT,4)='_ADD' THEN LEFT(c.LOT, LEN(c.LOT)-4) ELSE c.LOT END " +
+            "AND c.RECIPE LIKE h.PPID + '%') lh " +
+            "WHERE c.UPDATE_TIME >= @p0 AND c.UPDATE_TIME < @p1 " +
+            "AND ISNULL(c.CHART_DESC,'') <> 'Engineering' " +
+            "AND c.CHART_TYPE IN ('C-C','XBAR') " +
+            "AND (c.PROCESSUNIT LIKE 'NISACVD%' OR c.PROCESSUNIT LIKE 'SACVD%')";
         var rows = QueryRows(sql, weekStart, weekEndExcl);
 
         var ser = new JavaScriptSerializer { MaxJsonLength = int.MaxValue };

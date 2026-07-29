@@ -283,6 +283,7 @@
         let chartMeasurePu={}; // key|chartKey -> MEASUREPU
         let chartAlarmSeq={};  // key|chartKey -> Set(CHART_SEQ)
         let chartProcUnit={};  // key|chartKey -> PROCESSUNIT
+        let chartPort={};      // key|chartKey -> Set(PORTID)（來自 ews_lothist）
         let chartAlarmMean={}; // key|chartKey -> MEAN_VALUE (代表 alarm 點，與 CHART_SEQ 同一筆)
         let chartAlarmWafer={};// key|chartKey -> WAFER (同一筆代表 alarm 點)
         let chartParameter={}; // key|chartKey -> PARAMETER (profile myParaList 用)
@@ -316,7 +317,7 @@
             const days=[];
             for(let i=0;i<7;i++){const d=new Date(start.getFullYear(),start.getMonth(),start.getDate());d.setDate(start.getDate()+i);days.push(fmtYMDDash(d));}
             const stats={};
-            chartAlarmStats={};chartAlarmDateStats={};chartMeasurePu={};chartAlarmSeq={};chartProcUnit={};chartAlarmMean={};chartAlarmWafer={};chartParameter={};
+            chartAlarmStats={};chartAlarmDateStats={};chartMeasurePu={};chartAlarmSeq={};chartProcUnit={};chartAlarmMean={};chartAlarmWafer={};chartParameter={};chartPort={};
             function entOf(pu){if(!pu)return null;const s=String(pu).toUpperCase();const i=s.indexOf('-');return i===-1?s:s.substring(0,i);}
 
             for(const row of rawData){
@@ -368,6 +369,7 @@
                 chartAlarmDateStats[key][ck].add(ut);
                 if(row.MEASUREPU!=null&&String(row.MEASUREPU).trim()!=='')chartMeasurePu[key+'|'+ck]=String(row.MEASUREPU);
                 if(row.PROCESSUNIT!=null)chartProcUnit[key+'|'+ck]=String(row.PROCESSUNIT);
+                if(row.PORTID!=null&&String(row.PORTID).trim()!==''){const pk=key+'|'+ck;if(!chartPort[pk])chartPort[pk]=new Set();chartPort[pk].add(String(row.PORTID).trim());}
                 if(row.PARAMETER!=null&&String(row.PARAMETER).trim()!==''&&chartParameter[key+'|'+ck]==null)chartParameter[key+'|'+ck]=String(row.PARAMETER);
                 if(row.CHART_SEQ!=null&&String(row.CHART_SEQ).trim()!==''){
                     const sk=key+'|'+ck;
@@ -729,12 +731,14 @@
                     const mkey=fmtYMDDash(start)+'|'+entity+'|'+(isAdder?'ADDER':'NON_ADDER')+'|'+ck;
                     const measurePu=chartMeasurePu[mkey]||'';
                     const processUnit=chartProcUnit[mkey]||'';
+                    const portSet=chartPort[mkey];
+                    const ports=portSet?Array.from(portSet).sort().join(', '):'';
                     const seqSet=chartAlarmSeq[mkey];
                     const chartSeq=(seqSet&&seqSet.size)?Array.from(seqSet)[0]:'';
                     const pointValue=chartAlarmMean[mkey];
                     const wafer=chartAlarmWafer[mkey];
                     const parameter=chartParameter[mkey];
-                    allRows.push({entity,chartId,chartName,cnt,nameKey,dates,measurePu,processUnit,chartSeq,pointValue,wafer,parameter});
+                    allRows.push({entity,chartId,chartName,cnt,nameKey,dates,ports,measurePu,processUnit,chartSeq,pointValue,wafer,parameter});
                 }
             }
 
@@ -753,10 +757,10 @@
                 return String(a.chartName||'').localeCompare(String(b.chartName||''));
             });
 
-            const colCount=isAdder?10:9;
+            const colCount=isAdder?11:10;
             let head=`<tr><th colspan="${colCount}">${blockLabel} - Chart Alarm Detail (W${getWeekNumber(start)})</th></tr>
                 <tr><th style="width:80px;">Entity</th><th style="width:110px;">Tool_name</th><th style="width:80px;">CHART_ID</th><th class="cn-col">CHART_NAME</th>
-                <th style="width:70px;text-align:center;">Alarm 次數</th><th style="width:160px;">ALARM 日期</th>`;
+                <th style="width:70px;text-align:center;">Alarm 次數</th><th style="width:160px;">ALARM 日期</th><th style="width:90px;">Port</th>`;
             if(isAdder)head+=`<th style="width:380px;text-align:center;">Trend_Chart</th><th style="width:200px;text-align:center;">PRE_Map</th><th style="width:200px;text-align:center;">ADDER_Map</th><th style="width:110px;">Measure_Tool</th>`;
             else head+=`<th style="width:380px;text-align:center;">Trend_Chart</th><th style="width:200px;text-align:center;">Profile</th><th style="width:110px;">Measure_Tool</th>`;
             head+=`</tr>`;
@@ -792,7 +796,7 @@
                     extra=previewCell+profileCell+measureCell;
                 }
                 html+=`<tr class="${rowClass}"><td>${escapeHtml(r.entity)}</td><td>${escapeHtml(r.processUnit||'')}</td><td>${cid}</td><td class="cn-col">${nameHtml}</td>
-                    <td style="text-align:center;">${escapeHtml(r.cnt)}</td><td>${escapeHtml(datesText)}</td>${extra}</tr>`;
+                    <td style="text-align:center;">${escapeHtml(r.cnt)}</td><td>${escapeHtml(datesText)}</td><td>${escapeHtml(r.ports||'')}</td>${extra}</tr>`;
             }
             html+='</tbody></table>';
             return html;
