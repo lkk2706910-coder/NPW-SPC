@@ -369,7 +369,7 @@
                 chartAlarmDateStats[key][ck].add(ut);
                 if(row.MEASUREPU!=null&&String(row.MEASUREPU).trim()!=='')chartMeasurePu[key+'|'+ck]=String(row.MEASUREPU);
                 if(row.PROCESSUNIT!=null)chartProcUnit[key+'|'+ck]=String(row.PROCESSUNIT);
-                if(row.PORTID!=null&&String(row.PORTID).trim()!==''){const pk=key+'|'+ck;if(!chartPort[pk])chartPort[pk]=new Set();chartPort[pk].add(String(row.PORTID).trim());}
+                if(row.PORTID!=null&&String(row.PORTID).trim()!==''){const pk=key+'|'+ck;if(!chartPort[pk])chartPort[pk]=new Set();String(row.PORTID).split(',').forEach(p=>{p=p.trim();if(p)chartPort[pk].add(p);});}
                 if(row.PARAMETER!=null&&String(row.PARAMETER).trim()!==''&&chartParameter[key+'|'+ck]==null)chartParameter[key+'|'+ck]=String(row.PARAMETER);
                 if(row.CHART_SEQ!=null&&String(row.CHART_SEQ).trim()!==''){
                     const sk=key+'|'+ck;

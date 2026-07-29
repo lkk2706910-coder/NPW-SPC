@@ -237,17 +237,21 @@ public partial class NPW_Alarm : Page
         // PORTID comes from [MESI_DB].[dbo].[ews_lothist] (same server), linked by
         // LOT -> LOTID and RECIPE -> PPID. NPW.RECIPE may carry an extra suffix
         // (e.g. 'PPID_BS020'), so match RECIPE LIKE PPID + '%'. NPW.LOT may carry a
-        // trailing '_ADD', which is stripped before matching LOTID. OUTER APPLY
-        // TOP 1 keeps one PORTID per alarm row (no row multiplication -> alarm
-        // counts stay correct); the client de-dupes PORTID per chart.
+        // trailing '_ADD', which is stripped before matching LOTID. The OUTER APPLY
+        // aggregates ALL distinct matching PORTIDs into one comma-separated value
+        // (FOR XML PATH), so a lot mapping to several ports shows all of them while
+        // still keeping exactly one row per alarm record (no row multiplication ->
+        // alarm counts stay correct). The client splits + de-dupes per chart.
         string sql =
             "SELECT c.PROCESSUNIT, CONVERT(varchar(10), c.UPDATE_TIME, 23) AS UPDATE_TIME, " +
             "c.MONITOR_TYPE, c.CHART_TYPE, c.CHART_NAME, c.CHART_ID, c.CHART_SEQ, c.CHART_DESC, c.ALARM_COUNT, c.MEASUREPU, c.MEAN_VALUE, c.WAFER, c.PARAMETER, " +
             "c.LOT, c.RECIPE, lh.PORTID " +
             "FROM " + ChartTable + " c WITH (NOLOCK) " +
-            "OUTER APPLY (SELECT TOP 1 h.PORTID FROM [MESI_DB].[dbo].[ews_lothist] h WITH (NOLOCK) " +
+            "OUTER APPLY (SELECT PORTID = STUFF((SELECT DISTINCT ', ' + CONVERT(varchar(50), h.PORTID) " +
+            "FROM [MESI_DB].[dbo].[ews_lothist] h WITH (NOLOCK) " +
             "WHERE h.LOTID = CASE WHEN RIGHT(c.LOT,4)='_ADD' THEN LEFT(c.LOT, LEN(c.LOT)-4) ELSE c.LOT END " +
-            "AND c.RECIPE LIKE h.PPID + '%') lh " +
+            "AND c.RECIPE LIKE h.PPID + '%' AND h.PORTID IS NOT NULL " +
+            "FOR XML PATH(''), TYPE).value('.','nvarchar(max)'), 1, 2, '')) lh " +
             "WHERE c.UPDATE_TIME >= @p0 AND c.UPDATE_TIME < @p1 " +
             "AND ISNULL(c.CHART_DESC,'') <> 'Engineering' " +
             "AND c.CHART_TYPE IN ('C-C','XBAR') " +
