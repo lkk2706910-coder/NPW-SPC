@@ -889,9 +889,9 @@
             opts=opts||{};
             let yMin=(opts.yMin!=null)?opts.yMin:null, yMax=(opts.yMax!=null)?opts.yMax:null;
             if(opts.uclLclPct!=null){
-                const u=reprVal(pts,'ucl'), l=reprVal(pts,'lcl');
+                const u=reprVal(pts,'ucl');
                 if(u!=null)yMax=u*(1+opts.uclLclPct);
-                yMin=(l!=null)?l*(1-opts.uclLclPct):0;
+                yMin=0;  // Y 軸最小值固定為 0
             }
             const hasMin=(yMin!=null),hasMax=(yMax!=null);
             const labels=pts.map(p=>String(p.d||'').replace('T',' '));
