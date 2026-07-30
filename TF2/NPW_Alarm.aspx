@@ -956,9 +956,9 @@
                 return String(a.chartName||'').localeCompare(String(b.chartName||''));
             });
 
-            const colCount=isAdder?10:9;
+            const colCount=isAdder?11:10;
             let head=`<tr><th colspan="${colCount}">${blockLabel} - Chart Alarm Detail (W${getWeekNumber(start)})</th></tr>
-                <tr><th style="width:80px;">Entity</th><th style="width:80px;">CHART_ID</th><th class="cn-col">CHART_NAME</th>
+                <tr><th style="width:80px;">Entity</th><th style="width:110px;">Tool_name</th><th style="width:80px;">CHART_ID</th><th class="cn-col">CHART_NAME</th>
                 <th style="width:70px;text-align:center;">Alarm 次數</th><th style="width:160px;">ALARM 日期</th><th style="width:90px;">Port</th>`;
             if(isAdder)head+=`<th style="width:380px;text-align:center;">Trend_Chart</th><th style="width:200px;text-align:center;">PRE_Map</th><th style="width:200px;text-align:center;">ADDER_Map</th><th style="width:110px;">Measure_Tool</th>`;
             else head+=`<th style="width:380px;text-align:center;">Trend_Chart</th><th style="width:200px;text-align:center;">Profile</th><th style="width:110px;">Measure_Tool</th>`;
@@ -996,7 +996,7 @@
                     const profileCell=`<td class="npw-cell-map"><span class="profile-img" data-site="${site}" data-cid="${cid}" data-seq="${seq}" data-pv="${pv}" ${waferAttr} style="color:#999;">...</span></td>`;
                     extra=previewCell+profileCell+measureCell;
                 }
-                html+=`<tr class="${rowClass}"><td>${escapeHtml(r.entity)}</td><td>${cid}</td><td class="cn-col">${nameHtml}</td>
+                html+=`<tr class="${rowClass}"><td>${escapeHtml(r.entity)}</td><td>${escapeHtml(r.processUnit||'')}</td><td>${cid}</td><td class="cn-col">${nameHtml}</td>
                     <td style="text-align:center;">${escapeHtml(r.cnt)}</td><td>${escapeHtml(datesText)}</td><td class="port-cell" data-pk="${escapeHtml(r.mkey)}">${escapeHtml(r.ports||(_portsLoading?'...':''))}</td>${extra}</tr>`;
             }
             html+='</tbody></table>';
