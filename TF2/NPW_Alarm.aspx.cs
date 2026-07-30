@@ -276,21 +276,21 @@ public partial class NPW_Alarm : Page
     // HandleAlarm). Called by the client in the background AFTER the page has
     // rendered, so the slow cross-DB join never blocks the initial load.
     // Links [MESI_DB].[dbo].[ews_lothist] by LOT -> LOTID (trailing '_ADD'
-    // stripped) and a time window on JPTIME: the EWS scan must fall within the
-    // 6 hours BEFORE the NPW row's LASTDATATMST (measurement data timestamp),
-    // i.e. JPTIME in [LASTDATATMST - 6h, LASTDATATMST]. A same-day match was
-    // too wide -- one lot scanned several times a day pulled in duplicate
-    // ports; the tight window keeps only the scan that produced this data.
+    // stripped) and the NEAREST EWS scan before the NPW row's LASTDATATMST
+    // (measurement data timestamp): TOP 1 ... WHERE JPTIME <= LASTDATATMST
+    // ORDER BY JPTIME DESC. A same-day (or fixed N-hour) match was too wide --
+    // one lot scanned several times pulled in duplicate ports; taking only the
+    // closest preceding scan pins down the one that produced this data, with
+    // no arbitrary cut-off.
     // The RECIPE LIKE PPID + '%' condition (RECIPE may carry an extra suffix)
     // applies to ADDER (C-C) rows only; NON-ADDER (XBAR) matches by LOTID +
     // time window alone, since its RECIPE naming does not line up with ews
     // PPIDs. Because the two block types can thus yield different port sets
     // for the same lot+day, each result row carries BLK ('A'/'N') and the
     // client keys its lookup by LOT+day+BLK. Perf notes:
-    //   - one single set-based join for the whole week (with DISTINCT), instead
-    //     of a correlated subquery per row;
-    //   - JPTIME uses sargable range predicates (the per-row window plus the
-    //     whole-week bound) so an index on JPTIME can seek.
+    //   - TOP 1 + ORDER BY JPTIME DESC over an index on (LOTID, JPTIME) is a
+    //     seek plus a single backward row, so the per-row APPLY stays cheap;
+    //   - the whole query still runs once per week load, in the background.
     // Returns { ok, rows: [ { LOT, UPDATE_TIME, PORTID }, ... ] }; the client
     // groups PORTIDs per LOT+day and fills the Port column in place.
     private void HandlePort()
@@ -302,23 +302,22 @@ public partial class NPW_Alarm : Page
         DateTime weekEndExcl = weekStart.AddDays(7);        // next Tuesday (exclusive)
 
         string sql =
-            "SELECT DISTINCT c.LOT, CONVERT(varchar(10), c.UPDATE_TIME, 23) AS UPDATE_TIME, h.PORTID, " +
+            "SELECT DISTINCT c.LOT, CONVERT(varchar(10), c.UPDATE_TIME, 23) AS UPDATE_TIME, lh.PORTID, " +
             "CASE WHEN c.CHART_TYPE = 'C-C' THEN 'A' ELSE 'N' END AS BLK " +
             "FROM " + ChartTable + " c WITH (NOLOCK) " +
-            "JOIN [MESI_DB].[dbo].[ews_lothist] h WITH (NOLOCK) " +
-            "ON h.LOTID = CASE WHEN RIGHT(c.LOT,4)='_ADD' THEN LEFT(c.LOT, LEN(c.LOT)-4) ELSE c.LOT END " +
+            "CROSS APPLY (SELECT TOP 1 h.PORTID FROM [MESI_DB].[dbo].[ews_lothist] h WITH (NOLOCK) " +
+            "WHERE h.LOTID = CASE WHEN RIGHT(c.LOT,4)='_ADD' THEN LEFT(c.LOT, LEN(c.LOT)-4) ELSE c.LOT END " +
             "AND (c.CHART_TYPE = 'XBAR' OR c.RECIPE LIKE h.PPID + '%') " +
-            "AND h.JPTIME >= DATEADD(hour, -6, c.LASTDATATMST) " +
             "AND h.JPTIME <= c.LASTDATATMST " +
+            "AND h.PORTID IS NOT NULL " +
+            "ORDER BY h.JPTIME DESC) lh " +
             "WHERE c.UPDATE_TIME >= @p0 AND c.UPDATE_TIME < @p1 " +
-            "AND h.JPTIME >= DATEADD(hour, -6, @p0) AND h.JPTIME < DATEADD(day, 1, @p1) " +
             "AND c.ALARM_COUNT >= 1 AND c.LOT IS NOT NULL AND c.LASTDATATMST IS NOT NULL " +
             "AND (c.CHART_TYPE = 'XBAR' OR c.RECIPE IS NOT NULL) " +
             "AND c.MONITOR_TYPE IN ('NORMAL','PM') " +
             "AND ISNULL(c.CHART_DESC,'') <> 'Engineering' " +
             "AND c.CHART_TYPE IN ('C-C','XBAR') " +
-            "AND (c.PROCESSUNIT LIKE 'NISACVD%' OR c.PROCESSUNIT LIKE 'SACVD%') " +
-            "AND h.PORTID IS NOT NULL";
+            "AND (c.PROCESSUNIT LIKE 'NISACVD%' OR c.PROCESSUNIT LIKE 'SACVD%')";
         var rows = QueryRows(sql, weekStart, weekEndExcl);
 
         var ser = new JavaScriptSerializer { MaxJsonLength = int.MaxValue };
