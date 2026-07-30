@@ -1022,7 +1022,7 @@
 
         // 趨勢圖 Y 軸範圍：上界 = 該 chart UCL×(1+pct)，下界 = LCL×(1-pct)
         const YBOUND_PCT = 0.10;      // ADDER：上限 UCL×(1+10%)（下限固定 0）
-        const YBOUND_PCT_NON = 0.05;  // NON-ADDER：上限 UCL×(1+5%)、下限 LCL×(1-5%)
+        const YBOUND_PCT_NON = 0.01;  // NON-ADDER：上限 UCL×(1+1%)、下限 LCL×(1-1%)
 
         // 代表 XBAR（取最後一個有效的 CL 值）
         function reprVal(pts,key){for(let i=pts.length-1;i>=0;i--){const v=pts[i]&&pts[i][key];if(v!=null&&isFinite(Number(v)))return Number(v);}return null;}
