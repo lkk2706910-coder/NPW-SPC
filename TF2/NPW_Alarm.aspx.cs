@@ -276,12 +276,15 @@ public partial class NPW_Alarm : Page
     // HandleAlarm). Called by the client in the background AFTER the page has
     // rendered, so the slow cross-DB join never blocks the initial load.
     // Links [MESI_DB].[dbo].[ews_lothist] by LOT -> LOTID (trailing '_ADD'
-    // stripped) and the NEAREST EWS scan before the NPW row's LASTDATATMST
-    // (measurement data timestamp): TOP 1 ... WHERE JPTIME <= LASTDATATMST
-    // ORDER BY JPTIME DESC. A same-day (or fixed N-hour) match was too wide --
-    // one lot scanned several times pulled in duplicate ports; taking only the
-    // closest preceding scan pins down the one that produced this data, with
-    // no arbitrary cut-off.
+    // stripped) and the NEAREST EWS record around the NPW row's LASTDATATMST
+    // (measurement data timestamp), TOP 1 ordered by absolute time distance.
+    // Direction differs per block: ADDER (C-C) only accepts records BEFORE
+    // LASTDATATMST (the scan produced the data), while NON-ADDER (XBAR) accepts
+    // either side within +/- 7 days -- its lots may pass EWS only after the
+    // thickness measurement, so a strictly-preceding rule found nothing.
+    // A same-day (or fixed N-hour) match was too wide -- one lot scanned
+    // several times pulled in duplicate ports; nearest-single-record avoids
+    // both the duplicates and an arbitrary cut-off.
     // The RECIPE LIKE PPID + '%' condition (RECIPE may carry an extra suffix)
     // applies to ADDER (C-C) rows only; NON-ADDER (XBAR) matches by LOTID +
     // time window alone, since its RECIPE naming does not line up with ews
@@ -311,10 +314,10 @@ public partial class NPW_Alarm : Page
             "CROSS APPLY (SELECT TOP 1 h.PORTID FROM [MESI_DB].[dbo].[ews_lothist] h WITH (NOLOCK) " +
             "WHERE h.LOTID = CASE WHEN RIGHT(c.LOT,4)='_ADD' THEN LEFT(c.LOT, LEN(c.LOT)-4) ELSE c.LOT END " +
             "AND (c.CHART_TYPE = 'XBAR' OR c.RECIPE LIKE h.PPID + '%') " +
-            "AND h.JPTIME <= c.LASTDATATMST " +
             "AND h.JPTIME >= DATEADD(day, -7, c.LASTDATATMST) " +
+            "AND h.JPTIME <= CASE WHEN c.CHART_TYPE = 'C-C' THEN c.LASTDATATMST ELSE DATEADD(day, 7, c.LASTDATATMST) END " +
             "AND h.PORTID IS NOT NULL " +
-            "ORDER BY h.JPTIME DESC) lh " +
+            "ORDER BY ABS(DATEDIFF(second, h.JPTIME, c.LASTDATATMST))) lh " +
             "WHERE c.UPDATE_TIME >= @p0 AND c.UPDATE_TIME < @p1 " +
             "AND c.ALARM_COUNT >= 1 AND c.LOT IS NOT NULL AND c.LASTDATATMST IS NOT NULL " +
             "AND (c.CHART_TYPE = 'XBAR' OR c.RECIPE IS NOT NULL) " +
