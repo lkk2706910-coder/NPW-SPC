@@ -1021,7 +1021,8 @@
         }
 
         // 趨勢圖 Y 軸範圍：上界 = 該 chart UCL×(1+pct)，下界 = LCL×(1-pct)
-        const YBOUND_PCT = 0.10;  // UCL/LCL 各 ±10%
+        const YBOUND_PCT = 0.10;      // ADDER：上限 UCL×(1+10%)（下限固定 0）
+        const YBOUND_PCT_NON = 0.05;  // NON-ADDER：上限 UCL×(1+5%)、下限 LCL×(1-5%)
 
         // 代表 XBAR（取最後一個有效的 CL 值）
         function reprVal(pts,key){for(let i=pts.length-1;i>=0;i--){const v=pts[i]&&pts[i][key];if(v!=null&&isFinite(Number(v)))return Number(v);}return null;}
@@ -1126,7 +1127,7 @@
             sparks.forEach(el=>{
                 const cid=el.getAttribute('data-cid');
                 const block=el.getAttribute('data-block');
-                const opts={block:block==='A'?'A':'N',uclLclPct:YBOUND_PCT};
+                const opts={block:block==='A'?'A':'N',uclLclPct:block==='A'?YBOUND_PCT:YBOUND_PCT_NON};
                 drawSpark(el.querySelector('canvas'),series[cid]||[],days,cid,opts);
             });
         }
