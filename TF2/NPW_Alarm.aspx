@@ -423,6 +423,7 @@
         let chartMeasurePu={}; // key|chartKey -> MEASUREPU
         let chartAlarmSeq={};  // key|chartKey -> Set(CHART_SEQ)
         let chartProcUnit={};  // key|chartKey -> PROCESSUNIT
+        let chartPort={};      // key|chartKey -> Set(PORTID)（來自 ews_lothist，背景載入）
         let chartAlarmMean={}; // key|chartKey -> MEAN_VALUE (代表 alarm 點，與 CHART_SEQ 同一筆)
         let chartAlarmWafer={};// key|chartKey -> WAFER (同一筆代表 alarm 點)
         let chartParameter={}; // key|chartKey -> PARAMETER (profile myParaList 用)
@@ -456,7 +457,7 @@
             const days=[];
             for(let i=0;i<7;i++){const d=new Date(start.getFullYear(),start.getMonth(),start.getDate());d.setDate(start.getDate()+i);days.push(fmtYMDDash(d));}
             const stats={};
-            chartAlarmStats={};chartAlarmDateStats={};chartMeasurePu={};chartAlarmSeq={};chartProcUnit={};chartAlarmMean={};chartAlarmWafer={};chartParameter={};
+            chartAlarmStats={};chartAlarmDateStats={};chartMeasurePu={};chartAlarmSeq={};chartProcUnit={};chartAlarmMean={};chartAlarmWafer={};chartParameter={};chartPort={};
             function entOf(pu){if(!pu)return null;const s=String(pu).toUpperCase();const i=s.indexOf('-');return i===-1?s:s.substring(0,i);}
 
             for(const row of rawData){
@@ -509,6 +510,7 @@
                 chartAlarmDateStats[key][ck].add(ut);
                 if(row.MEASUREPU!=null&&String(row.MEASUREPU).trim()!=='')chartMeasurePu[key+'|'+ck]=String(row.MEASUREPU);
                 if(row.PROCESSUNIT!=null)chartProcUnit[key+'|'+ck]=String(row.PROCESSUNIT);
+                {const plk=_portLookup[String(row.LOT||'')+'|'+ut];if(plk&&plk.size){const pk=key+'|'+ck;if(!chartPort[pk])chartPort[pk]=new Set();plk.forEach(p=>chartPort[pk].add(p));}}
                 if(row.PARAMETER!=null&&String(row.PARAMETER).trim()!==''&&chartParameter[key+'|'+ck]==null)chartParameter[key+'|'+ck]=String(row.PARAMETER);
                 if(row.CHART_SEQ!=null&&String(row.CHART_SEQ).trim()!==''){
                     const sk=key+'|'+ck;
@@ -619,6 +621,65 @@
         }
 
         let _lastStats=null;
+        // ===== Port 背景載入（op=port）=====
+        // Port 的跨庫查詢較慢，改為與主查詢平行、不阻塞頁面渲染：
+        // 主表先顯示（Port 欄為 ...），查詢回來後就地填入格子，不重繪表格。
+        let _portLookup={};      // 'LOT|yyyy-mm-dd' -> Set(PORTID)
+        let _portsLoading=false;
+        let _portSeq=0;          // 防止換週後舊回應覆蓋新資料
+        async function loadPorts(picked){
+            const seq=++_portSeq;
+            _portLookup={};_portsLoading=true;
+            try{
+                const qs=new URLSearchParams({op:'port',date:toISODateLocal(picked)});
+                const res=await fetch(PAGE+'?'+qs.toString(),{cache:'no-store'});
+                const data=await res.json();
+                if(seq!==_portSeq)return;
+                if(data.ok)for(const r of (data.rows||[])){
+                    const k=String(r.LOT||'')+'|'+String(r.UPDATE_TIME||'');
+                    const p=String(r.PORTID==null?'':r.PORTID).trim();
+                    if(!p)continue;
+                    if(!_portLookup[k])_portLookup[k]=new Set();
+                    _portLookup[k].add(p);
+                }
+            }catch(e){/* 查不到就留空 */}
+            if(seq!==_portSeq)return;
+            _portsLoading=false;
+            applyPorts(picked);
+        }
+        // 依 rawData + _portLookup 重建 chartPort（與 buildStats 同樣的列篩選）
+        function rebuildChartPort(picked){
+            chartPort={};
+            const start=startTuesdayFor(picked);
+            const days=[];for(let i=0;i<7;i++){const d=new Date(start.getFullYear(),start.getMonth(),start.getDate());d.setDate(start.getDate()+i);days.push(fmtYMDDash(d));}
+            const entOf=pu=>{if(!pu)return null;const s=String(pu).toUpperCase();const i=s.indexOf('-');return i===-1?s:s.substring(0,i);};
+            for(const row of rawData){
+                const entity=entOf(row.PROCESSUNIT);if(!entity)continue;
+                let ut=row.UPDATE_TIME;if(!ut)continue;
+                if(typeof ut==='string'){ut=ut.substring(0,10);}else{const j=new Date(ut);if(isNaN(j.getTime()))continue;ut=fmtYMDDash(j);}
+                if(!days.includes(ut))continue;
+                const MT=String(row.MONITOR_TYPE||'').toUpperCase();
+                if(MT!=='NORMAL'&&MT!=='PM')continue;
+                if(!(Number(row.ALARM_COUNT)>=1))continue;
+                if(String(row.CHART_DESC||'').trim().toUpperCase()==='ENGINEERING')continue;
+                const CT=String(row.CHART_TYPE||'').trim().toUpperCase();
+                let isAdder;if(CT==='C-C')isAdder=true;else if(CT==='XBAR')isAdder=false;else continue;
+                const plk=_portLookup[String(row.LOT||'')+'|'+ut];
+                if(!plk||!plk.size)continue;
+                const pk=fmtYMDDash(start)+'|'+entity+'|'+(isAdder?'ADDER':'NON_ADDER')+'|'+(row.CHART_ID||'')+'||'+(row.CHART_NAME||'');
+                if(!chartPort[pk])chartPort[pk]=new Set();
+                plk.forEach(p=>chartPort[pk].add(p));
+            }
+        }
+        // 把 chartPort 值就地填入 Port 欄（不重繪表格、不重載圖）
+        function applyPorts(picked){
+            rebuildChartPort(picked);
+            document.querySelectorAll('td.port-cell').forEach(td=>{
+                const s=chartPort[td.getAttribute('data-pk')];
+                td.textContent=(s&&s.size)?Array.from(s).sort().join(', '):(_portsLoading?'...':'');
+            });
+        }
+
         function refreshTables(picked){
             const {stats,days}=buildStats(picked);
             _lastStats=stats;
@@ -869,12 +930,14 @@
                     const mkey=fmtYMDDash(start)+'|'+entity+'|'+(isAdder?'ADDER':'NON_ADDER')+'|'+ck;
                     const measurePu=chartMeasurePu[mkey]||'';
                     const processUnit=chartProcUnit[mkey]||'';
+                    const portSet=chartPort[mkey];
+                    const ports=portSet?Array.from(portSet).sort().join(', '):'';
                     const seqSet=chartAlarmSeq[mkey];
                     const chartSeq=(seqSet&&seqSet.size)?Array.from(seqSet)[0]:'';
                     const pointValue=chartAlarmMean[mkey];
                     const wafer=chartAlarmWafer[mkey];
                     const parameter=chartParameter[mkey];
-                    allRows.push({entity,chartId,chartName,cnt,nameKey,dates,measurePu,processUnit,chartSeq,pointValue,wafer,parameter});
+                    allRows.push({entity,chartId,chartName,cnt,nameKey,dates,ports,mkey,measurePu,processUnit,chartSeq,pointValue,wafer,parameter});
                 }
             }
 
@@ -893,10 +956,10 @@
                 return String(a.chartName||'').localeCompare(String(b.chartName||''));
             });
 
-            const colCount=isAdder?9:8;
+            const colCount=isAdder?10:9;
             let head=`<tr><th colspan="${colCount}">${blockLabel} - Chart Alarm Detail (W${getWeekNumber(start)})</th></tr>
                 <tr><th style="width:80px;">Entity</th><th style="width:80px;">CHART_ID</th><th class="cn-col">CHART_NAME</th>
-                <th style="width:70px;text-align:center;">Alarm 次數</th><th style="width:160px;">ALARM 日期</th>`;
+                <th style="width:70px;text-align:center;">Alarm 次數</th><th style="width:160px;">ALARM 日期</th><th style="width:90px;">Port</th>`;
             if(isAdder)head+=`<th style="width:380px;text-align:center;">Trend_Chart</th><th style="width:200px;text-align:center;">PRE_Map</th><th style="width:200px;text-align:center;">ADDER_Map</th><th style="width:110px;">Measure_Tool</th>`;
             else head+=`<th style="width:380px;text-align:center;">Trend_Chart</th><th style="width:200px;text-align:center;">Profile</th><th style="width:110px;">Measure_Tool</th>`;
             head+=`</tr>`;
@@ -917,6 +980,8 @@
                 const seq=escapeHtml(r.chartSeq||'');
                 const pv=escapeHtml(r.pointValue==null?'':String(r.pointValue));
                 const da=`data-site="${site}" data-uchart-id="${cid}" data-chart-seq="${seq}" data-point-value="${pv}"`;
+                // 對角度用：帶 Tool_name / Port / CHART_NAME，供點 ADDER_map 開 Wafer Match Tool 推導參數
+                const wmAttr=`data-wm-tool="${escapeHtml(r.processUnit||'')}" data-wm-port="${escapeHtml(r.ports||'')}" data-wm-cname="${escapeHtml(r.chartName||'')}"`;
                 const puInit=escapeHtml(parseMeasurePu(r.measurePu));
                 const previewCell=`<td class="npw-cell-preview"><div class="npw-spark" data-cid="${cid}" data-block="${isAdder?'A':'N'}"><canvas></canvas></div></td>`;
                 const measureCell=`<td><span class="map-info" ${da}>${puInit||'<span style="color:#999;">...</span>'}</span></td>`;
@@ -924,7 +989,7 @@
                 if(isAdder){
                     extra=previewCell+
                           `<td class="npw-cell-map"><span class="pre-map" ${da} style="color:#999;">...</span></td>`+
-                          `<td class="npw-cell-map"><span class="adder-map" ${da} style="color:#999;">...</span></td>`+
+                          `<td class="npw-cell-map"><span class="adder-map" ${da} ${wmAttr} style="color:#999;">...</span></td>`+
                           measureCell;
                 }else{
                     const waferAttr=`data-wafer="${escapeHtml(r.wafer==null?'':String(r.wafer))}"`;
@@ -932,7 +997,7 @@
                     extra=previewCell+profileCell+measureCell;
                 }
                 html+=`<tr class="${rowClass}"><td>${escapeHtml(r.entity)}</td><td>${cid}</td><td class="cn-col">${nameHtml}</td>
-                    <td style="text-align:center;">${escapeHtml(r.cnt)}</td><td>${escapeHtml(datesText)}</td>${extra}</tr>`;
+                    <td style="text-align:center;">${escapeHtml(r.cnt)}</td><td>${escapeHtml(datesText)}</td><td class="port-cell" data-pk="${escapeHtml(r.mkey)}">${escapeHtml(r.ports||(_portsLoading?'...':''))}</td>${extra}</tr>`;
             }
             html+='</tbody></table>';
             return html;
@@ -1069,6 +1134,14 @@
             return `<a href="openie:${encodeURIComponent(imgUrl)}" target="_blank" rel="noopener noreferrer" title="Open ${alt} (IE)">`
                 + `<img class="adder-map-thumb" src="${escapeHtml(imgUrl)}" alt="${alt}" loading="lazy" /></a>`;
         }
+        // ADDER MAP 縮圖：點擊開啟 Wafer Match Tool（對角度），把此 map 當 wafer 貼上並轉到對好的角度。
+        // tool/port/cname 來自該列 data-wm-*，用來推導 mode/CASS/side/station。
+        function adderMapThumbHtml(imgUrl,tool,port,cname){
+            return `<a href="javascript:void(0)" title="點擊對角度（Wafer Match）" `
+                + `onclick="wmOpenFromMap(this)" data-img="${escapeHtml(imgUrl)}" `
+                + `data-tool="${escapeHtml(tool||'')}" data-port="${escapeHtml(port||'')}" data-cname="${escapeHtml(cname||'')}">`
+                + `<img class="adder-map-thumb" src="${escapeHtml(imgUrl)}" alt="ADDER MAP" loading="lazy" /></a>`;
+        }
 
         // ===== Map/Profile：捲到才載入 + 去重 + 快取 + 限流 =====
         const MAP_CONC = 3;                 // 對目標伺服器的最大同時請求數
@@ -1106,7 +1179,7 @@
             }else if(el.classList.contains('pre-map')){
                 el.innerHTML=(d&&d.preMapImgUrl)?mapThumbHtml(String(d.preMapImgUrl),'PRE MAP'):'-';
             }else if(el.classList.contains('adder-map')){
-                el.innerHTML=(d&&d.adderMapImgUrl)?mapThumbHtml(String(d.adderMapImgUrl),'ADDER MAP'):'-';
+                el.innerHTML=(d&&d.adderMapImgUrl)?adderMapThumbHtml(String(d.adderMapImgUrl),el.getAttribute('data-wm-tool'),el.getAttribute('data-wm-port'),el.getAttribute('data-wm-cname')):'-';
             }
         }
         async function hydrateOne(el){
@@ -1169,6 +1242,7 @@
                 setHeadersByPickedDate(picked);
                 updateWeekHint(picked);
                 syncWeekControls(picked);
+                loadPorts(picked);  // Port 跨庫查詢平行載入，不阻塞主表
                 try{await loadFromDb(picked);refreshTables(picked);}catch(e){/* 已顯示 */}
             }
 
@@ -1207,6 +1281,78 @@
             },12000);
         })();
     })();
+    </script>
+
+    <!-- ============================================================
+         對角度（Wafer Match）：點 ADDER_map 時彈窗，iframe 載入 WaferMatch.html
+         並以推導出的 mode/CASS/side/station + 該 map 圖自動帶入。
+         ============================================================ -->
+    <div id="wmatchModal" style="display:none;position:fixed;z-index:1200;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);">
+        <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:96vw;height:92vh;background:#fff;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,0.4);overflow:hidden;">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px;background:#1976d2;color:#fff;">
+                <span id="wmatchTitle" style="font-weight:700;font-size:14px;">對角度 · Wafer Match</span>
+                <span onclick="wmClose()" style="cursor:pointer;font-size:24px;line-height:1;">&times;</span>
+            </div>
+            <iframe id="wmatchFrame" title="Wafer Match Tool" style="border:0;width:100%;height:calc(100% - 40px);" src="about:blank"></iframe>
+        </div>
+    </div>
+    <script>
+        // 由 ADDER_map 縮圖 onclick 呼叫（全域）。從 data-* 推導對角度參數並開啟 iframe。
+        function wmMode(entity, bnum){
+            entity=String(entity||'').toUpperCase();
+            const n=parseInt(bnum,10);
+            if(entity==='NISACVD'){
+                if((n>=1&&n<=5)||(n>=9&&n<=14))return 'FI5.X';
+                if(n>=6&&n<=8)return 'FI6.4';
+            }else if(entity==='SACVD'){
+                if((n>=1&&n<=5)||n===7)return 'FI5.X';
+                if(n===6||(n>=8&&n<=12)||n===81)return 'FI6.4';
+            }
+            return 'FI5.X';  // 未列入者的預設
+        }
+        function wmDeriveParams(tool, portStr, cname){
+            const m=String(tool||'').toUpperCase().match(/(NISACVD|SACVD)-B(\d+)\s*([A-Z]*)/);
+            if(!m)return null;
+            const entity=m[1], bnum=m[2], letter=m[3]||'';
+            const mode=wmMode(entity,bnum);
+            const firstPort=(String(portStr||'').split(',')[0]||'').trim();
+            const pnum=parseInt(firstPort,10);
+            const cass=(pnum>=1&&pnum<=4)?String.fromCharCode(64+pnum):'A';  // 1->A..4->D
+            const side=/W2/i.test(String(cname||''))?'S2':'S1';              // W1->S1, W2->S2
+            // 尾碼可含多個 chamber 字母（如 CB = CHC+CHB、CA = CHC+CHA），
+            // 每個字母都要對位置；無字母(XFER NG) -> LL
+            const stMap={A:'CHA',B:'CHB',C:'CHC'};
+            const parts=[];
+            for(const ch of letter){ if(stMap[ch]) parts.push(stMap[ch]); }
+            const station=parts.length?parts.join('+'):'LL';
+            return {mode, cass, side, station, entity, bnum, letter};
+        }
+        function wmOpenFromMap(a){
+            const img=a.getAttribute('data-img')||'';
+            // Port 為背景載入，可能晚於 map 縮圖出現：以點擊當下該列 Port 欄的值為準
+            let port=a.getAttribute('data-port')||'';
+            try{
+                const tr=a.closest('tr');
+                const pc=tr&&tr.querySelector('td.port-cell');
+                const t=pc?pc.textContent.trim():'';
+                if(t&&t!=='...')port=t;
+            }catch(e){}
+            const p=wmDeriveParams(a.getAttribute('data-tool'), port, a.getAttribute('data-cname'));
+            if(!p){ alert('無法從 Tool_name / Port / CHART_NAME 推導對角度參數'); return; }
+            const qs='mode='+encodeURIComponent(p.mode)+'&cass='+encodeURIComponent(p.cass)
+                    +'&side='+encodeURIComponent(p.side)+'&station='+encodeURIComponent(p.station)
+                    +'&offset=0&img='+encodeURIComponent(img);
+            document.getElementById('wmatchTitle').textContent=
+                `對角度 · ${p.entity}-B${p.bnum}${p.letter}｜${p.mode}｜CASS ${p.cass}｜${p.side}｜${p.station}`;
+            document.getElementById('wmatchFrame').src='WaferMatch.html?'+qs;
+            document.getElementById('wmatchModal').style.display='block';
+        }
+        function wmClose(){
+            document.getElementById('wmatchModal').style.display='none';
+            document.getElementById('wmatchFrame').src='about:blank';  // 停止 iframe、釋放
+        }
+        document.getElementById('wmatchModal').addEventListener('click', function(e){ if(e.target===this) wmClose(); });
+        document.addEventListener('keydown', function(e){ if(e.key==='Escape') wmClose(); });
     </script>
 
     <!-- ============================================================

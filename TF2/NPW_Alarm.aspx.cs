@@ -78,6 +78,19 @@ public partial class NPW_Alarm : Page
             Response.End();
             return;
         }
+        if (string.Equals(opStr, "port", StringComparison.OrdinalIgnoreCase))
+        {
+            Response.ContentType = "application/json; charset=utf-8";
+            Response.Cache.SetCacheability(HttpCacheability.NoCache);
+            try { HandlePort(); }
+            catch (Exception ex)
+            {
+                Response.StatusCode = 500;
+                Response.Write("{\"ok\":false,\"error\":\"" + JsonEscape(ex.Message) + "\"}");
+            }
+            Response.End();
+            return;
+        }
         if (string.Equals(opStr, "chartdata", StringComparison.OrdinalIgnoreCase))
         {
             Response.ContentType = "application/json; charset=utf-8";
@@ -236,7 +249,8 @@ public partial class NPW_Alarm : Page
 
         string sql =
             "SELECT PROCESSUNIT, CONVERT(varchar(10), UPDATE_TIME, 23) AS UPDATE_TIME, " +
-            "MONITOR_TYPE, CHART_TYPE, CHART_NAME, CHART_ID, CHART_SEQ, CHART_DESC, ALARM_COUNT, MEASUREPU, MEAN_VALUE, WAFER, PARAMETER " +
+            "MONITOR_TYPE, CHART_TYPE, CHART_NAME, CHART_ID, CHART_SEQ, CHART_DESC, ALARM_COUNT, MEASUREPU, MEAN_VALUE, WAFER, PARAMETER, " +
+            "LOT, RECIPE " +
             "FROM " + ChartTable + " WITH (NOLOCK) " +
             "WHERE UPDATE_TIME >= @p0 AND UPDATE_TIME < @p1 " +
             "AND MONITOR_TYPE IN ('NORMAL','PM') " +
@@ -255,6 +269,50 @@ public partial class NPW_Alarm : Page
                 { "days", days }
             }},
             { "rows", rows }
+        }));
+    }
+
+    // Port lookup for the weekly alarm rows. ?date=YYYY-MM-DD (same week rule as
+    // HandleAlarm). Called by the client in the background AFTER the page has
+    // rendered, so the slow cross-DB join never blocks the initial load.
+    // Links [MESI_DB].[dbo].[ews_lothist] by LOT -> LOTID (trailing '_ADD'
+    // stripped), RECIPE LIKE PPID + '%' (RECIPE may carry an extra suffix), and
+    // same-day JPTIME. Perf notes:
+    //   - one single set-based join for the whole week (with DISTINCT), instead
+    //     of a correlated subquery per row;
+    //   - JPTIME uses sargable range predicates (>= day AND < day+1, plus the
+    //     whole-week bound) so an index on JPTIME can seek.
+    // Returns { ok, rows: [ { LOT, UPDATE_TIME, PORTID }, ... ] }; the client
+    // groups PORTIDs per LOT+day and fills the Port column in place.
+    private void HandlePort()
+    {
+        DateTime refDate;
+        if (!DateTime.TryParse(Request.QueryString["date"], out refDate)) refDate = DateTime.Today;
+        int diff = (((int)refDate.DayOfWeek) - ((int)DayOfWeek.Tuesday) + 7) % 7;
+        DateTime weekStart = refDate.Date.AddDays(-diff);   // Tuesday
+        DateTime weekEndExcl = weekStart.AddDays(7);        // next Tuesday (exclusive)
+
+        string sql =
+            "SELECT DISTINCT c.LOT, CONVERT(varchar(10), c.UPDATE_TIME, 23) AS UPDATE_TIME, h.PORTID " +
+            "FROM " + ChartTable + " c WITH (NOLOCK) " +
+            "JOIN [MESI_DB].[dbo].[ews_lothist] h WITH (NOLOCK) " +
+            "ON h.LOTID = CASE WHEN RIGHT(c.LOT,4)='_ADD' THEN LEFT(c.LOT, LEN(c.LOT)-4) ELSE c.LOT END " +
+            "AND c.RECIPE LIKE h.PPID + '%' " +
+            "AND h.JPTIME >= CONVERT(date, c.UPDATE_TIME) " +
+            "AND h.JPTIME < DATEADD(day, 1, CONVERT(date, c.UPDATE_TIME)) " +
+            "WHERE c.UPDATE_TIME >= @p0 AND c.UPDATE_TIME < @p1 " +
+            "AND h.JPTIME >= @p0 AND h.JPTIME < @p1 " +
+            "AND c.ALARM_COUNT >= 1 AND c.LOT IS NOT NULL AND c.RECIPE IS NOT NULL " +
+            "AND c.MONITOR_TYPE IN ('NORMAL','PM') " +
+            "AND ISNULL(c.CHART_DESC,'') <> 'Engineering' " +
+            "AND c.CHART_TYPE IN ('C-C','XBAR') " +
+            "AND (c.PROCESSUNIT LIKE 'NISACVD%' OR c.PROCESSUNIT LIKE 'SACVD%') " +
+            "AND h.PORTID IS NOT NULL";
+        var rows = QueryRows(sql, weekStart, weekEndExcl);
+
+        var ser = new JavaScriptSerializer { MaxJsonLength = int.MaxValue };
+        Response.Write(ser.Serialize(new Dictionary<string, object> {
+            { "ok", true }, { "rows", rows }
         }));
     }
 
