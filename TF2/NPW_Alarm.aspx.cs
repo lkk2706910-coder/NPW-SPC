@@ -276,15 +276,20 @@ public partial class NPW_Alarm : Page
     // HandleAlarm). Called by the client in the background AFTER the page has
     // rendered, so the slow cross-DB join never blocks the initial load.
     // Links [MESI_DB].[dbo].[ews_lothist] by LOT -> LOTID (trailing '_ADD'
-    // stripped) and same-day JPTIME. The RECIPE LIKE PPID + '%' condition
-    // (RECIPE may carry an extra suffix) applies to ADDER (C-C) rows only;
-    // NON-ADDER (XBAR) matches by LOTID + date alone, since its RECIPE naming
-    // does not line up with ews PPIDs. Because the two block types can thus
-    // yield different port sets for the same lot+day, each result row carries
-    // BLK ('A'/'N') and the client keys its lookup by LOT+day+BLK. Perf notes:
+    // stripped) and a time window on JPTIME: the EWS scan must fall within the
+    // 4 hours BEFORE the NPW row's LASTDATATMST (measurement data timestamp),
+    // i.e. JPTIME in [LASTDATATMST - 4h, LASTDATATMST]. A same-day match was
+    // too wide -- one lot scanned several times a day pulled in duplicate
+    // ports; the tight window keeps only the scan that produced this data.
+    // The RECIPE LIKE PPID + '%' condition (RECIPE may carry an extra suffix)
+    // applies to ADDER (C-C) rows only; NON-ADDER (XBAR) matches by LOTID +
+    // time window alone, since its RECIPE naming does not line up with ews
+    // PPIDs. Because the two block types can thus yield different port sets
+    // for the same lot+day, each result row carries BLK ('A'/'N') and the
+    // client keys its lookup by LOT+day+BLK. Perf notes:
     //   - one single set-based join for the whole week (with DISTINCT), instead
     //     of a correlated subquery per row;
-    //   - JPTIME uses sargable range predicates (>= day AND < day+1, plus the
+    //   - JPTIME uses sargable range predicates (the per-row window plus the
     //     whole-week bound) so an index on JPTIME can seek.
     // Returns { ok, rows: [ { LOT, UPDATE_TIME, PORTID }, ... ] }; the client
     // groups PORTIDs per LOT+day and fills the Port column in place.
@@ -303,11 +308,11 @@ public partial class NPW_Alarm : Page
             "JOIN [MESI_DB].[dbo].[ews_lothist] h WITH (NOLOCK) " +
             "ON h.LOTID = CASE WHEN RIGHT(c.LOT,4)='_ADD' THEN LEFT(c.LOT, LEN(c.LOT)-4) ELSE c.LOT END " +
             "AND (c.CHART_TYPE = 'XBAR' OR c.RECIPE LIKE h.PPID + '%') " +
-            "AND h.JPTIME >= CONVERT(date, c.UPDATE_TIME) " +
-            "AND h.JPTIME < DATEADD(day, 1, CONVERT(date, c.UPDATE_TIME)) " +
+            "AND h.JPTIME >= DATEADD(hour, -4, c.LASTDATATMST) " +
+            "AND h.JPTIME <= c.LASTDATATMST " +
             "WHERE c.UPDATE_TIME >= @p0 AND c.UPDATE_TIME < @p1 " +
-            "AND h.JPTIME >= @p0 AND h.JPTIME < @p1 " +
-            "AND c.ALARM_COUNT >= 1 AND c.LOT IS NOT NULL " +
+            "AND h.JPTIME >= DATEADD(hour, -4, @p0) AND h.JPTIME < DATEADD(day, 1, @p1) " +
+            "AND c.ALARM_COUNT >= 1 AND c.LOT IS NOT NULL AND c.LASTDATATMST IS NOT NULL " +
             "AND (c.CHART_TYPE = 'XBAR' OR c.RECIPE IS NOT NULL) " +
             "AND c.MONITOR_TYPE IN ('NORMAL','PM') " +
             "AND ISNULL(c.CHART_DESC,'') <> 'Engineering' " +
