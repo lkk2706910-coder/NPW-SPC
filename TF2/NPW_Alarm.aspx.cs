@@ -290,7 +290,10 @@ public partial class NPW_Alarm : Page
     // client keys its lookup by LOT+day+BLK. Perf notes:
     //   - TOP 1 + ORDER BY JPTIME DESC over an index on (LOTID, JPTIME) is a
     //     seek plus a single backward row, so the per-row APPLY stays cheap;
-    //   - the whole query still runs once per week load, in the background.
+    //   - a 7-day floor on JPTIME bounds the backward search range (pure search
+    //     bound, does not change the nearest-preceding semantics in practice);
+    //   - the whole query still runs once per week load, in the background,
+    //     and is kicked off only AFTER the main table has rendered.
     // Returns { ok, rows: [ { LOT, UPDATE_TIME, PORTID }, ... ] }; the client
     // groups PORTIDs per LOT+day and fills the Port column in place.
     private void HandlePort()
@@ -309,6 +312,7 @@ public partial class NPW_Alarm : Page
             "WHERE h.LOTID = CASE WHEN RIGHT(c.LOT,4)='_ADD' THEN LEFT(c.LOT, LEN(c.LOT)-4) ELSE c.LOT END " +
             "AND (c.CHART_TYPE = 'XBAR' OR c.RECIPE LIKE h.PPID + '%') " +
             "AND h.JPTIME <= c.LASTDATATMST " +
+            "AND h.JPTIME >= DATEADD(day, -7, c.LASTDATATMST) " +
             "AND h.PORTID IS NOT NULL " +
             "ORDER BY h.JPTIME DESC) lh " +
             "WHERE c.UPDATE_TIME >= @p0 AND c.UPDATE_TIME < @p1 " +

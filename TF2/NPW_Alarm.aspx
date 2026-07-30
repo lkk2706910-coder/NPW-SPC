@@ -1,4 +1,4 @@
-<%@ Page Language="C#" AutoEventWireup="true" Inherits="NPW_Alarm" CodeFile="NPW_Alarm.aspx.cs" %>
+<%@ Page Language="C#" AutoEventWireup="true" Inherits="NPW_Alarm" CodeFile="NPW_Alarm.aspx.cs" EnableSessionState="false" %>
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
@@ -1245,8 +1245,11 @@
                 setHeadersByPickedDate(picked);
                 updateWeekHint(picked);
                 syncWeekControls(picked);
-                loadPorts(picked);  // Port 跨庫查詢平行載入，不阻塞主表
+                _portsLoading=true;  // 主表渲染時 Port 欄先顯示 ...（查詢在渲染後才發出）
                 try{await loadFromDb(picked);refreshTables(picked);}catch(e){/* 已顯示 */}
+                // Port 跨庫查詢等主表渲染完才啟動：即使伺服器將同一使用者的
+                // 請求序列化（ASP.NET session 鎖），主載入也不會排在慢查詢後面
+                loadPorts(picked);
             }
 
             const calBtn=document.getElementById('calBtn');
