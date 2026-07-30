@@ -995,7 +995,7 @@
                           measureCell;
                 }else{
                     const waferAttr=`data-wafer="${escapeHtml(r.wafer==null?'':String(r.wafer))}"`;
-                    const profileCell=`<td class="npw-cell-map"><span class="profile-img" data-site="${site}" data-cid="${cid}" data-seq="${seq}" data-pv="${pv}" ${waferAttr} style="color:#999;">...</span></td>`;
+                    const profileCell=`<td class="npw-cell-map"><span class="profile-img" data-site="${site}" data-cid="${cid}" data-seq="${seq}" data-pv="${pv}" ${waferAttr} ${wmAttr} style="color:#999;">...</span></td>`;
                     extra=previewCell+profileCell+measureCell;
                 }
                 html+=`<tr class="${rowClass}"><td>${escapeHtml(r.entity)}</td><td>${escapeHtml(r.processUnit||'')}</td><td>${cid}</td><td class="cn-col">${nameHtml}</td>
@@ -1137,6 +1137,14 @@
             return `<a href="openie:${encodeURIComponent(imgUrl)}" target="_blank" rel="noopener noreferrer" title="Open ${alt} (IE)">`
                 + `<img class="adder-map-thumb" src="${escapeHtml(imgUrl)}" alt="${alt}" loading="lazy" /></a>`;
         }
+        // NON-ADDER Profile 縮圖：點擊開啟 Wafer Match Tool（對角度）。
+        // side/chamber/offset 由 CHART_NAME 推導（wmOpenFromProfile）。
+        function profileThumbHtml(imgUrl,tool,port,cname){
+            return `<a href="javascript:void(0)" title="點擊對角度（Wafer Match）" `
+                + `onclick="wmOpenFromProfile(this)" data-img="${escapeHtml(imgUrl)}" `
+                + `data-tool="${escapeHtml(tool||'')}" data-port="${escapeHtml(port||'')}" data-cname="${escapeHtml(cname||'')}">`
+                + `<img class="adder-map-thumb" src="${escapeHtml(imgUrl)}" alt="Profile RAW" loading="lazy" /></a>`;
+        }
         // ADDER MAP 縮圖：點擊開啟 Wafer Match Tool（對角度），把此 map 當 wafer 貼上並轉到對好的角度。
         // tool/port/cname 來自該列 data-wm-*，用來推導 mode/CASS/side/station。
         function adderMapThumbHtml(imgUrl,tool,port,cname){
@@ -1192,7 +1200,7 @@
                 const cid=el.getAttribute('data-cid')||'',seq=el.getAttribute('data-seq')||'',pv=el.getAttribute('data-pv')||'',wafer=el.getAttribute('data-wafer')||'';
                 if(!cid||!seq){el.textContent='-';return;}
                 const d=await fetchProfile(site,cid,seq,pv,wafer);
-                if(d&&d.ok&&d.imgUrl)el.innerHTML=mapThumbHtml(String(d.imgUrl),'Profile RAW'); else el.textContent='-';
+                if(d&&d.ok&&d.imgUrl)el.innerHTML=profileThumbHtml(String(d.imgUrl),el.getAttribute('data-wm-tool'),el.getAttribute('data-wm-port'),el.getAttribute('data-wm-cname')); else el.textContent='-';
             }else{
                 const uchartId=el.getAttribute('data-uchart-id')||'',chartSeq=el.getAttribute('data-chart-seq')||'',pv=el.getAttribute('data-point-value')||'';
                 if(!chartSeq){el.textContent='-';return;}
@@ -1350,6 +1358,55 @@
                     +'&offset=0&img='+encodeURIComponent(img);
             document.getElementById('wmatchTitle').textContent=
                 `對角度 · ${p.entity}-B${p.bnum}${p.letter}｜${p.mode}｜CASS ${p.cass}｜${p.side}｜${p.station}`;
+            document.getElementById('wmatchFrame').src='WaferMatch.html?'+qs;
+            document.getElementById('wmatchModal').style.display='block';
+        }
+        // NON-ADDER Profile 對角度：side / chamber / offset 由 CHART_NAME 推導
+        //   side/chamber：名稱中 dash 分隔、形如 AC2/BC2/B2 的段落 ——
+        //     字母=chamber（可多個，A/B/C -> CHA/CHB/CHC），尾數 1/2 -> S1/S2
+        //   offset：含 HTN430D4 -> 300；符合 HTN%D1（%萬用）-> 0；其他 -> 180
+        //   mode/CASS 與 ADDER 相同（Tool_name 對照表 / Port 1~4 -> A~D）
+        function wmDeriveProfileParams(tool, portStr, cname){
+            const m=String(tool||'').toUpperCase().match(/(NISACVD|SACVD)-B(\d+)/);
+            if(!m)return null;
+            const entity=m[1], bnum=m[2];
+            const mode=wmMode(entity,bnum);
+            const firstPort=(String(portStr||'').split(',')[0]||'').trim();
+            const pnum=parseInt(firstPort,10);
+            const cass=(pnum>=1&&pnum<=4)?String.fromCharCode(64+pnum):'A';
+            const name=String(cname||'').toUpperCase();
+            let side='S1', station='LL';
+            const seg=name.split('-').find(s=>/^[ABC]{1,3}[12]$/.test(s));
+            if(seg){
+                const letters=seg.slice(0,-1), digit=seg.slice(-1);
+                side=(digit==='2')?'S2':'S1';
+                const stMap={A:'CHA',B:'CHB',C:'CHC'};
+                const parts=[];
+                for(const ch of letters){ if(stMap[ch]) parts.push(stMap[ch]); }
+                if(parts.length)station=parts.join('+');
+            }
+            let offset=180;
+            if(name.indexOf('HTN430D4')>=0)offset=300;
+            else if(/HTN[A-Z0-9_]*D1(?![0-9])/.test(name))offset=0;
+            return {mode, cass, side, station, offset, entity, bnum};
+        }
+        function wmOpenFromProfile(a){
+            const img=a.getAttribute('data-img')||'';
+            // Port 為背景載入，可能晚於縮圖出現：以點擊當下該列 Port 欄的值為準
+            let port=a.getAttribute('data-port')||'';
+            try{
+                const tr=a.closest('tr');
+                const pc=tr&&tr.querySelector('td.port-cell');
+                const t=pc?pc.textContent.trim():'';
+                if(t&&t!=='...')port=t;
+            }catch(e){}
+            const p=wmDeriveProfileParams(a.getAttribute('data-tool'), port, a.getAttribute('data-cname'));
+            if(!p){ alert('無法從 Tool_name / Port / CHART_NAME 推導對角度參數'); return; }
+            const qs='mode='+encodeURIComponent(p.mode)+'&cass='+encodeURIComponent(p.cass)
+                    +'&side='+encodeURIComponent(p.side)+'&station='+encodeURIComponent(p.station)
+                    +'&offset='+encodeURIComponent(p.offset)+'&img='+encodeURIComponent(img);
+            document.getElementById('wmatchTitle').textContent=
+                `對角度 · ${p.entity}-B${p.bnum}｜${p.mode}｜CASS ${p.cass}｜${p.side}｜${p.station}｜offset ${p.offset}°`;
             document.getElementById('wmatchFrame').src='WaferMatch.html?'+qs;
             document.getElementById('wmatchModal').style.display='block';
         }
