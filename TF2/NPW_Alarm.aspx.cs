@@ -276,8 +276,12 @@ public partial class NPW_Alarm : Page
     // HandleAlarm). Called by the client in the background AFTER the page has
     // rendered, so the slow cross-DB join never blocks the initial load.
     // Links [MESI_DB].[dbo].[ews_lothist] by LOT -> LOTID (trailing '_ADD'
-    // stripped), RECIPE LIKE PPID + '%' (RECIPE may carry an extra suffix), and
-    // same-day JPTIME. Perf notes:
+    // stripped) and same-day JPTIME. The RECIPE LIKE PPID + '%' condition
+    // (RECIPE may carry an extra suffix) applies to ADDER (C-C) rows only;
+    // NON-ADDER (XBAR) matches by LOTID + date alone, since its RECIPE naming
+    // does not line up with ews PPIDs. Because the two block types can thus
+    // yield different port sets for the same lot+day, each result row carries
+    // BLK ('A'/'N') and the client keys its lookup by LOT+day+BLK. Perf notes:
     //   - one single set-based join for the whole week (with DISTINCT), instead
     //     of a correlated subquery per row;
     //   - JPTIME uses sargable range predicates (>= day AND < day+1, plus the
@@ -293,16 +297,18 @@ public partial class NPW_Alarm : Page
         DateTime weekEndExcl = weekStart.AddDays(7);        // next Tuesday (exclusive)
 
         string sql =
-            "SELECT DISTINCT c.LOT, CONVERT(varchar(10), c.UPDATE_TIME, 23) AS UPDATE_TIME, h.PORTID " +
+            "SELECT DISTINCT c.LOT, CONVERT(varchar(10), c.UPDATE_TIME, 23) AS UPDATE_TIME, h.PORTID, " +
+            "CASE WHEN c.CHART_TYPE = 'C-C' THEN 'A' ELSE 'N' END AS BLK " +
             "FROM " + ChartTable + " c WITH (NOLOCK) " +
             "JOIN [MESI_DB].[dbo].[ews_lothist] h WITH (NOLOCK) " +
             "ON h.LOTID = CASE WHEN RIGHT(c.LOT,4)='_ADD' THEN LEFT(c.LOT, LEN(c.LOT)-4) ELSE c.LOT END " +
-            "AND c.RECIPE LIKE h.PPID + '%' " +
+            "AND (c.CHART_TYPE = 'XBAR' OR c.RECIPE LIKE h.PPID + '%') " +
             "AND h.JPTIME >= CONVERT(date, c.UPDATE_TIME) " +
             "AND h.JPTIME < DATEADD(day, 1, CONVERT(date, c.UPDATE_TIME)) " +
             "WHERE c.UPDATE_TIME >= @p0 AND c.UPDATE_TIME < @p1 " +
             "AND h.JPTIME >= @p0 AND h.JPTIME < @p1 " +
-            "AND c.ALARM_COUNT >= 1 AND c.LOT IS NOT NULL AND c.RECIPE IS NOT NULL " +
+            "AND c.ALARM_COUNT >= 1 AND c.LOT IS NOT NULL " +
+            "AND (c.CHART_TYPE = 'XBAR' OR c.RECIPE IS NOT NULL) " +
             "AND c.MONITOR_TYPE IN ('NORMAL','PM') " +
             "AND ISNULL(c.CHART_DESC,'') <> 'Engineering' " +
             "AND c.CHART_TYPE IN ('C-C','XBAR') " +

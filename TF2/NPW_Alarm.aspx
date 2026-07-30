@@ -510,7 +510,7 @@
                 chartAlarmDateStats[key][ck].add(ut);
                 if(row.MEASUREPU!=null&&String(row.MEASUREPU).trim()!=='')chartMeasurePu[key+'|'+ck]=String(row.MEASUREPU);
                 if(row.PROCESSUNIT!=null)chartProcUnit[key+'|'+ck]=String(row.PROCESSUNIT);
-                {const plk=_portLookup[String(row.LOT||'')+'|'+ut];if(plk&&plk.size){const pk=key+'|'+ck;if(!chartPort[pk])chartPort[pk]=new Set();plk.forEach(p=>chartPort[pk].add(p));}}
+                {const plk=_portLookup[String(row.LOT||'')+'|'+ut+'|'+(isAdder?'A':'N')];if(plk&&plk.size){const pk=key+'|'+ck;if(!chartPort[pk])chartPort[pk]=new Set();plk.forEach(p=>chartPort[pk].add(p));}}
                 if(row.PARAMETER!=null&&String(row.PARAMETER).trim()!==''&&chartParameter[key+'|'+ck]==null)chartParameter[key+'|'+ck]=String(row.PARAMETER);
                 if(row.CHART_SEQ!=null&&String(row.CHART_SEQ).trim()!==''){
                     const sk=key+'|'+ck;
@@ -636,7 +636,9 @@
                 const data=await res.json();
                 if(seq!==_portSeq)return;
                 if(data.ok)for(const r of (data.rows||[])){
-                    const k=String(r.LOT||'')+'|'+String(r.UPDATE_TIME||'');
+                    // key 含 BLK（A=ADDER/N=NON-ADDER）：NON-ADDER 只用 LOTID+日期對應
+                    //（不比 RECIPE/PPID），同一 LOT 同日兩區塊的 port 集合可能不同
+                    const k=String(r.LOT||'')+'|'+String(r.UPDATE_TIME||'')+'|'+String(r.BLK||'A');
                     const p=String(r.PORTID==null?'':r.PORTID).trim();
                     if(!p)continue;
                     if(!_portLookup[k])_portLookup[k]=new Set();
@@ -664,7 +666,7 @@
                 if(String(row.CHART_DESC||'').trim().toUpperCase()==='ENGINEERING')continue;
                 const CT=String(row.CHART_TYPE||'').trim().toUpperCase();
                 let isAdder;if(CT==='C-C')isAdder=true;else if(CT==='XBAR')isAdder=false;else continue;
-                const plk=_portLookup[String(row.LOT||'')+'|'+ut];
+                const plk=_portLookup[String(row.LOT||'')+'|'+ut+'|'+(isAdder?'A':'N')];
                 if(!plk||!plk.size)continue;
                 const pk=fmtYMDDash(start)+'|'+entity+'|'+(isAdder?'ADDER':'NON_ADDER')+'|'+(row.CHART_ID||'')+'||'+(row.CHART_NAME||'');
                 if(!chartPort[pk])chartPort[pk]=new Set();
