@@ -277,8 +277,8 @@ public partial class NPW_Alarm : Page
     // rendered, so the slow cross-DB join never blocks the initial load.
     // Links [MESI_DB].[dbo].[ews_lothist] by LOT -> LOTID (trailing '_ADD'
     // stripped) and a time window on JPTIME: the EWS scan must fall within the
-    // 4 hours BEFORE the NPW row's LASTDATATMST (measurement data timestamp),
-    // i.e. JPTIME in [LASTDATATMST - 4h, LASTDATATMST]. A same-day match was
+    // 6 hours BEFORE the NPW row's LASTDATATMST (measurement data timestamp),
+    // i.e. JPTIME in [LASTDATATMST - 6h, LASTDATATMST]. A same-day match was
     // too wide -- one lot scanned several times a day pulled in duplicate
     // ports; the tight window keeps only the scan that produced this data.
     // The RECIPE LIKE PPID + '%' condition (RECIPE may carry an extra suffix)
@@ -308,10 +308,10 @@ public partial class NPW_Alarm : Page
             "JOIN [MESI_DB].[dbo].[ews_lothist] h WITH (NOLOCK) " +
             "ON h.LOTID = CASE WHEN RIGHT(c.LOT,4)='_ADD' THEN LEFT(c.LOT, LEN(c.LOT)-4) ELSE c.LOT END " +
             "AND (c.CHART_TYPE = 'XBAR' OR c.RECIPE LIKE h.PPID + '%') " +
-            "AND h.JPTIME >= DATEADD(hour, -4, c.LASTDATATMST) " +
+            "AND h.JPTIME >= DATEADD(hour, -6, c.LASTDATATMST) " +
             "AND h.JPTIME <= c.LASTDATATMST " +
             "WHERE c.UPDATE_TIME >= @p0 AND c.UPDATE_TIME < @p1 " +
-            "AND h.JPTIME >= DATEADD(hour, -4, @p0) AND h.JPTIME < DATEADD(day, 1, @p1) " +
+            "AND h.JPTIME >= DATEADD(hour, -6, @p0) AND h.JPTIME < DATEADD(day, 1, @p1) " +
             "AND c.ALARM_COUNT >= 1 AND c.LOT IS NOT NULL AND c.LASTDATATMST IS NOT NULL " +
             "AND (c.CHART_TYPE = 'XBAR' OR c.RECIPE IS NOT NULL) " +
             "AND c.MONITOR_TYPE IN ('NORMAL','PM') " +
