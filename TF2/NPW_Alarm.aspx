@@ -1035,7 +1035,8 @@
             if(opts.uclLclPct!=null){
                 const u=reprVal(pts,'ucl'), l=reprVal(pts,'lcl');
                 if(u!=null)yMax=u*(1+opts.uclLclPct);
-                yMin=(l!=null)?l*(1-opts.uclLclPct):0;
+                // ADDER：Y 軸最小值固定 0；NON-ADDER 維持 LCL×(1-pct)
+                yMin=(opts.block==='A')?0:((l!=null)?l*(1-opts.uclLclPct):0);
             }
             const hasMin=(yMin!=null),hasMax=(yMax!=null);
             const labels=pts.map(p=>String(p.d||'').replace('T',' '));
