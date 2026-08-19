@@ -697,7 +697,7 @@
         // ev: 週期事件 {items:'A+B', every:N天, from:'YYYY-MM-DD' 基準日}；
         //     某天若 (該天-基準日) 為 every 的整數倍即命中，連續跨週推算。
         // cells: 尚未提供週期規則者，暫用固定週樣板(鍵=週內第幾天,0=週二)。
-        const ITEM_ORDER=['HTSIN130_11','PEOX50A','5.5K','USG50','CHC 2K','DAILY2_PA','DAILY4_PA','D2_PA','D4_PA','DAILY_PA','XFER','Weekly PA'];
+        const ITEM_ORDER=['HTSIN130_11','PEOX50A','5.5K','USG50','CHC 2K','DAILY2_PA','DAILY4_PA','D2_PA','D4_PA','DAILY_PA','FSPA','XFER','Weekly PA'];
         function itemRank(t){const i=ITEM_ORDER.indexOf(t);return i<0?ITEM_ORDER.length-0.5:i;}
         const SCHEDULE=[
             { title:'NISACVD', rows:[
@@ -708,7 +708,13 @@
                 { name:'NISACVD-B03', shift:'夜', ev:[ {items:'XFER',every:3,from:'2026-06-16'}, {items:'DAILY_PA',every:3,from:'2026-06-17'} ] },
                 { name:'NISACVD-B12', shift:'日', ev:[ {items:'XFER',every:3,from:'2026-06-17'}, {items:'DAILY_PA',every:3,from:'2026-06-17'} ] },
                 { name:'NISACVD-B13', shift:'夜', ev:[ {items:'XFER',every:3,from:'2026-06-16'}, {items:'DAILY_PA',every:3,from:'2026-06-16'} ] },
-                { name:'NISACVD-B14', shift:'日', ev:[ {items:'XFER',every:3,from:'2026-06-16'}, {items:'DAILY_PA',every:3,from:'2026-06-16'} ] }
+                { name:'NISACVD-B14', shift:'日', ev:[ {items:'XFER',every:3,from:'2026-06-16'}, {items:'DAILY_PA',every:3,from:'2026-06-16'} ] },
+                { name:'NISACVD-B02', shift:'夜', ev:[ {items:'XFER',every:3,from:'2026-08-17'}, {items:'FSPA',every:3,from:'2026-08-18'}, {items:'Weekly PA',every:7,from:'2026-08-14'} ] },
+                { name:'NISACVD-B04', shift:'夜', ev:[ {items:'XFER',every:3,from:'2026-08-15'}, {items:'FSPA',every:3,from:'2026-08-17'}, {items:'Weekly PA',every:7,from:'2026-08-17'} ] },
+                { name:'NISACVD-B05', shift:'夜', ev:[ {items:'XFER',every:3,from:'2026-08-18'}, {items:'FSPA',every:3,from:'2026-08-18'}, {items:'Weekly PA',every:7,from:'2026-08-17'} ] },
+                { name:'NISACVD-B09', shift:'夜', ev:[ {items:'XFER',every:3,from:'2026-08-17'}, {items:'FSPA',every:3,from:'2026-08-17'}, {items:'Weekly PA',every:7,from:'2026-08-17'} ] },
+                { name:'NISACVD-B10', shift:'夜', ev:[ {items:'XFER',every:3,from:'2026-08-19'}, {items:'FSPA',every:3,from:'2026-08-19'}, {items:'Weekly PA',every:7,from:'2026-08-17'} ] },
+                { name:'NISACVD-B11', shift:'夜', ev:[ {items:'XFER',every:3,from:'2026-08-17'}, {items:'FSPA',every:3,from:'2026-08-17'}, {items:'Weekly PA',every:7,from:'2026-08-18'} ] }
             ]},
             { title:'SACVD (5.5K)', rows:[
                 { name:'SACVD-B01', shift:'日', ev:[ {items:'5.5K',every:3,from:'2026-06-17'}, {items:'XFER',every:3,from:'2026-06-17'} ] },
