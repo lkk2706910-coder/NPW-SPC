@@ -711,10 +711,10 @@
                 { name:'NISACVD-B14', shift:'日', ev:[ {items:'XFER',every:3,from:'2026-06-16'}, {items:'DAILY_PA',every:3,from:'2026-06-16'} ] },
                 { name:'NISACVD-B02', shift:'夜', ev:[ {items:'XFER',every:3,from:'2026-08-17'}, {items:'FSPA',every:3,from:'2026-08-18'}, {items:'Weekly PA',every:7,from:'2026-08-14'} ] },
                 { name:'NISACVD-B04', shift:'夜', ev:[ {items:'XFER',every:3,from:'2026-08-15'}, {items:'FSPA',every:3,from:'2026-08-17'}, {items:'Weekly PA',every:7,from:'2026-08-17'} ] },
-                { name:'NISACVD-B05', shift:'夜', ev:[ {items:'XFER',every:3,from:'2026-08-18'}, {items:'FSPA',every:3,from:'2026-08-18'}, {items:'Weekly PA',every:7,from:'2026-08-17'} ] },
+                { name:'NISACVD-B05', shift:'日', ev:[ {items:'XFER',every:3,from:'2026-08-18'}, {items:'FSPA',every:3,from:'2026-08-18'}, {items:'Weekly PA',every:7,from:'2026-08-17'} ] },
                 { name:'NISACVD-B09', shift:'夜', ev:[ {items:'XFER',every:3,from:'2026-08-17'}, {items:'FSPA',every:3,from:'2026-08-17'}, {items:'Weekly PA',every:7,from:'2026-08-17'} ] },
-                { name:'NISACVD-B10', shift:'夜', ev:[ {items:'XFER',every:3,from:'2026-08-19'}, {items:'FSPA',every:3,from:'2026-08-19'}, {items:'Weekly PA',every:7,from:'2026-08-17'} ] },
-                { name:'NISACVD-B11', shift:'夜', ev:[ {items:'XFER',every:3,from:'2026-08-17'}, {items:'FSPA',every:3,from:'2026-08-17'}, {items:'Weekly PA',every:7,from:'2026-08-18'} ] }
+                { name:'NISACVD-B10', shift:'日', ev:[ {items:'XFER',every:3,from:'2026-08-19'}, {items:'FSPA',every:3,from:'2026-08-19'}, {items:'Weekly PA',every:7,from:'2026-08-17'} ] },
+                { name:'NISACVD-B11', shift:'日', ev:[ {items:'XFER',every:3,from:'2026-08-17'}, {items:'FSPA',every:3,from:'2026-08-17'}, {items:'Weekly PA',every:7,from:'2026-08-18'} ] }
             ]},
             { title:'SACVD (5.5K)', rows:[
                 { name:'SACVD-B01', shift:'日', ev:[ {items:'5.5K',every:3,from:'2026-06-17'}, {items:'XFER',every:3,from:'2026-06-17'} ] },
