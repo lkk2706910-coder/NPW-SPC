@@ -864,7 +864,9 @@
                 }
             }
 
-            if(allRows.length===0)return `<div class="inline-empty">${blockLabel}：本週 NISACVD / SACVD 無 Alarm 記錄。</div>`;
+            // NON-ADDER 只保留 CHART_NAME 含 U% 或 RANGE 的 chart，其餘不列出
+            if(!isAdder)for(let i=allRows.length-1;i>=0;i--){if(!/RANGE|U%/i.test(String(allRows[i].chartName||'')))allRows.splice(i,1);}
+            if(allRows.length===0)return `<div class="inline-empty">${blockLabel}：本日 NISACVD / SACVD 無 Alarm 記錄。</div>`;
 
             function entityOrder(e){if(e==='NISACVD')return 0;if(e==='SACVD')return 1;return 99;}
             allRows.sort((a,b)=>{
