@@ -1,4 +1,4 @@
-<%@ Page Language="C#" AutoEventWireup="true" Inherits="NPW_Alarm" CodeFile="NPW_Alarm.aspx.cs" %>
+<%@ Page Language="C#" AutoEventWireup="true" Inherits="NPW_Alarm" CodeFile="NPW_Alarm.aspx.cs" EnableSessionState="false" %>
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
@@ -161,8 +161,8 @@
     <div class="topbar">
         <h1>TF2 NPW</h1>
         <div class="seg-tabs">
-            <button type="button" class="seg-btn active" data-entity="NISACVD">NISACVD</button>
-            <button type="button" class="seg-btn" data-entity="SACVD">SACVD</button>
+            <button type="button" class="seg-btn active" data-sec="weekly">NPW Alarm 週報</button>
+            <button type="button" class="seg-btn" data-sec="downchart">down chart 作業區</button>
         </div>
         <span id="saveStatus" class="save-status"></span>
     </div>
@@ -240,11 +240,152 @@
             </div>
             <div id="error" class="npw-error" style="display:none;"></div>
 
+            <!-- ========== ADDER ========== -->
+            <div class="report-scroll">
+            <table class="report" id="tblAdder">
+                <colgroup>
+                    <col class="entity">
+                    <col class="date"><col class="date"><col class="date"><col class="date"><col class="date"><col class="date"><col class="date">
+                    <col class="statS"><col class="statM"><col class="statS"><col class="statS">
+                    <col class="statS"><col class="statS"><col class="statM">
+                </colgroup>
+                <thead>
+                    <tr><th class="section-title" colspan="15">ADDER</th></tr>
+                    <tr>
+                        <th class="h-green">Entity</th>
+                        <th class="h-green date-head"></th>
+                        <th class="h-green date-head"></th>
+                        <th class="h-green date-head"></th>
+                        <th class="h-green date-head"></th>
+                        <th class="h-green date-head"></th>
+                        <th class="h-green date-head"></th>
+                        <th class="h-green date-head"></th>
+                        <th class="h-amber">Alarm<br/>Counts</th>
+                        <th class="h-amber">Over Weekly to<br/>Day Count</th>
+                        <th class="h-amber">Weekly to<br/>Day Target</th>
+                        <th class="h-amber">Weekly<br/>Target Count</th>
+                        <th class="h-amber">Alarm<br/>rate</th>
+                        <th class="h-amber">Weekly<br/>Target Rate</th>
+                        <th class="h-amber">Total Monitor<br/>Count</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr data-entity="NISACVD">
+                        <td class="left entity-cell">NISACVD</td>
+                        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+                        <td>0</td>
+                        <td class="barcell"><span class="bar"></span><span class="txt">0</span></td>
+                        <td>0</td><td>0</td>
+                        <td>0%</td><td>0%</td><td>0</td>
+                    </tr>
+                    <tr data-entity="SACVD">
+                        <td class="left entity-cell">SACVD</td>
+                        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+                        <td>0</td>
+                        <td class="barcell"><span class="bar"></span><span class="txt">0</span></td>
+                        <td>0</td><td>0</td>
+                        <td>0%</td><td>0%</td><td>0</td>
+                    </tr>
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td class="total-label" colspan="8">Total Alarm</td>
+                        <td id="adderTotalAlarm">0</td>
+                        <td class="total-good" colspan="2" id="adderTotalAlarmRate">0%</td>
+                        <td></td><td></td>
+                        <td class="total-warn" colspan="2" id="adderTotalWeeklyTargetRate">0%</td>
+                    </tr>
+                </tfoot>
+            </table>
+            </div>
             <div id="adderChartDetail"></div>
 
-                    </div>
+            <!-- ========== NON-ADDER ========== -->
+            <div class="report-scroll">
+            <table class="report" id="tblNonAdder">
+                <colgroup>
+                    <col class="entity">
+                    <col class="date"><col class="date"><col class="date"><col class="date"><col class="date"><col class="date"><col class="date">
+                    <col class="statS"><col class="statM"><col class="statS"><col class="statS">
+                    <col class="statS"><col class="statS"><col class="statM">
+                </colgroup>
+                <thead>
+                    <tr><th class="section-title" colspan="15">NON-ADDER</th></tr>
+                    <tr>
+                        <th class="h-green">Entity</th>
+                        <th class="h-green date-head"></th>
+                        <th class="h-green date-head"></th>
+                        <th class="h-green date-head"></th>
+                        <th class="h-green date-head"></th>
+                        <th class="h-green date-head"></th>
+                        <th class="h-green date-head"></th>
+                        <th class="h-green date-head"></th>
+                        <th class="h-amber">Alarm<br/>Counts</th>
+                        <th class="h-amber">Over Weekly to<br/>Day Count</th>
+                        <th class="h-amber">Weekly to<br/>Day Target</th>
+                        <th class="h-amber">Weekly<br/>Target Count</th>
+                        <th class="h-amber">Alarm<br/>rate</th>
+                        <th class="h-amber">Weekly<br/>Target Rate</th>
+                        <th class="h-amber">Total Monitor<br/>Count</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr data-entity="NISACVD">
+                        <td class="left entity-cell">NISACVD</td>
+                        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+                        <td>0</td>
+                        <td class="barcell"><span class="bar"></span><span class="txt">0</span></td>
+                        <td>0</td><td>0</td>
+                        <td>0%</td><td>0%</td><td>0</td>
+                    </tr>
+                    <tr data-entity="SACVD">
+                        <td class="left entity-cell">SACVD</td>
+                        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+                        <td>0</td>
+                        <td class="barcell"><span class="bar"></span><span class="txt">0</span></td>
+                        <td>0</td><td>0</td>
+                        <td>0%</td><td>0%</td><td>0</td>
+                    </tr>
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td class="total-label" colspan="8">Total Alarm</td>
+                        <td id="nonAdderTotalAlarm">0</td>
+                        <td class="total-good" colspan="2" id="nonAdderTotalAlarmRate">0%</td>
+                        <td></td><td></td>
+                        <td class="total-warn" colspan="2" id="nonAdderTotalWeeklyTargetRate">0%</td>
+                    </tr>
+                </tfoot>
+            </table>
+            </div>
+            <div id="nonAdderChartDetail"></div>
+        </div>
+        </section>
+
+        <section id="sec-downchart" hidden>
+            <div class="dc-toolbar">
+                <button id="dcPrev" type="button">◀ 上週</button>
+                <input id="dcDate" type="date" />
+                <button id="dcNext" type="button">下週 ▶</button>
+                <span id="dcWeek" class="npw-week-hint"></span>
+            </div>
+            <div id="downAdderSummary" style="display:flex;gap:24px;flex-wrap:wrap;margin:8px 0 16px;"></div>
+            <div id="downSchedule"></div>
         </section>
     </div>
+
+    <script>
+    // 上方區塊切換：NPW Alarm 週報 / down chart 作業區
+    (function(){
+        const btns=[...document.querySelectorAll('.seg-btn')];
+        const secs={weekly:document.getElementById('sec-weekly'),downchart:document.getElementById('sec-downchart')};
+        function show(name){
+            for(const k in secs){if(secs[k])secs[k].hidden=(k!==name);}
+            btns.forEach(b=>b.classList.toggle('active',b.getAttribute('data-sec')===name));
+        }
+        btns.forEach(b=>b.addEventListener('click',()=>show(b.getAttribute('data-sec'))));
+    })();
+    </script>
 
     <script>
     // NPW Alarm 週報：沿用原工具(TF2_NPW.html)的判讀邏輯，資料來源改為
@@ -277,13 +418,12 @@
 
         // ===== 狀態 =====
         let rawData=[];
-        let selectedEntity='NISACVD';  // 上方分頁選中的 entity（NISACVD / SACVD）
         let chartAlarmStats={};
         let chartAlarmDateStats={};
         let chartMeasurePu={}; // key|chartKey -> MEASUREPU
         let chartAlarmSeq={};  // key|chartKey -> Set(CHART_SEQ)
         let chartProcUnit={};  // key|chartKey -> PROCESSUNIT
-        let chartPort={};      // key|chartKey -> Set(PORTID)（來自 ews_lothist）
+        let chartPort={};      // key|chartKey -> Set(PORTID)（來自 ews_lothist，背景載入）
         let chartAlarmMean={}; // key|chartKey -> MEAN_VALUE (代表 alarm 點，與 CHART_SEQ 同一筆)
         let chartAlarmWafer={};// key|chartKey -> WAFER (同一筆代表 alarm 點)
         let chartParameter={}; // key|chartKey -> PARAMETER (profile myParaList 用)
@@ -350,7 +490,8 @@
                     else if(CT==='XBAR'){ds.totalMonNonAdder+=MON;es.sum.totalMonNonAdder+=MON;}
                 }
 
-                // Alarm 條件（不再依 MONITOR_TYPE 篩選，所有類型皆納入）
+                // Alarm 條件
+                if(MT!=='NORMAL'&&MT!=='PM')continue;
                 if(!(alarmCnt>=1))continue;
                 if(isEng)continue;
 
@@ -369,7 +510,7 @@
                 chartAlarmDateStats[key][ck].add(ut);
                 if(row.MEASUREPU!=null&&String(row.MEASUREPU).trim()!=='')chartMeasurePu[key+'|'+ck]=String(row.MEASUREPU);
                 if(row.PROCESSUNIT!=null)chartProcUnit[key+'|'+ck]=String(row.PROCESSUNIT);
-                {const plk=_portLookup[String(row.LOT||'')+'|'+ut];if(plk&&plk.size){const pk=key+'|'+ck;if(!chartPort[pk])chartPort[pk]=new Set();plk.forEach(p=>chartPort[pk].add(p));}}
+                {const plk=_portLookup[String(row.LOT||'')+'|'+ut+'|'+(isAdder?'A':'N')];if(plk&&plk.size){const pk=key+'|'+ck;if(!chartPort[pk])chartPort[pk]=new Set();plk.forEach(p=>chartPort[pk].add(p));}}
                 if(row.PARAMETER!=null&&String(row.PARAMETER).trim()!==''&&chartParameter[key+'|'+ck]==null)chartParameter[key+'|'+ck]=String(row.PARAMETER);
                 if(row.CHART_SEQ!=null&&String(row.CHART_SEQ).trim()!==''){
                     const sk=key+'|'+ck;
@@ -382,7 +523,6 @@
 
         function updateTableByStats(tableId,stats,days,isAdder,picked){
             const tbl=document.getElementById(tableId);
-            if(!tbl)return;  // 彙總表已移除時安全略過
             const tbody=tbl.querySelector('tbody');
             const rows=tbody.querySelectorAll('tr[data-entity]');
 
@@ -496,7 +636,9 @@
                 const data=await res.json();
                 if(seq!==_portSeq)return;
                 if(data.ok)for(const r of (data.rows||[])){
-                    const k=String(r.LOT||'')+'|'+String(r.UPDATE_TIME||'');
+                    // key 含 BLK（A=ADDER/N=NON-ADDER）：NON-ADDER 只用 LOTID+日期對應
+                    //（不比 RECIPE/PPID），同一 LOT 同日兩區塊的 port 集合可能不同
+                    const k=String(r.LOT||'')+'|'+String(r.UPDATE_TIME||'')+'|'+String(r.BLK||'A');
                     const p=String(r.PORTID==null?'':r.PORTID).trim();
                     if(!p)continue;
                     if(!_portLookup[k])_portLookup[k]=new Set();
@@ -518,11 +660,13 @@
                 let ut=row.UPDATE_TIME;if(!ut)continue;
                 if(typeof ut==='string'){ut=ut.substring(0,10);}else{const j=new Date(ut);if(isNaN(j.getTime()))continue;ut=fmtYMDDash(j);}
                 if(!days.includes(ut))continue;
+                const MT=String(row.MONITOR_TYPE||'').toUpperCase();
+                if(MT!=='NORMAL'&&MT!=='PM')continue;
                 if(!(Number(row.ALARM_COUNT)>=1))continue;
                 if(String(row.CHART_DESC||'').trim().toUpperCase()==='ENGINEERING')continue;
                 const CT=String(row.CHART_TYPE||'').trim().toUpperCase();
                 let isAdder;if(CT==='C-C')isAdder=true;else if(CT==='XBAR')isAdder=false;else continue;
-                const plk=_portLookup[String(row.LOT||'')+'|'+ut];
+                const plk=_portLookup[String(row.LOT||'')+'|'+ut+'|'+(isAdder?'A':'N')];
                 if(!plk||!plk.size)continue;
                 const pk=fmtYMDDash(start)+'|'+entity+'|'+(isAdder?'ADDER':'NON_ADDER')+'|'+(row.CHART_ID||'')+'||'+(row.CHART_NAME||'');
                 if(!chartPort[pk])chartPort[pk]=new Set();
@@ -553,7 +697,7 @@
         // ev: 週期事件 {items:'A+B', every:N天, from:'YYYY-MM-DD' 基準日}；
         //     某天若 (該天-基準日) 為 every 的整數倍即命中，連續跨週推算。
         // cells: 尚未提供週期規則者，暫用固定週樣板(鍵=週內第幾天,0=週二)。
-        const ITEM_ORDER=['HTSIN130_11','PEOX50A','5.5K','USG50','CHC 2K','DAILY2_PA','DAILY4_PA','D2_PA','D4_PA','DAILY_PA','XFER','Weekly PA'];
+        const ITEM_ORDER=['HTSIN130_11','PEOX50A','5.5K','USG50','CHC 2K','DAILY2_PA','DAILY4_PA','D2_PA','D4_PA','DAILY_PA','FSPA','XFER','Weekly PA'];
         function itemRank(t){const i=ITEM_ORDER.indexOf(t);return i<0?ITEM_ORDER.length-0.5:i;}
         const SCHEDULE=[
             { title:'NISACVD', rows:[
@@ -564,7 +708,13 @@
                 { name:'NISACVD-B03', shift:'夜', ev:[ {items:'XFER',every:3,from:'2026-06-16'}, {items:'DAILY_PA',every:3,from:'2026-06-17'} ] },
                 { name:'NISACVD-B12', shift:'日', ev:[ {items:'XFER',every:3,from:'2026-06-17'}, {items:'DAILY_PA',every:3,from:'2026-06-17'} ] },
                 { name:'NISACVD-B13', shift:'夜', ev:[ {items:'XFER',every:3,from:'2026-06-16'}, {items:'DAILY_PA',every:3,from:'2026-06-16'} ] },
-                { name:'NISACVD-B14', shift:'日', ev:[ {items:'XFER',every:3,from:'2026-06-16'}, {items:'DAILY_PA',every:3,from:'2026-06-16'} ] }
+                { name:'NISACVD-B14', shift:'日', ev:[ {items:'XFER',every:3,from:'2026-06-16'}, {items:'DAILY_PA',every:3,from:'2026-06-16'} ] },
+                { name:'NISACVD-B02', shift:'夜', ev:[ {items:'XFER',every:3,from:'2026-08-17'}, {items:'FSPA',every:3,from:'2026-08-18'}, {items:'Weekly PA',every:7,from:'2026-08-14'} ] },
+                { name:'NISACVD-B04', shift:'夜', ev:[ {items:'XFER',every:3,from:'2026-08-15'}, {items:'FSPA',every:3,from:'2026-08-17'}, {items:'Weekly PA',every:7,from:'2026-08-17'} ] },
+                { name:'NISACVD-B05', shift:'日', ev:[ {items:'XFER',every:3,from:'2026-08-18'}, {items:'FSPA',every:3,from:'2026-08-18'}, {items:'Weekly PA',every:7,from:'2026-08-17'} ] },
+                { name:'NISACVD-B09', shift:'夜', ev:[ {items:'XFER',every:3,from:'2026-08-17'}, {items:'FSPA',every:3,from:'2026-08-17'}, {items:'Weekly PA',every:7,from:'2026-08-17'} ] },
+                { name:'NISACVD-B10', shift:'日', ev:[ {items:'XFER',every:3,from:'2026-08-19'}, {items:'FSPA',every:3,from:'2026-08-19'}, {items:'Weekly PA',every:7,from:'2026-08-17'} ] },
+                { name:'NISACVD-B11', shift:'日', ev:[ {items:'XFER',every:3,from:'2026-08-17'}, {items:'FSPA',every:3,from:'2026-08-17'}, {items:'Weekly PA',every:7,from:'2026-08-18'} ] }
             ]},
             { title:'SACVD (5.5K)', rows:[
                 { name:'SACVD-B01', shift:'日', ev:[ {items:'5.5K',every:3,from:'2026-06-17'}, {items:'XFER',every:3,from:'2026-06-17'} ] },
@@ -771,7 +921,7 @@
         function buildInlineChartDetailHtml(picked,isAdder){
             const start=startTuesdayFor(picked);
             const blockLabel=isAdder?'ADDER':'NON-ADDER';
-            const entities=[selectedEntity];  // 只顯示上方分頁選中的 entity
+            const entities=['NISACVD','SACVD'];
             const chartNameFreq={};
             const allRows=[];
 
@@ -799,7 +949,7 @@
                 }
             }
 
-            if(allRows.length===0)return `<div class="inline-empty">${blockLabel}：本週 ${selectedEntity} 無 Alarm 記錄。</div>`;
+            if(allRows.length===0)return `<div class="inline-empty">${blockLabel}：本週 NISACVD / SACVD 無 Alarm 記錄。</div>`;
 
             function entityOrder(e){if(e==='NISACVD')return 0;if(e==='SACVD')return 1;return 99;}
             allRows.sort((a,b)=>{
@@ -851,7 +1001,7 @@
                           measureCell;
                 }else{
                     const waferAttr=`data-wafer="${escapeHtml(r.wafer==null?'':String(r.wafer))}"`;
-                    const profileCell=`<td class="npw-cell-map"><span class="profile-img" data-site="${site}" data-cid="${cid}" data-seq="${seq}" data-pv="${pv}" ${waferAttr} style="color:#999;">...</span></td>`;
+                    const profileCell=`<td class="npw-cell-map"><span class="profile-img" data-site="${site}" data-cid="${cid}" data-seq="${seq}" data-pv="${pv}" ${waferAttr} ${wmAttr} style="color:#999;">...</span></td>`;
                     extra=previewCell+profileCell+measureCell;
                 }
                 html+=`<tr class="${rowClass}"><td>${escapeHtml(r.entity)}</td><td>${escapeHtml(r.processUnit||'')}</td><td>${cid}</td><td class="cn-col">${nameHtml}</td>
@@ -877,7 +1027,8 @@
         }
 
         // 趨勢圖 Y 軸範圍：上界 = 該 chart UCL×(1+pct)，下界 = LCL×(1-pct)
-        const YBOUND_PCT = 0.10;  // UCL/LCL 各 ±10%
+        const YBOUND_PCT = 0.10;      // ADDER：上限 UCL×(1+10%)（下限固定 0）
+        const YBOUND_PCT_NON = 0.01;  // NON-ADDER：上限 UCL×(1+1%)、下限 LCL×(1-1%)
 
         // 代表 XBAR（取最後一個有效的 CL 值）
         function reprVal(pts,key){for(let i=pts.length-1;i>=0;i--){const v=pts[i]&&pts[i][key];if(v!=null&&isFinite(Number(v)))return Number(v);}return null;}
@@ -889,9 +1040,10 @@
             opts=opts||{};
             let yMin=(opts.yMin!=null)?opts.yMin:null, yMax=(opts.yMax!=null)?opts.yMax:null;
             if(opts.uclLclPct!=null){
-                const u=reprVal(pts,'ucl');
+                const u=reprVal(pts,'ucl'), l=reprVal(pts,'lcl');
                 if(u!=null)yMax=u*(1+opts.uclLclPct);
-                yMin=0;  // Y 軸最小值固定為 0
+                // ADDER：Y 軸最小值固定 0；NON-ADDER 維持 LCL×(1-pct)
+                yMin=(opts.block==='A')?0:((l!=null)?l*(1-opts.uclLclPct):0);
             }
             const hasMin=(yMin!=null),hasMax=(yMax!=null);
             const labels=pts.map(p=>String(p.d||'').replace('T',' '));
@@ -981,7 +1133,7 @@
             sparks.forEach(el=>{
                 const cid=el.getAttribute('data-cid');
                 const block=el.getAttribute('data-block');
-                const opts={block:block==='A'?'A':'N',uclLclPct:YBOUND_PCT};
+                const opts={block:block==='A'?'A':'N',uclLclPct:block==='A'?YBOUND_PCT:YBOUND_PCT_NON};
                 drawSpark(el.querySelector('canvas'),series[cid]||[],days,cid,opts);
             });
         }
@@ -991,6 +1143,14 @@
         function mapThumbHtml(imgUrl,alt){
             return `<a href="openie:${encodeURIComponent(imgUrl)}" target="_blank" rel="noopener noreferrer" title="Open ${alt} (IE)">`
                 + `<img class="adder-map-thumb" src="${escapeHtml(imgUrl)}" alt="${alt}" loading="lazy" /></a>`;
+        }
+        // NON-ADDER Profile 縮圖：點擊開啟 Wafer Match Tool（對角度）。
+        // side/chamber/offset 由 CHART_NAME 推導（wmOpenFromProfile）。
+        function profileThumbHtml(imgUrl,tool,port,cname){
+            return `<a href="javascript:void(0)" title="點擊對角度（Wafer Match）" `
+                + `onclick="wmOpenFromProfile(this)" data-img="${escapeHtml(imgUrl)}" `
+                + `data-tool="${escapeHtml(tool||'')}" data-port="${escapeHtml(port||'')}" data-cname="${escapeHtml(cname||'')}">`
+                + `<img class="adder-map-thumb" src="${escapeHtml(imgUrl)}" alt="Profile RAW" loading="lazy" /></a>`;
         }
         // ADDER MAP 縮圖：點擊開啟 Wafer Match Tool（對角度），把此 map 當 wafer 貼上並轉到對好的角度。
         // tool/port/cname 來自該列 data-wm-*，用來推導 mode/CASS/side/station。
@@ -1047,7 +1207,7 @@
                 const cid=el.getAttribute('data-cid')||'',seq=el.getAttribute('data-seq')||'',pv=el.getAttribute('data-pv')||'',wafer=el.getAttribute('data-wafer')||'';
                 if(!cid||!seq){el.textContent='-';return;}
                 const d=await fetchProfile(site,cid,seq,pv,wafer);
-                if(d&&d.ok&&d.imgUrl)el.innerHTML=mapThumbHtml(String(d.imgUrl),'Profile RAW'); else el.textContent='-';
+                if(d&&d.ok&&d.imgUrl)el.innerHTML=profileThumbHtml(String(d.imgUrl),el.getAttribute('data-wm-tool'),el.getAttribute('data-wm-port'),el.getAttribute('data-wm-cname')); else el.textContent='-';
             }else{
                 const uchartId=el.getAttribute('data-uchart-id')||'',chartSeq=el.getAttribute('data-chart-seq')||'',pv=el.getAttribute('data-point-value')||'';
                 if(!chartSeq){el.textContent='-';return;}
@@ -1100,8 +1260,11 @@
                 setHeadersByPickedDate(picked);
                 updateWeekHint(picked);
                 syncWeekControls(picked);
-                loadPorts(picked);  // Port 跨庫查詢平行載入，不阻塞主表
+                _portsLoading=true;  // 主表渲染時 Port 欄先顯示 ...（查詢在渲染後才發出）
                 try{await loadFromDb(picked);refreshTables(picked);}catch(e){/* 已顯示 */}
+                // Port 跨庫查詢等主表渲染完才啟動：即使伺服器將同一使用者的
+                // 請求序列化（ASP.NET session 鎖），主載入也不會排在慢查詢後面
+                loadPorts(picked);
             }
 
             const calBtn=document.getElementById('calBtn');
@@ -1129,15 +1292,6 @@
             // 切到作業區時重抓共用勾選狀態（看別人最新的勾選）
             const dcTab=document.querySelector('.seg-btn[data-sec="downchart"]');
             if(dcTab)dcTab.addEventListener('click',()=>loadSchedChecksServer());
-
-            // 上方 entity 分頁（NISACVD / SACVD）：切換只重繪該 entity 的 ADDER Chart Alarm Detail
-            const segBtns=[...document.querySelectorAll('.seg-btn[data-entity]')];
-            segBtns.forEach(b=>b.addEventListener('click',()=>{
-                selectedEntity=b.getAttribute('data-entity');
-                segBtns.forEach(x=>x.classList.toggle('active',x===b));
-                const picked=input.value?new Date(input.value+'T00:00:00'):new Date();
-                renderInlineChartDetails(picked);
-            }));
 
             reload(today);
             loadSchedChecksServer(); // 載入共用勾選狀態，完成後會重繪排程
@@ -1195,14 +1349,71 @@
             return {mode, cass, side, station, entity, bnum, letter};
         }
         function wmOpenFromMap(a){
-            const img=a.getAttribute('data-img')||'';  // 直接載入 map（不需讀像素，跨網域無妨）
-            const p=wmDeriveParams(a.getAttribute('data-tool'), a.getAttribute('data-port'), a.getAttribute('data-cname'));
+            const img=a.getAttribute('data-img')||'';
+            // Port 為背景載入，可能晚於 map 縮圖出現：以點擊當下該列 Port 欄的值為準
+            let port=a.getAttribute('data-port')||'';
+            try{
+                const tr=a.closest('tr');
+                const pc=tr&&tr.querySelector('td.port-cell');
+                const t=pc?pc.textContent.trim():'';
+                if(t&&t!=='...')port=t;
+            }catch(e){}
+            const p=wmDeriveParams(a.getAttribute('data-tool'), port, a.getAttribute('data-cname'));
             if(!p){ alert('無法從 Tool_name / Port / CHART_NAME 推導對角度參數'); return; }
             const qs='mode='+encodeURIComponent(p.mode)+'&cass='+encodeURIComponent(p.cass)
                     +'&side='+encodeURIComponent(p.side)+'&station='+encodeURIComponent(p.station)
                     +'&offset=0&img='+encodeURIComponent(img);
             document.getElementById('wmatchTitle').textContent=
                 `對角度 · ${p.entity}-B${p.bnum}${p.letter}｜${p.mode}｜CASS ${p.cass}｜${p.side}｜${p.station}`;
+            document.getElementById('wmatchFrame').src='WaferMatch.html?'+qs;
+            document.getElementById('wmatchModal').style.display='block';
+        }
+        // NON-ADDER Profile 對角度：side / chamber / offset 由 CHART_NAME 推導
+        //   side/chamber：名稱中 dash 分隔、形如 AC2/BC2/B2 的段落 ——
+        //     字母=chamber（可多個，A/B/C -> CHA/CHB/CHC），尾數 1/2 -> S1/S2
+        //   offset：含 HTN430D4 -> 300；符合 HTN%D1（%萬用）-> 0；其他 -> 180
+        //   mode/CASS 與 ADDER 相同（Tool_name 對照表 / Port 1~4 -> A~D）
+        function wmDeriveProfileParams(tool, portStr, cname){
+            const m=String(tool||'').toUpperCase().match(/(NISACVD|SACVD)-B(\d+)/);
+            if(!m)return null;
+            const entity=m[1], bnum=m[2];
+            const mode=wmMode(entity,bnum);
+            const firstPort=(String(portStr||'').split(',')[0]||'').trim();
+            const pnum=parseInt(firstPort,10);
+            const cass=(pnum>=1&&pnum<=4)?String.fromCharCode(64+pnum):'A';
+            const name=String(cname||'').toUpperCase();
+            let side='S1', station='LL';
+            const seg=name.split('-').find(s=>/^[ABC]{1,3}[12]$/.test(s));
+            if(seg){
+                const letters=seg.slice(0,-1), digit=seg.slice(-1);
+                side=(digit==='2')?'S2':'S1';
+                const stMap={A:'CHA',B:'CHB',C:'CHC'};
+                const parts=[];
+                for(const ch of letters){ if(stMap[ch]) parts.push(stMap[ch]); }
+                if(parts.length)station=parts.join('+');
+            }
+            let offset=180;
+            if(name.indexOf('HTN430D4')>=0)offset=300;
+            else if(/HTN[A-Z0-9_]*D1(?![0-9])/.test(name))offset=0;
+            return {mode, cass, side, station, offset, entity, bnum};
+        }
+        function wmOpenFromProfile(a){
+            const img=a.getAttribute('data-img')||'';
+            // Port 為背景載入，可能晚於縮圖出現：以點擊當下該列 Port 欄的值為準
+            let port=a.getAttribute('data-port')||'';
+            try{
+                const tr=a.closest('tr');
+                const pc=tr&&tr.querySelector('td.port-cell');
+                const t=pc?pc.textContent.trim():'';
+                if(t&&t!=='...')port=t;
+            }catch(e){}
+            const p=wmDeriveProfileParams(a.getAttribute('data-tool'), port, a.getAttribute('data-cname'));
+            if(!p){ alert('無法從 Tool_name / Port / CHART_NAME 推導對角度參數'); return; }
+            const qs='mode='+encodeURIComponent(p.mode)+'&cass='+encodeURIComponent(p.cass)
+                    +'&side='+encodeURIComponent(p.side)+'&station='+encodeURIComponent(p.station)
+                    +'&offset='+encodeURIComponent(p.offset)+'&img='+encodeURIComponent(img);
+            document.getElementById('wmatchTitle').textContent=
+                `對角度 · ${p.entity}-B${p.bnum}｜${p.mode}｜CASS ${p.cass}｜${p.side}｜${p.station}｜offset ${p.offset}°`;
             document.getElementById('wmatchFrame').src='WaferMatch.html?'+qs;
             document.getElementById('wmatchModal').style.display='block';
         }

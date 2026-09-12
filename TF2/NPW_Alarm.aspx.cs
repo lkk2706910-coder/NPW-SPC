@@ -230,7 +230,7 @@ public partial class NPW_Alarm : Page
     //   - ADDER / NON-ADDER: CHART_TYPE 'C-C' / 'XBAR'
     //   - Entity: PROCESSUNIT prefix before '-' (only NISACVD / SACVD shown)
     //   - exclude Engineering: CHART_DESC <> 'Engineering'
-    //   - MONITOR_TYPE: no longer filtered (all types included)
+    //   - MONITOR_TYPE IN (NORMAL, PM)
     //   - Alarm: ALARM_COUNT >= 1 (decided on the client)
     // The SQL pre-filters only drop rows the client would discard anyway, so it
     // does not change results, it only shrinks the payload.
@@ -247,17 +247,13 @@ public partial class NPW_Alarm : Page
         var days = new List<string>();
         for (int i = 0; i < 7; i++) days.Add(weekStart.AddDays(i).ToString("yyyy-MM-dd"));
 
-        // NOTE: PORTID is NOT joined here any more. The cross-DB ews_lothist
-        // lookup made this (page-blocking) query slow, so it moved to its own
-        // endpoint (?op=port, HandlePort below) which the client calls in the
-        // background after the page has rendered. LOT/RECIPE stay in the SELECT
-        // so the client can match port results back to alarm rows.
         string sql =
             "SELECT PROCESSUNIT, CONVERT(varchar(10), UPDATE_TIME, 23) AS UPDATE_TIME, " +
             "MONITOR_TYPE, CHART_TYPE, CHART_NAME, CHART_ID, CHART_SEQ, CHART_DESC, ALARM_COUNT, MEASUREPU, MEAN_VALUE, WAFER, PARAMETER, " +
             "LOT, RECIPE " +
             "FROM " + ChartTable + " WITH (NOLOCK) " +
             "WHERE UPDATE_TIME >= @p0 AND UPDATE_TIME < @p1 " +
+            "AND MONITOR_TYPE IN ('NORMAL','PM') " +
             "AND ISNULL(CHART_DESC,'') <> 'Engineering' " +
             "AND CHART_TYPE IN ('C-C','XBAR') " +
             "AND (PROCESSUNIT LIKE 'NISACVD%' OR PROCESSUNIT LIKE 'SACVD%')";
@@ -280,13 +276,27 @@ public partial class NPW_Alarm : Page
     // HandleAlarm). Called by the client in the background AFTER the page has
     // rendered, so the slow cross-DB join never blocks the initial load.
     // Links [MESI_DB].[dbo].[ews_lothist] by LOT -> LOTID (trailing '_ADD'
-    // stripped), RECIPE LIKE PPID + '%' (RECIPE may carry an extra suffix), and
-    // same-day JPTIME. Perf notes:
-    //   - one single set-based join for the whole week (with DISTINCT), instead
-    //     of a correlated FOR XML subquery per row;
-    //   - JPTIME uses sargable range predicates (>= day AND < day+1, plus the
-    //     whole-week bound) so an index on JPTIME can seek, unlike the previous
-    //     CONVERT(date, JPTIME) = ... which forced a scan.
+    // stripped) and the NEAREST EWS record around the NPW row's LASTDATATMST
+    // (measurement data timestamp), TOP 1 ordered by absolute time distance.
+    // Direction differs per block: ADDER (C-C) only accepts records BEFORE
+    // LASTDATATMST (the scan produced the data), while NON-ADDER (XBAR) accepts
+    // either side within +/- 7 days -- its lots may pass EWS only after the
+    // thickness measurement, so a strictly-preceding rule found nothing.
+    // A same-day (or fixed N-hour) match was too wide -- one lot scanned
+    // several times pulled in duplicate ports; nearest-single-record avoids
+    // both the duplicates and an arbitrary cut-off.
+    // The RECIPE LIKE PPID + '%' condition (RECIPE may carry an extra suffix)
+    // applies to ADDER (C-C) rows only; NON-ADDER (XBAR) matches by LOTID +
+    // time window alone, since its RECIPE naming does not line up with ews
+    // PPIDs. Because the two block types can thus yield different port sets
+    // for the same lot+day, each result row carries BLK ('A'/'N') and the
+    // client keys its lookup by LOT+day+BLK. Perf notes:
+    //   - TOP 1 + ORDER BY JPTIME DESC over an index on (LOTID, JPTIME) is a
+    //     seek plus a single backward row, so the per-row APPLY stays cheap;
+    //   - a 7-day floor on JPTIME bounds the backward search range (pure search
+    //     bound, does not change the nearest-preceding semantics in practice);
+    //   - the whole query still runs once per week load, in the background,
+    //     and is kicked off only AFTER the main table has rendered.
     // Returns { ok, rows: [ { LOT, UPDATE_TIME, PORTID }, ... ] }; the client
     // groups PORTIDs per LOT+day and fills the Port column in place.
     private void HandlePort()
@@ -298,20 +308,23 @@ public partial class NPW_Alarm : Page
         DateTime weekEndExcl = weekStart.AddDays(7);        // next Tuesday (exclusive)
 
         string sql =
-            "SELECT DISTINCT c.LOT, CONVERT(varchar(10), c.UPDATE_TIME, 23) AS UPDATE_TIME, h.PORTID " +
+            "SELECT DISTINCT c.LOT, CONVERT(varchar(10), c.UPDATE_TIME, 23) AS UPDATE_TIME, lh.PORTID, " +
+            "CASE WHEN c.CHART_TYPE = 'C-C' THEN 'A' ELSE 'N' END AS BLK " +
             "FROM " + ChartTable + " c WITH (NOLOCK) " +
-            "JOIN [MESI_DB].[dbo].[ews_lothist] h WITH (NOLOCK) " +
-            "ON h.LOTID = CASE WHEN RIGHT(c.LOT,4)='_ADD' THEN LEFT(c.LOT, LEN(c.LOT)-4) ELSE c.LOT END " +
-            "AND c.RECIPE LIKE h.PPID + '%' " +
-            "AND h.JPTIME >= CONVERT(date, c.UPDATE_TIME) " +
-            "AND h.JPTIME < DATEADD(day, 1, CONVERT(date, c.UPDATE_TIME)) " +
+            "CROSS APPLY (SELECT TOP 1 h.PORTID FROM [MESI_DB].[dbo].[ews_lothist] h WITH (NOLOCK) " +
+            "WHERE h.LOTID = CASE WHEN RIGHT(c.LOT,4)='_ADD' THEN LEFT(c.LOT, LEN(c.LOT)-4) ELSE c.LOT END " +
+            "AND (c.CHART_TYPE = 'XBAR' OR c.RECIPE LIKE h.PPID + '%') " +
+            "AND h.JPTIME >= DATEADD(day, -7, c.LASTDATATMST) " +
+            "AND h.JPTIME <= CASE WHEN c.CHART_TYPE = 'C-C' THEN c.LASTDATATMST ELSE DATEADD(day, 7, c.LASTDATATMST) END " +
+            "AND h.PORTID IS NOT NULL " +
+            "ORDER BY ABS(DATEDIFF(second, h.JPTIME, c.LASTDATATMST))) lh " +
             "WHERE c.UPDATE_TIME >= @p0 AND c.UPDATE_TIME < @p1 " +
-            "AND h.JPTIME >= @p0 AND h.JPTIME < @p1 " +
-            "AND c.ALARM_COUNT >= 1 AND c.LOT IS NOT NULL AND c.RECIPE IS NOT NULL " +
+            "AND c.ALARM_COUNT >= 1 AND c.LOT IS NOT NULL AND c.LASTDATATMST IS NOT NULL " +
+            "AND (c.CHART_TYPE = 'XBAR' OR c.RECIPE IS NOT NULL) " +
+            "AND c.MONITOR_TYPE IN ('NORMAL','PM') " +
             "AND ISNULL(c.CHART_DESC,'') <> 'Engineering' " +
             "AND c.CHART_TYPE IN ('C-C','XBAR') " +
-            "AND (c.PROCESSUNIT LIKE 'NISACVD%' OR c.PROCESSUNIT LIKE 'SACVD%') " +
-            "AND h.PORTID IS NOT NULL";
+            "AND (c.PROCESSUNIT LIKE 'NISACVD%' OR c.PROCESSUNIT LIKE 'SACVD%')";
         var rows = QueryRows(sql, weekStart, weekEndExcl);
 
         var ser = new JavaScriptSerializer { MaxJsonLength = int.MaxValue };
