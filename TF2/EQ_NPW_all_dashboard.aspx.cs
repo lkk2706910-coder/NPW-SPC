@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Configuration;
 using System.Data;
 using System.Data.SqlClient;
+using System.Globalization;
 using System.IO;
 using System.Net;
 using System.Text;
@@ -360,10 +361,13 @@ public partial class NPW_Alarm : Page
     //        works for every alarm in the table.
     //   GET  ?op=wafercount&tool=SACVD-B06C&scope=CHAMBER|MF
     //        PM wafer count vs SPEC (same rules as OCAP / wafer_count site).
-    //   GET  ?op=emst&uchart_id=..&chart_seq=..      -> { ok, exists, note }
-    //   POST ?op=emst&uchart_id=..&chart_seq=..      body JSON -> { ok, note }
-    //        One JSON file per alarm in emst_data/ next to this page
-    //        (hidden from direct download by web.config hiddenSegments).
+    //   GET  ?op=emst&uchart_id=..&chart_seq=..&date=YYYY-MM-DD -> { ok, exists, note, file }
+    //   POST ?op=emst&uchart_id=..&chart_seq=..&date=YYYY-MM-DD body JSON -> { ok, note, file }
+    //        All alarms of one day share one JSON file in emst_data/ next to
+    //        this page: "YYYY-MM-DD EMST.json" = { date, notes: { "uid_seq": {...} } }.
+    //        date = alarm date shown on the dashboard (defaults to today).
+    //        A legacy per-alarm file "uid_seq.json" is still read as fallback.
+    //        (Folder hidden from direct download by web.config hiddenSegments.)
     private const string OcapTable = "[GPTDB_USPC].[dbo].[NPW_OCAP_P56]";
     private const string UsageMeterTable = "[GPTDB_EAS].[dbo].[XSITEUSAGEMETER_P56]";
     private const string MeterTargetTable = "[GPTPoCDB].[dbo].[_MeterTarget_DB09]";
@@ -521,12 +525,32 @@ public partial class NPW_Alarm : Page
         }));
     }
 
-    private static Dictionary<string, object> EmstReadNote(string path)
+    private static Dictionary<string, object> EmstReadJson(string path)
     {
         if (!File.Exists(path)) return null;
         string json = File.ReadAllText(path, Encoding.UTF8);
         if (string.IsNullOrEmpty(json)) return null;
-        return new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(json);
+        try { return new JavaScriptSerializer { MaxJsonLength = int.MaxValue }.Deserialize<Dictionary<string, object>>(json); }
+        catch { return null; }
+    }
+
+    // Daily file content: { date, notes: { "uid_seq": note } }. Returns the notes map (never null).
+    private static Dictionary<string, object> EmstReadDayNotes(string path)
+    {
+        Dictionary<string, object> day = EmstReadJson(path);
+        object n;
+        Dictionary<string, object> notes = (day != null && day.TryGetValue("notes", out n)) ? n as Dictionary<string, object> : null;
+        return notes ?? new Dictionary<string, object>();
+    }
+
+    // ?date=YYYY-MM-DD (alarm date on the dashboard); anything else -> today.
+    private static string EmstDateKey(string v)
+    {
+        DateTime d;
+        if (v != null && Regex.IsMatch(v.Trim(), "^[0-9]{4}-[0-9]{2}-[0-9]{2}$") &&
+            DateTime.TryParseExact(v.Trim(), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out d))
+            return d.ToString("yyyy-MM-dd");
+        return DateTime.Now.ToString("yyyy-MM-dd");
     }
 
     private void HandleEmst()
@@ -539,16 +563,22 @@ public partial class NPW_Alarm : Page
             Response.Write("{\"ok\":false,\"error\":\"uchart_id and chart_seq are required\"}");
             return;
         }
+        string dateKey = EmstDateKey(Request.QueryString["date"]);
         string folder = Server.MapPath(EmstFolder);
-        // File name is digits only (no path traversal possible).
-        string path = Path.Combine(folder, uid + "_" + seq + ".json");
+        // Names are built only from validated digits / a validated date (no path traversal possible).
+        string fileName = dateKey + " EMST.json";
+        string path = Path.Combine(folder, fileName);
+        string legacyPath = Path.Combine(folder, uid + "_" + seq + ".json");
+        string key = uid + "_" + seq;
         var ser = new JavaScriptSerializer { MaxJsonLength = int.MaxValue };
 
         if (!string.Equals(Request.HttpMethod, "POST", StringComparison.OrdinalIgnoreCase))
         {
-            Dictionary<string, object> note = EmstReadNote(path);
+            object found;
+            Dictionary<string, object> note = EmstReadDayNotes(path).TryGetValue(key, out found) ? found as Dictionary<string, object> : null;
+            if (note == null) note = EmstReadJson(legacyPath);   // saved before the daily-file layout
             Response.Write(ser.Serialize(new Dictionary<string, object> {
-                { "ok", true }, { "exists", note != null }, { "note", note }
+                { "ok", true }, { "exists", note != null }, { "note", note }, { "file", fileName }
             }));
             return;
         }
@@ -563,10 +593,15 @@ public partial class NPW_Alarm : Page
         lock (_emstLock)
         {
             Directory.CreateDirectory(folder);
-            Dictionary<string, object> existing = EmstReadNote(path);
+            Dictionary<string, object> notes = EmstReadDayNotes(path);
+            object prev;
+            Dictionary<string, object> existing = notes.TryGetValue(key, out prev) ? prev as Dictionary<string, object> : null;
+            if (existing == null) existing = EmstReadJson(legacyPath);
+
             var note = new Dictionary<string, object>();
             note["uchart_id"] = uid;
             note["chart_seq"] = seq;
+            note["date"] = dateKey;
             note["chart_name"] = TextField(incoming, "chart_name", 300);
             note["block"] = TextField(incoming, "block", 10);
             note["tool"] = TextField(incoming, "tool", 100);
@@ -575,14 +610,20 @@ public partial class NPW_Alarm : Page
             note["followUp"] = TextField(incoming, "followUp", EmstMaxText);
             note["createdAt"] = (existing != null && existing.ContainsKey("createdAt")) ? existing["createdAt"] : now;
             note["updatedAt"] = now;
+            notes[key] = note;
+
+            var day = new Dictionary<string, object>();
+            day["date"] = dateKey;
+            day["updatedAt"] = now;
+            day["notes"] = notes;
 
             // Write to a temp file then rename so a reader never sees a half file.
             string tmp = path + ".tmp";
-            File.WriteAllText(tmp, ser.Serialize(note), new UTF8Encoding(false));
+            File.WriteAllText(tmp, ser.Serialize(day), new UTF8Encoding(false));
             if (File.Exists(path)) File.Delete(path);
             File.Move(tmp, path);
 
-            Response.Write(ser.Serialize(new Dictionary<string, object> { { "ok", true }, { "note", note } }));
+            Response.Write(ser.Serialize(new Dictionary<string, object> { { "ok", true }, { "note", note }, { "file", fileName } }));
         }
     }
 

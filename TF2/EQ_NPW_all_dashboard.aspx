@@ -1508,11 +1508,18 @@
           $('emst-wc').value = text || '';
         }
 
+        // 儲存檔以「alarm 日期」分檔（emst_data/yyyy-MM-dd EMST.json，一天所有 alarm 同一檔）
+        function emstNoteUrl(row) {
+          var d = String(row.CREATE_TIME || '').substring(0, 10);
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) { var pick = document.getElementById('pickDate'); d = (pick && pick.value) || toISODateLocal(new Date()); }
+          return EMST_NOTE_URL + '&uchart_id=' + encodeURIComponent(row.UCHART_ID) + '&chart_seq=' + encodeURIComponent(row.CHART_SEQ) + '&date=' + encodeURIComponent(d);
+        }
+
         // 讀已儲存的內容；有的話四個欄位都用儲存值
         function emstLoadSaved(seq) {
           var row = _currentDetail && _currentDetail.row;
           if (!row) return;
-          var url = EMST_NOTE_URL + '&uchart_id=' + encodeURIComponent(row.UCHART_ID) + '&chart_seq=' + encodeURIComponent(row.CHART_SEQ) + '&_=' + Date.now();
+          var url = emstNoteUrl(row) + '&_=' + Date.now();
           fetch(url, { method: 'GET' })
             .then(function (res) { return res.json(); })
             .then(function (data) {
@@ -1545,7 +1552,7 @@
             action: $('emst-action').value.trim(),
             followUp: $('emst-followup').value.trim()
           };
-          var url = EMST_NOTE_URL + '&uchart_id=' + encodeURIComponent(row.UCHART_ID) + '&chart_seq=' + encodeURIComponent(row.CHART_SEQ);
+          var url = emstNoteUrl(row);
           $('emst-save').disabled = true;
           dSetStatus($('emst-status'), '儲存中…');
           fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json; charset=utf-8' }, body: JSON.stringify(payload) })
@@ -1553,7 +1560,7 @@
             .then(function (data) {
               if (seq !== _detailSeq) return;
               _emst.saved = true;
-              dSetStatus($('emst-status'), '已儲存：' + (data.note && data.note.updatedAt || ''), 'ok');
+              dSetStatus($('emst-status'), '已儲存：' + (data.note && data.note.updatedAt || '') + (data.file ? '（' + data.file + '）' : ''), 'ok');
             })
             .catch(function (err) {
               if (seq !== _detailSeq) return;
