@@ -91,6 +91,26 @@ public partial class NPW_Alarm : Page
             Response.End();
             return;
         }
+        if (string.Equals(opStr, "ocapdetail", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(opStr, "wafercount", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(opStr, "emst", StringComparison.OrdinalIgnoreCase))
+        {
+            Response.ContentType = "application/json; charset=utf-8";
+            Response.Cache.SetCacheability(HttpCacheability.NoCache);
+            try
+            {
+                if (string.Equals(opStr, "ocapdetail", StringComparison.OrdinalIgnoreCase)) HandleOcapDetail();
+                else if (string.Equals(opStr, "wafercount", StringComparison.OrdinalIgnoreCase)) HandleWaferCount();
+                else HandleEmst();
+            }
+            catch (Exception ex)
+            {
+                Response.StatusCode = 500;
+                Response.Write("{\"ok\":false,\"error\":\"" + JsonEscape(ex.Message) + "\"}");
+            }
+            Response.End();
+            return;
+        }
         if (string.Equals(opStr, "chartdata", StringComparison.OrdinalIgnoreCase))
         {
             Response.ContentType = "application/json; charset=utf-8";
@@ -329,6 +349,241 @@ public partial class NPW_Alarm : Page
         Response.Write(ser.Serialize(new Dictionary<string, object> {
             { "ok", true }, { "rows", rows }
         }));
+    }
+
+    // ===== EMST detail popup (ported from OCAP.aspx, self-contained) =====
+    //
+    //   GET  ?op=ocapdetail&uchart_id=..&chart_seq=..
+    //        OCAP record (NPW_OCAP_P56) joined with the chart row. Unlike
+    //        OCAP.aspx this does NOT fail when there is no OCAP record: the chart
+    //        row alone is returned with ocapFound=false so the EMST form still
+    //        works for every alarm in the table.
+    //   GET  ?op=wafercount&tool=SACVD-B06C&scope=CHAMBER|MF
+    //        PM wafer count vs SPEC (same rules as OCAP / wafer_count site).
+    //   GET  ?op=emst&uchart_id=..&chart_seq=..      -> { ok, exists, note }
+    //   POST ?op=emst&uchart_id=..&chart_seq=..      body JSON -> { ok, note }
+    //        One JSON file per alarm in emst_data/ next to this page
+    //        (hidden from direct download by web.config hiddenSegments).
+    private const string OcapTable = "[GPTDB_USPC].[dbo].[NPW_OCAP_P56]";
+    private const string UsageMeterTable = "[GPTDB_EAS].[dbo].[XSITEUSAGEMETER_P56]";
+    private const string MeterTargetTable = "[GPTPoCDB].[dbo].[_MeterTarget_DB09]";
+    private const string EmstFolder = "emst_data";
+    private const int EmstMaxText = 4000;
+    private static readonly object _emstLock = new object();
+
+    private static string DigitsOnly(string v)
+    {
+        if (v == null) return "";
+        string s = Regex.Replace(v, "[^0-9]", "");
+        return s.Length > 20 ? s.Substring(0, 20) : s;
+    }
+
+    private static string TextField(Dictionary<string, object> src, string key, int maxLength)
+    {
+        object v;
+        if (src == null || !src.TryGetValue(key, out v) || v == null) return "";
+        string s = Convert.ToString(v).Trim();
+        return s.Length > maxLength ? s.Substring(0, maxLength) : s;
+    }
+
+    private void HandleOcapDetail()
+    {
+        string uid = DigitsOnly(Request.QueryString["uchart_id"]);
+        string seq = DigitsOnly(Request.QueryString["chart_seq"]);
+        if (uid.Length == 0 || seq.Length == 0)
+        {
+            Response.StatusCode = 400;
+            Response.Write("{\"ok\":false,\"error\":\"uchart_id and chart_seq are required\"}");
+            return;
+        }
+
+        // Times are converted to text in SQL so the JSON is human readable
+        // (JavaScriptSerializer would otherwise emit \/Date(...)\/).
+        string ocapSql =
+            "SELECT TOP (1) o.UCHART_ID, o.CHART_SEQ, o.CHART_NAME, o.STATUS, " +
+            "CONVERT(varchar(19), o.CREATE_TIME, 120) AS CREATE_TIME, o.OWNERDEPT, o.PROCESSINGUNIT, " +
+            "o.PARAMETER, o.RECIPE, o.LOT, o.MEAS_EQUIPMENT, o.CHART_OWNER, o.X_VIOLATED_RULE, " +
+            "o.HOLD_LOT_FLAG, o.HOLD_EQ_FLAG, o.CONTAINMENT_ACTION, o.CORRECTIVE_ACTION, o.ROOT_CAUSE, " +
+            "c.PROCESSUNIT, c.CHART_TYPE, c.MONITOR_TYPE, c.MEAN_VALUE, c.WAFER, c.MEASUREPU, " +
+            "CONVERT(varchar(19), c.UPDATE_TIME, 120) AS NPW_UPDATE_TIME, " +
+            "CONVERT(varchar(19), c.LASTDATATMST, 120) AS LASTDATATMST " +
+            "FROM " + OcapTable + " o WITH (NOLOCK) " +
+            "LEFT JOIN " + ChartTable + " c WITH (NOLOCK) ON c.CHART_ID = o.UCHART_ID AND c.CHART_SEQ = o.CHART_SEQ " +
+            "WHERE o.UCHART_ID = @p0 AND o.CHART_SEQ = @p1 " +
+            "ORDER BY o.CREATE_TIME DESC";
+        var rows = QueryRows(ocapSql, uid, seq);
+        bool found = rows.Count > 0;
+        if (!found)
+        {
+            string chartSql =
+                "SELECT TOP (1) CHART_ID AS UCHART_ID, CHART_SEQ, CHART_NAME, PROCESSUNIT, PROCESSUNIT AS PROCESSINGUNIT, " +
+                "CHART_TYPE, MONITOR_TYPE, MEAN_VALUE, WAFER, MEASUREPU, LOT, RECIPE, PARAMETER, " +
+                "CONVERT(varchar(19), UPDATE_TIME, 120) AS NPW_UPDATE_TIME, " +
+                "CONVERT(varchar(19), LASTDATATMST, 120) AS LASTDATATMST " +
+                "FROM " + ChartTable + " WITH (NOLOCK) WHERE CHART_ID = @p0 AND CHART_SEQ = @p1";
+            rows = QueryRows(chartSql, uid, seq);
+        }
+
+        var ser = new JavaScriptSerializer { MaxJsonLength = int.MaxValue };
+        Response.Write(ser.Serialize(new Dictionary<string, object> {
+            { "ok", true }, { "ocapFound", found }, { "row", rows.Count > 0 ? rows[0] : null }
+        }));
+    }
+
+    // Meter types that count for each tool (same rules as the wafer_count site):
+    //   non-NISACVD: chamber -> WET_CLEAN, main frame -> BUFFER_WET_CLEAN
+    //   NISACVD    : MF of B06/B07/B08 -> BUFFER_WET_CLEAN, other MF -> BUFFER-PM;
+    //                chamber of B01 -> A-PM/B-PM, other chambers -> A-PM/WET_CLEAN
+    private static string[] AllowedMeters(string entity, string mom, bool isMf)
+    {
+        if (entity != "NISACVD")
+            return isMf ? new string[] { "BUFFER_WET_CLEAN" } : new string[] { "WET_CLEAN" };
+        if (isMf)
+            return (mom == "NISACVD-B06" || mom == "NISACVD-B07" || mom == "NISACVD-B08")
+                ? new string[] { "BUFFER_WET_CLEAN" }
+                : new string[] { "BUFFER-PM" };
+        return mom == "NISACVD-B01"
+            ? new string[] { "A-PM", "B-PM" }
+            : new string[] { "A-PM", "WET_CLEAN" };
+    }
+
+    private void HandleWaferCount()
+    {
+        string tool = (Request.QueryString["tool"] ?? "").Trim();
+        if (tool.Length > 40) tool = tool.Substring(0, 40);
+        string scope = (Request.QueryString["scope"] ?? "").Trim();
+        bool mfOnly = string.Equals(scope, "MF", StringComparison.OrdinalIgnoreCase);
+        string toolUp = tool.ToUpperInvariant();
+
+        string entity, mom, letters;
+        Match m = Regex.Match(toolUp, @"^([A-Z0-9]+)-([A-Z])(\d{1,2})\s*([A-Z]*)");
+        if (m.Success)
+        {
+            entity = m.Groups[1].Value;
+            mom = entity + "-" + m.Groups[2].Value + m.Groups[3].Value.PadLeft(2, '0');
+            letters = m.Groups[4].Value;
+        }
+        else
+        {
+            entity = toolUp; mom = toolUp; letters = "";
+        }
+
+        // No chamber letter means the main frame itself -> treat as MF.
+        bool noSuffixAsMf = !mfOnly && letters.Length == 0;
+        if (noSuffixAsMf) mfOnly = true;
+
+        var eqpids = new List<string>();
+        var chambers = new List<string>();
+        if (mfOnly) eqpids.Add(mom);
+        else
+            foreach (char ch in letters)
+            {
+                string e = mom + ch;
+                if (!eqpids.Contains(e)) { eqpids.Add(e); chambers.Add(e); }
+            }
+
+        var ph = new List<string>();
+        for (int i = 0; i < eqpids.Count; i++) ph.Add("@p" + i);
+
+        string sql =
+            "SELECT x.EQPID, x.METERTYPE, x.DATA_VAL, sp.SPEC_VAL " +
+            "FROM " + UsageMeterTable + " x " +
+            "OUTER APPLY (SELECT TOP (1) t.ALARM AS SPEC_VAL FROM " + MeterTargetTable + " t " +
+            "WHERE t.EQCH = x.EQPID AND t.METERTYPE = x.METERTYPE ORDER BY t.LASTREADINGTIME DESC) sp " +
+            "WHERE x.EQPID IN (" + string.Join(", ", ph.ToArray()) + ") " +
+            "ORDER BY x.EQPID, x.METERTYPE";
+        var raw = QueryRows(sql, eqpids.ToArray());
+
+        var rows = new List<object>();
+        foreach (var r in raw)
+        {
+            string eqpid = Convert.ToString(r["EQPID"] ?? "").Trim().ToUpperInvariant();
+            string meter = Convert.ToString(r["METERTYPE"] ?? "").Trim().ToUpperInvariant();
+            bool isMf = eqpid == mom;
+            if (Array.IndexOf(AllowedMeters(entity, mom, isMf), meter) < 0) continue;
+            string dispMeter = (entity == "NISACVD" && meter == "WET_CLEAN") ? "B-PM" : meter;
+            rows.Add(new Dictionary<string, object> {
+                { "EQPID", eqpid },
+                { "DISP_EQPID", isMf ? eqpid + "-MF" : eqpid },
+                { "METERTYPE", meter },
+                { "DISP_METERTYPE", dispMeter },
+                { "DATA_VAL", r["DATA_VAL"] },
+                { "SPEC_VAL", r["SPEC_VAL"] },
+                { "ISMF", isMf }
+            });
+        }
+
+        var ser = new JavaScriptSerializer { MaxJsonLength = int.MaxValue };
+        Response.Write(ser.Serialize(new Dictionary<string, object> {
+            { "ok", true }, { "tool", tool }, { "scope", mfOnly ? "MF" : "CHAMBER" }, { "supported", true },
+            { "entity", entity }, { "mom", mom }, { "chambers", chambers },
+            { "noSuffixAsMf", noSuffixAsMf }, { "rows", rows }
+        }));
+    }
+
+    private static Dictionary<string, object> EmstReadNote(string path)
+    {
+        if (!File.Exists(path)) return null;
+        string json = File.ReadAllText(path, Encoding.UTF8);
+        if (string.IsNullOrEmpty(json)) return null;
+        return new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(json);
+    }
+
+    private void HandleEmst()
+    {
+        string uid = DigitsOnly(Request.QueryString["uchart_id"]);
+        string seq = DigitsOnly(Request.QueryString["chart_seq"]);
+        if (uid.Length == 0 || seq.Length == 0)
+        {
+            Response.StatusCode = 400;
+            Response.Write("{\"ok\":false,\"error\":\"uchart_id and chart_seq are required\"}");
+            return;
+        }
+        string folder = Server.MapPath(EmstFolder);
+        // File name is digits only (no path traversal possible).
+        string path = Path.Combine(folder, uid + "_" + seq + ".json");
+        var ser = new JavaScriptSerializer { MaxJsonLength = int.MaxValue };
+
+        if (!string.Equals(Request.HttpMethod, "POST", StringComparison.OrdinalIgnoreCase))
+        {
+            Dictionary<string, object> note = EmstReadNote(path);
+            Response.Write(ser.Serialize(new Dictionary<string, object> {
+                { "ok", true }, { "exists", note != null }, { "note", note }
+            }));
+            return;
+        }
+
+        string body;
+        using (var sr = new StreamReader(Request.InputStream, Encoding.UTF8)) body = sr.ReadToEnd();
+        Dictionary<string, object> incoming;
+        try { incoming = string.IsNullOrEmpty(body) ? new Dictionary<string, object>() : (ser.Deserialize<Dictionary<string, object>>(body) ?? new Dictionary<string, object>()); }
+        catch { incoming = new Dictionary<string, object>(); }
+        string now = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+
+        lock (_emstLock)
+        {
+            Directory.CreateDirectory(folder);
+            Dictionary<string, object> existing = EmstReadNote(path);
+            var note = new Dictionary<string, object>();
+            note["uchart_id"] = uid;
+            note["chart_seq"] = seq;
+            note["chart_name"] = TextField(incoming, "chart_name", 300);
+            note["block"] = TextField(incoming, "block", 10);
+            note["tool"] = TextField(incoming, "tool", 100);
+            note["waferCount"] = TextField(incoming, "waferCount", 500);
+            note["action"] = TextField(incoming, "action", EmstMaxText);
+            note["followUp"] = TextField(incoming, "followUp", EmstMaxText);
+            note["createdAt"] = (existing != null && existing.ContainsKey("createdAt")) ? existing["createdAt"] : now;
+            note["updatedAt"] = now;
+
+            // Write to a temp file then rename so a reader never sees a half file.
+            string tmp = path + ".tmp";
+            File.WriteAllText(tmp, ser.Serialize(note), new UTF8Encoding(false));
+            if (File.Exists(path)) File.Delete(path);
+            File.Move(tmp, path);
+
+            Response.Write(ser.Serialize(new Dictionary<string, object> { { "ok", true }, { "note", note } }));
+        }
     }
 
     // SPC trend series for the inline chart thumbnails. ?cids=ID1,ID2,...

@@ -214,6 +214,57 @@
         .npw-report-card .adder-map-thumb{width:184px;max-width:184px;height:auto;border:1px solid #bbb;background:#fafafa;object-fit:contain;display:block;margin:0 auto;cursor:zoom-in;}
         .emst-btn{padding:4px 12px;border:1px solid #1976d2;border-radius:6px;background:#fff;color:#1976d2;font-size:12px;font-weight:700;cursor:pointer;}
         .emst-btn:hover{background:#1976d2;color:#fff;}
+        /* ===== EMST 明細彈窗（版面參考 OCAP.aspx 明細頁；所有規則皆以 #emstModal 限定，避免與本頁 .card 等衝突）===== */
+        #emstModal{display:none;position:fixed;inset:0;z-index:1190;background:rgba(15,23,42,.55);align-items:flex-start;justify-content:center;padding:24px 16px;overflow:auto;}
+        #emstModal .em-modal{background:#fff;border-radius:12px;width:100%;max-width:1400px;box-shadow:0 24px 64px rgba(2,6,23,.35);overflow:hidden;color:#26303d;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans TC",Arial,sans-serif;}
+        #emstModal .em-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 18px;background:linear-gradient(135deg,#1e88e5,#1565c0);color:#fff;}
+        #emstModal .em-head h3{margin:0;font-size:16px;font-weight:600;word-break:break-all;}
+        #emstModal .em-head .sub{font-size:12px;opacity:.9;}
+        #emstModal .em-head .block{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.5px;padding:1px 8px;border-radius:999px;margin-right:8px;vertical-align:middle;background:rgba(255,255,255,.22);color:#fff;}
+        #emstModal .em-head .block.non-adder{background:#ffd54f;color:#4a3200;}
+        #emstModal .em-close{background:transparent;border:0;color:#fff;font-size:26px;line-height:1;padding:0 4px;cursor:pointer;}
+        #emstModal .em-close:hover{background:rgba(255,255,255,.15);}
+        #emstModal .em-body{padding:16px 18px 20px;}
+        #emstModal .info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px 18px;margin-bottom:16px;}
+        #emstModal .info-grid .k{font-size:11px;color:#6b7684;letter-spacing:.3px;}
+        #emstModal .info-grid .v{font-size:13px;color:#26303d;word-break:break-all;min-height:20px;}
+        #emstModal .info-grid .v.pending{color:#98a2b3;}
+        #emstModal .info-grid .wide{grid-column:span 2;}
+        #emstModal .wc-line{display:flex;gap:8px;align-items:baseline;font-size:12px;white-space:nowrap;}
+        #emstModal .wc-line .wc-eq{font-family:Consolas,"Courier New",monospace;color:#45505f;min-width:128px;}
+        #emstModal .wc-line .wc-meter{color:#6b7684;min-width:120px;}
+        #emstModal .wc-line .wc-val{font-weight:600;}
+        #emstModal .wc-line .wc-spec{color:#6b7684;}
+        #emstModal .wc-line.hit .wc-eq{color:#1565c0;font-weight:600;}
+        #emstModal .wc-line.over .wc-val{color:#c62828;}
+        #emstModal .wc-note{font-size:11px;color:#98a2b3;margin-top:4px;}
+        #emstModal .detail-grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr) minmax(0,1fr);gap:14px;}
+        #emstModal .detail-grid.non-adder{grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);}
+        @media (max-width:960px){#emstModal .detail-grid,#emstModal .detail-grid.non-adder{grid-template-columns:1fr;}}
+        #emstModal .em-card{border:1px solid #e3e8ef;border-radius:10px;padding:12px;background:#fff;display:flex;flex-direction:column;min-width:0;}
+        #emstModal .em-card h4{margin:0 0 8px;font-size:13px;font-weight:600;color:#45505f;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+        #emstModal .em-card h4 small{font-weight:400;color:#98a2b3;font-size:11px;}
+        #emstModal .spark{position:relative;width:100%;height:320px;}
+        #emstModal .spark canvas{display:block;width:100% !important;height:100% !important;}
+        #emstModal .map-box{display:flex;align-items:center;justify-content:center;min-height:320px;background:#fafbfd;border:1px dashed #dfe5ee;border-radius:8px;color:#98a2b3;font-size:13px;text-align:center;padding:8px;}
+        #emstModal .map-box img{max-width:100%;max-height:420px;width:auto;display:block;border:1px solid #cfd7e3;background:#fff;margin:0 auto;}
+        #emstModal .map-hint{font-size:11px;color:#98a2b3;margin-top:6px;text-align:center;}
+        #emstModal .emst{margin-top:14px;}
+        #emstModal .emst-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;}
+        @media (max-width:960px){#emstModal .emst-grid{grid-template-columns:1fr;}}
+        #emstModal .emst-grid label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:#6b7684;}
+        #emstModal .emst-grid label.full{grid-column:1 / -1;}
+        #emstModal .emst-grid input,#emstModal .emst-grid textarea{font:inherit;font-size:13px;padding:7px 10px;border:1px solid #cfd7e3;border-radius:6px;color:#26303d;background:#fff;}
+        #emstModal .emst-grid textarea{resize:vertical;min-height:64px;}
+        #emstModal .emst-grid input:focus,#emstModal .emst-grid textarea:focus{outline:none;border-color:#1e88e5;box-shadow:0 0 0 3px rgba(30,136,229,.12);}
+        #emstModal .emst-actions{display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap;}
+        #emstModal .emst-actions button{padding:7px 14px;border:0;border-radius:6px;background:#1e88e5;color:#fff;font-weight:600;cursor:pointer;}
+        #emstModal .emst-actions button.ghost{background:#fff;color:#1e88e5;border:1px solid #cfd7e3;}
+        #emstModal .emst-actions button.ghost:hover{background:#f0f6fd;}
+        #emstModal .emst-actions button:disabled{opacity:.6;cursor:default;}
+        #emstModal .status{font-size:13px;color:#6b7684;margin-left:auto;}
+        #emstModal .status.error{color:#c62828;}
+        #emstModal .status.ok{color:#2e7d32;}
         .npw-report-card .dup-chart{background:#ffe19a!important;}
         .npw-report-card .dim-row{background:#d9d9d9!important;}
         .npw-report-card .inline-empty{padding:8px 10px;color:#666;font-size:12px;background:#fff;border:1px dashed #999;}
@@ -857,7 +908,7 @@
                 const previewCell=`<td class="npw-cell-preview"><div class="npw-spark" data-cid="${cid}" data-block="${isAdder?'A':'N'}"><canvas></canvas></div></td>`;
                 const measureCell=`<td><span class="map-info" ${da}>${puInit||'<span style="color:#999;">...</span>'}</span></td>`;
                 // EMST 填寫區：每筆 alarm 一顆按鈕，點擊以彈窗開 OCAP 明細頁（OCAP/OCAP.aspx 深連結）
-                const emstCell=`<td style="text-align:center;"><button type="button" class="emst-btn" data-cid="${cid}" data-seq="${seq}" onclick="ocapOpen(this)">EMST</button></td>`;
+                const emstCell=`<td style="text-align:center;"><button type="button" class="emst-btn" data-pk="${escapeHtml(r.mkey)}" onclick="emstOpen(this)">EMST</button></td>`;
                 let extra='';
                 if(isAdder){
                     extra=previewCell+
@@ -869,6 +920,7 @@
                     const profileCell=`<td class="npw-cell-map"><span class="profile-img" data-site="${site}" data-cid="${cid}" data-seq="${seq}" data-pv="${pv}" ${waferAttr} ${wmAttr} style="color:#999;">...</span></td>`;
                     extra=previewCell+profileCell+measureCell+emstCell;
                 }
+                _emstRows[r.mkey]=Object.assign({isAdder},r);  // 供 EMST 明細彈窗取用該列資料
                 // Monitor type：PM/NORMAL 藍色、DOWN（及其他）黑色
                 const mtHtml=(r.monTypes||[]).map(t=>{
                     const up=String(t).toUpperCase();
@@ -1098,6 +1150,195 @@
             els.forEach(el=>_mapObserver.observe(el));
         }
 
+        // ===== EMST 填寫明細彈窗（參考 OCAP.aspx 明細頁，本頁自帶；資料走本頁 op）=====
+        const _emstRows={};            // mkey -> 該列資料（建表時登錄）
+        let _emstSeq=0, _emstCur=null, _emstBound=false;
+        let _emst={saved:false,touched:{}};   // saved=已有儲存內容（預填不覆蓋）；touched=使用者已動過的欄位
+        const $e=id=>document.getElementById(id);
+        function emSetText(id,v){const el=$e(id);const t=(v==null||String(v).trim()==='')?'':String(v);el.textContent=t||'—';el.classList.remove('pending');}
+        function emStatus(text,kind){const el=$e('emst-status');el.textContent=text||'';el.className='status'+(kind?' '+kind:'');}
+        // EMST 的 Tool：ADDER 用 Tool_name；NON-ADDER 用 Tool_name + RECIPE 最後一段尾碼（限 1~3 英文字母，Tool_name 已含 chamber 時不加）
+        function emstToolName(tool,recipe,isAdder){
+            tool=String(tool||'').trim().toUpperCase();
+            if(isAdder||!tool)return tool;
+            if(/^[A-Z0-9]+-[A-Z]\d{1,2}[A-Z]+$/.test(tool))return tool;
+            const r=String(recipe||'').trim();const i=r.lastIndexOf('-');if(i<0)return tool;
+            const suf=r.substring(i+1).trim().toUpperCase();
+            return /^[A-Z]{1,3}$/.test(suf)?tool+suf:tool;
+        }
+        function emFmtNum(v){if(v==null||v==='')return '';const n=Number(String(v).replace(/,/g,''));return isFinite(n)?n.toLocaleString():String(v);}
+        function emWaferCountSummary(rows){if(!rows||!rows.length)return '';if(rows.length===1)return emFmtNum(rows[0].DATA_VAL);return rows.map(r=>r.DISP_EQPID+': '+emFmtNum(r.DATA_VAL)).join('; ');}
+        // 一行一個計數器：EQPID · METERTYPE 現值 / SPEC；經過的 chamber 標藍、達 SPEC 標紅
+        function emRenderWaferCount(data){
+            const hit={};(data.chambers||[]).forEach(c=>hit[c]=true);
+            return data.rows.map(r=>{
+                const val=Number(String(r.DATA_VAL==null?'':r.DATA_VAL).replace(/,/g,''));
+                const spec=Number(String(r.SPEC_VAL==null?'':r.SPEC_VAL).replace(/,/g,''));
+                const over=isFinite(val)&&isFinite(spec)&&r.SPEC_VAL!=null&&r.SPEC_VAL!==''&&val>=spec;
+                const cls='wc-line'+(hit[r.EQPID]?' hit':'')+(over?' over':'');
+                return `<div class="${cls}"><span class="wc-eq">${escapeHtml(r.DISP_EQPID)}</span><span class="wc-meter">${escapeHtml(r.DISP_METERTYPE)}</span><span class="wc-val">${escapeHtml(emFmtNum(r.DATA_VAL))}</span><span class="wc-spec">/ ${(r.SPEC_VAL==null||r.SPEC_VAL==='')?'—':escapeHtml(emFmtNum(r.SPEC_VAL))}</span></div>`;
+            }).join('');
+        }
+        function emLoadWaferCount(seq,tool,recipe){
+            if(!tool){emSetText('em-wafercount','');return;}
+            const scope=/XFER/i.test(String(recipe||''))?'MF':'CHAMBER';
+            fetch(PAGE+'?'+new URLSearchParams({op:'wafercount',tool,scope}).toString(),{cache:'no-store'})
+                .then(res=>res.json()).then(data=>{
+                    if(seq!==_emstSeq)return;
+                    const el=$e('em-wafercount');el.classList.remove('pending');
+                    if(!data.ok)throw new Error(data.error||'HTTP 錯誤');
+                    const finalScope=data.scope||scope;
+                    const scopeText=finalScope==='MF'?(data.noSuffixAsMf?'MF，Tool_name 沒有 chamber 字母':'MF，RECIPE 含 XFER'):'chamber';
+                    if(!data.rows||!data.rows.length){el.textContent='—（查無計數器資料，範圍：'+scopeText+'，查的是 '+(data.mom||tool)+'）';return;}
+                    const notes=[];if(data.noSuffixAsMf)notes.push('Tool_name 沒有 chamber 字母，視為 MF');
+                    el.innerHTML=emRenderWaferCount(data)+(notes.length?'<div class="wc-note">'+escapeHtml(notes.join('；'))+'</div>':'');
+                    if(!_emst.saved&&!_emst.touched.wc)$e('emst-wc').value=emWaferCountSummary(data.rows);
+                }).catch(err=>{if(seq!==_emstSeq)return;const el=$e('em-wafercount');el.classList.remove('pending');el.textContent='載入失敗：'+err.message;});
+        }
+        // 讀已儲存的 EMST 內容；有的話四個欄位都用儲存值
+        function emLoadSaved(seq){
+            const c=_emstCur;if(!c)return;
+            fetch(PAGE+'?op=emst&uchart_id='+encodeURIComponent(c.cid)+'&chart_seq='+encodeURIComponent(c.cseq)+'&_='+Date.now(),{cache:'no-store'})
+                .then(res=>res.json()).then(data=>{
+                    if(seq!==_emstSeq)return;
+                    if(!data||!data.ok)throw new Error((data&&data.error)||'HTTP 錯誤');
+                    if(!data.exists||!data.note){emStatus('尚未儲存');return;}
+                    const n=data.note;_emst.saved=true;
+                    $e('emst-tool').value=n.tool||'';$e('emst-wc').value=n.waferCount||'';
+                    $e('emst-action').value=n.action||'';$e('emst-followup').value=n.followUp||'';
+                    emStatus('上次儲存：'+(n.updatedAt||''),'ok');
+                }).catch(err=>{if(seq!==_emstSeq)return;emStatus('讀取儲存內容失敗：'+err.message,'error');});
+        }
+        function emSave(){
+            const c=_emstCur;if(!c)return;const seq=_emstSeq;
+            const payload={chart_name:c.r.chartName||'',block:c.isAdder?'ADDER':'NON-ADDER',
+                tool:$e('emst-tool').value.trim(),waferCount:$e('emst-wc').value.trim(),
+                action:$e('emst-action').value.trim(),followUp:$e('emst-followup').value.trim()};
+            $e('emst-save').disabled=true;emStatus('儲存中…');
+            fetch(PAGE+'?op=emst&uchart_id='+encodeURIComponent(c.cid)+'&chart_seq='+encodeURIComponent(c.cseq),
+                  {method:'POST',headers:{'Content-Type':'application/json; charset=utf-8'},body:JSON.stringify(payload)})
+                .then(res=>res.json().then(d=>{if(!res.ok||!d.ok)throw new Error(d.error||('HTTP '+res.status));return d;}))
+                .then(d=>{if(seq!==_emstSeq)return;_emst.saved=true;emStatus('已儲存：'+((d.note&&d.note.updatedAt)||''),'ok');})
+                .catch(err=>{if(seq!==_emstSeq)return;emStatus('儲存失敗：'+err.message,'error');})
+                .then(()=>{if(seq===_emstSeq)$e('emst-save').disabled=false;});
+        }
+        function emTemplate(){
+            return '1.Tool: '+$e('emst-tool').value.trim()+'\n2.Wafer count: '+$e('emst-wc').value.trim()
+                +'\n3.Action: '+$e('emst-action').value.trim()+'\n4.Follow up: '+$e('emst-followup').value.trim();
+        }
+        function emCopy(){
+            const text=emTemplate();
+            const done=()=>emStatus('已複製公版文字','ok'),fail=()=>emStatus('複製失敗，請手動選取','error');
+            const legacy=()=>{try{const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();const ok=document.execCommand('copy');document.body.removeChild(ta);return ok;}catch(e){return false;}};
+            if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(text).then(done,()=>legacy()?done():fail());
+            else legacy()?done():fail();
+        }
+        function emClose(){$e('emstModal').style.display='none';document.body.style.overflow='';_emstSeq++;}
+        function emBindOnce(){
+            if(_emstBound)return;_emstBound=true;
+            $e('emst-save').addEventListener('click',emSave);
+            $e('emst-copy').addEventListener('click',emCopy);
+            $e('emst-tool').addEventListener('input',()=>{_emst.touched.tool=true;});
+            $e('emst-wc').addEventListener('input',()=>{_emst.touched.wc=true;});
+            $e('em-close').addEventListener('click',emClose);
+            $e('emstModal').addEventListener('click',function(e){if(e.target===this)emClose();});
+        }
+        function emstOpenRow(r){
+            emBindOnce();
+            const seq=++_emstSeq;const isAdder=!!r.isAdder;
+            const cid=String(r.chartId||'').replace(/\D/g,''),cseq=String(r.chartSeq||'').replace(/\D/g,'');
+            _emstCur={r,seq,isAdder,cid,cseq,tool:'',recipe:''};
+            _emst={saved:false,touched:{}};
+            // 標題與表格已知欄位
+            $e('em-block').textContent=isAdder?'ADDER':'NON-ADDER';$e('em-block').className='block'+(isAdder?'':' non-adder');
+            $e('em-title').textContent=r.chartName||'(無 CHART_NAME)';
+            $e('em-subtitle').textContent=(r.processUnit||'')+' · '+((r.dates&&r.dates.length)?r.dates.join(', '):'');
+            emSetText('em-tool',r.processUnit);emSetText('em-ids',cid+' / '+cseq);emSetText('em-port',r.ports);
+            emSetText('em-measure',parseMeasurePu(r.measurePu));emSetText('em-wafer',r.wafer);emSetText('em-mean',r.pointValue);emSetText('em-parameter',r.parameter);
+            ['em-lot','em-recipe','em-status-v','em-create','em-owner','em-wafercount'].forEach(id=>{$e(id).textContent='載入中…';$e(id).classList.add('pending');});
+            $e('em-card-premap').hidden=!isAdder;$e('em-card-addermap').hidden=!isAdder;$e('em-card-profile').hidden=isAdder;
+            $e('em-grid').className='detail-grid'+(isAdder?'':' non-adder');
+            $e('em-premap').textContent='載入中…';$e('em-addermap').textContent='載入中…';$e('em-profile').textContent='載入中…';
+            $e('em-trend-status').textContent='載入中…';$e('em-trend-range').textContent='';
+            // EMST 表單重設
+            $e('emst-tool').value=String(r.processUnit||'').toUpperCase();$e('emst-wc').value='';$e('emst-action').value='';$e('emst-followup').value='';
+            $e('emst-meta').textContent=isAdder?'ADDER：Tool 取 Tool_name':'NON-ADDER：Tool 取 Tool_name + RECIPE 尾碼';
+            emStatus('');$e('emst-save').disabled=false;
+            $e('emstModal').style.display='flex';document.body.style.overflow='hidden';
+            if(!cid||!cseq){
+                ['em-lot','em-recipe','em-status-v','em-create','em-owner'].forEach(id=>emSetText(id,''));
+                $e('em-wafercount').textContent='—';$e('em-trend-status').textContent='此筆缺少 CHART_ID / CHART_SEQ';
+                emStatus('此筆缺少 CHART_ID / CHART_SEQ，無法儲存','error');$e('emst-save').disabled=true;
+                return;
+            }
+            // 1) 明細：OCAP 紀錄 + chart 列（無 OCAP 紀錄時仍回 chart 列）
+            fetch(PAGE+'?op=ocapdetail&uchart_id='+encodeURIComponent(cid)+'&chart_seq='+encodeURIComponent(cseq)+'&_='+Date.now(),{cache:'no-store'})
+                .then(res=>res.json()).then(data=>{
+                    if(seq!==_emstSeq)return;
+                    if(!data.ok)throw new Error(data.error||'HTTP 錯誤');
+                    const d=data.row||{};
+                    emSetText('em-lot',d.LOT);emSetText('em-recipe',d.RECIPE);
+                    emSetText('em-status-v',data.ocapFound?d.STATUS:'（無 OCAP 紀錄）');
+                    emSetText('em-create',d.CREATE_TIME||d.NPW_UPDATE_TIME);emSetText('em-owner',d.CHART_OWNER);
+                    if(d.WAFER!=null&&String(d.WAFER)!=='')emSetText('em-wafer',d.WAFER);
+                    if(d.MEAN_VALUE!=null&&String(d.MEAN_VALUE)!=='')emSetText('em-mean',d.MEAN_VALUE);
+                    const baseTool=d.PROCESSUNIT||d.PROCESSINGUNIT||r.processUnit||'';const recipe=d.RECIPE||'';
+                    _emstCur.tool=emstToolName(baseTool,recipe,isAdder);_emstCur.recipe=recipe;
+                    const tEl=$e('em-tool');tEl.textContent=baseTool||'—';
+                    if(_emstCur.tool&&_emstCur.tool!==String(baseTool).toUpperCase())tEl.textContent+='（EMST / wafer count 用 '+_emstCur.tool+'）';
+                    if(!_emst.saved&&!_emst.touched.tool)$e('emst-tool').value=_emstCur.tool;
+                    const meas=d.MEAS_EQUIPMENT||parseMeasurePu(d.MEASUREPU);if(meas)emSetText('em-measure',meas);
+                    emLoadWaferCount(seq,_emstCur.tool,recipe);
+                    emLoadSaved(seq);
+                }).catch(err=>{
+                    if(seq!==_emstSeq)return;
+                    ['em-lot','em-recipe','em-status-v','em-create','em-owner'].forEach(id=>emSetText(id,''));
+                    const el=$e('em-wafercount');el.classList.remove('pending');el.textContent='明細載入失敗：'+err.message;
+                    _emstCur.tool=emstToolName(r.processUnit,'',isAdder);
+                    if(!_emst.touched.tool)$e('emst-tool').value=_emstCur.tool;
+                    emLoadSaved(seq);
+                });
+            // 2) Map / Profile：沿用本頁 proxy 與縮圖（可點擊對角度）
+            const puUp=String(r.processUnit||'').trim().toUpperCase();const site=puUp.startsWith('OXSE-A')?'12AP14':'12AP58';
+            const pv=r.pointValue==null?'':String(r.pointValue);
+            if(isAdder){
+                fetchProxy(site,cid,cseq,pv).then(d=>{
+                    if(seq!==_emstSeq)return;
+                    if(!d||!d.ok){$e('em-premap').textContent='—';$e('em-addermap').textContent='—';return;}
+                    $e('em-premap').innerHTML=d.preMapImgUrl?mapThumbHtml(String(d.preMapImgUrl),'PRE MAP'):'—';
+                    $e('em-addermap').innerHTML=d.adderMapImgUrl?adderMapThumbHtml(String(d.adderMapImgUrl),r.processUnit,r.ports,r.chartName):'—';
+                    if(d.measurePU&&$e('em-measure').textContent==='—')emSetText('em-measure',parseMeasurePu(d.measurePU));
+                });
+            }else{
+                fetchProfile(site,cid,cseq,pv,r.wafer==null?'':String(r.wafer)).then(d=>{
+                    if(seq!==_emstSeq)return;
+                    $e('em-profile').innerHTML=(d&&d.ok&&d.imgUrl)?profileThumbHtml(String(d.imgUrl),r.processUnit,r.ports,r.chartName):'無 Profile 圖';
+                });
+            }
+            // 3) Trend：沿用 op=chartdata + drawSpark（近 60 天，alarm 日標紅）
+            const endDate=(r.dates&&r.dates.length)?r.dates[r.dates.length-1]:toISODateLocal(new Date());
+            fetch(PAGE+'?'+new URLSearchParams({op:'chartdata',cids:cid,end:endDate,days:'60'}).toString(),{cache:'no-store'})
+                .then(res=>res.json()).then(data=>{
+                    if(seq!==_emstSeq)return;
+                    const pts=(data.series&&data.series[cid])||[];
+                    $e('em-trend-range').textContent=pts.length?('（'+pts.length+' 點）'):'';
+                    if(!pts.length){$e('em-trend-status').textContent='此區間沒有趨勢資料';return;}
+                    $e('em-trend-status').textContent='';
+                    const cv=$e('em-spark');
+                    if(window.Chart&&Chart.getChart){const old=Chart.getChart(cv);if(old)old.destroy();}
+                    drawSpark(cv,pts,r.dates||[],cid,{block:isAdder?'A':'N',uclLclPct:isAdder?YBOUND_PCT:YBOUND_PCT_NON});
+                }).catch(err=>{if(seq!==_emstSeq)return;$e('em-trend-status').textContent='Trend chart 載入失敗：'+err.message;});
+        }
+        // 表格 EMST 按鈕（inline onclick）用的全域入口
+        window.emstOpen=function(btn){
+            const r=_emstRows[btn.getAttribute('data-pk')||''];
+            if(!r){alert('找不到此列資料，請重新整理');return;}
+            // Port 為背景載入，可能晚於建表：以該列 Port 欄當下的值為準
+            try{const pc=btn.closest('tr').querySelector('td.port-cell');const t=pc?pc.textContent.trim():'';if(t&&t!=='...')r.ports=t;}catch(e){}
+            emstOpenRow(r);
+        };
+        window.emstClose=emClose;
+
         function renderInlineChartDetails(picked){
             const a=document.getElementById('adderChartDetail');
             const n=document.getElementById('nonAdderChartDetail');
@@ -1180,15 +1421,62 @@
          對角度（Wafer Match）：點 ADDER_map 時彈窗，iframe 載入 WaferMatch.html
          並以推導出的 mode/CASS/side/station + 該 map 圖自動帶入。
          ============================================================ -->
-    <!-- EMST 填寫：點表格 EMST 按鈕，以彈窗載入 OCAP 明細頁（深連結 uchart_id+chart_seq） -->
-    <div id="ocapModal" style="display:none;position:fixed;z-index:1190;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);">
-        <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:96vw;height:92vh;background:#fff;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,0.4);overflow:hidden;">
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px;background:#455a64;color:#fff;">
-                <span id="ocapTitle" style="font-weight:700;font-size:14px;">EMST 填寫 · OCAP 明細</span>
-                <span onclick="ocapClose()" style="cursor:pointer;font-size:24px;line-height:1;">&times;</span>
-            </div>
-            <iframe id="ocapFrame" title="OCAP 明細" style="border:0;width:100%;height:calc(100% - 40px);" src="about:blank"></iframe>
+    <!-- ============================================================
+         EMST 填寫明細彈窗：點表格每筆 alarm 的 EMST 按鈕開啟。
+         版面參考 OCAP.aspx 點 CHART_NAME 的明細頁，但資料全走本頁 op（ocapdetail /
+         wafercount / emst），Map、Profile、Trend 沿用本頁既有 proxy，不連結 OCAP.aspx。
+         ============================================================ -->
+    <div id="emstModal">
+      <div class="em-modal" role="dialog" aria-modal="true" aria-labelledby="em-title">
+        <div class="em-head">
+          <div>
+            <h3><span class="block" id="em-block">ADDER</span><span id="em-title">—</span></h3>
+            <div class="sub" id="em-subtitle"></div>
+          </div>
+          <button type="button" class="em-close" id="em-close" title="關閉" aria-label="關閉">&times;</button>
         </div>
+        <div class="em-body">
+          <div class="info-grid">
+            <div><div class="k">Tool_name</div><div class="v" id="em-tool">—</div></div>
+            <div><div class="k">Port</div><div class="v" id="em-port">—</div></div>
+            <div><div class="k">Measure_Tool</div><div class="v" id="em-measure">—</div></div>
+            <div><div class="k">CHART_ID / SEQ</div><div class="v" id="em-ids">—</div></div>
+            <div><div class="k">LOT</div><div class="v pending" id="em-lot">載入中…</div></div>
+            <div><div class="k">WAFER</div><div class="v" id="em-wafer">—</div></div>
+            <div><div class="k">RECIPE</div><div class="v pending" id="em-recipe">載入中…</div></div>
+            <div><div class="k">PARAMETER</div><div class="v" id="em-parameter">—</div></div>
+            <div><div class="k">STATUS（OCAP）</div><div class="v pending" id="em-status-v">載入中…</div></div>
+            <div><div class="k">CREATE_TIME</div><div class="v pending" id="em-create">載入中…</div></div>
+            <div><div class="k">MEAN_VALUE</div><div class="v" id="em-mean">—</div></div>
+            <div><div class="k">CHART_OWNER</div><div class="v pending" id="em-owner">載入中…</div></div>
+            <div class="wide"><div class="k">Wafer count（PM 後累計 / SPEC；RECIPE 含 XFER 或 Tool_name 無 chamber 尾碼看 MF，否則看 chamber）</div><div class="v pending" id="em-wafercount">載入中…</div></div>
+          </div>
+          <div class="detail-grid" id="em-grid">
+            <div class="em-card">
+              <h4>Trend_Chart <small id="em-trend-range"></small></h4>
+              <div class="spark"><canvas id="em-spark"></canvas></div>
+              <div class="map-hint" id="em-trend-status"></div>
+            </div>
+            <div class="em-card" id="em-card-premap"><h4>PRE_Map</h4><div class="map-box" id="em-premap">載入中…</div></div>
+            <div class="em-card" id="em-card-addermap"><h4>ADDER_Map <small>點擊可對角度</small></h4><div class="map-box" id="em-addermap">載入中…</div></div>
+            <div class="em-card" id="em-card-profile" hidden><h4>Profile <small>點擊可對角度</small></h4><div class="map-box" id="em-profile">載入中…</div></div>
+          </div>
+          <div class="em-card emst">
+            <h4>EMST 填寫 <small id="emst-meta"></small></h4>
+            <div class="emst-grid">
+              <label>1. Tool<input type="text" id="emst-tool" autocomplete="off"></label>
+              <label>2. Wafer count<input type="text" id="emst-wc" autocomplete="off"></label>
+              <label class="full">3. Action<textarea id="emst-action" rows="3" placeholder="使用者填寫"></textarea></label>
+              <label class="full">4. Follow up<textarea id="emst-followup" rows="3" placeholder="使用者填寫"></textarea></label>
+            </div>
+            <div class="emst-actions">
+              <button type="button" id="emst-save">儲存</button>
+              <button type="button" class="ghost" id="emst-copy">複製公版文字</button>
+              <span class="status" id="emst-status"></span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
     <div id="wmatchModal" style="display:none;position:fixed;z-index:1200;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);">
         <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:96vw;height:92vh;background:#fff;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,0.4);overflow:hidden;">
@@ -1304,24 +1592,11 @@
             document.getElementById('wmatchFrame').src='about:blank';  // 停止 iframe、釋放
         }
         document.getElementById('wmatchModal').addEventListener('click', function(e){ if(e.target===this) wmClose(); });
-        // EMST 填寫：以彈窗開 OCAP 明細頁（每筆 alarm 的 CHART_ID + CHART_SEQ 深連結）
-        function ocapOpen(btn){
-            const cid=String(btn.getAttribute('data-cid')||'').replace(/\D/g,'');
-            const seq=String(btn.getAttribute('data-seq')||'').replace(/\D/g,'');
-            if(!cid||!seq){ alert('此筆缺少 CHART_ID / CHART_SEQ，無法開啟 OCAP 明細'); return; }
-            document.getElementById('ocapTitle').textContent=`EMST 填寫 · OCAP 明細（${cid} / ${seq}）`;
-            document.getElementById('ocapFrame').src='OCAP/OCAP.aspx?uchart_id='+encodeURIComponent(cid)+'&chart_seq='+encodeURIComponent(seq);
-            document.getElementById('ocapModal').style.display='block';
-        }
-        function ocapClose(){
-            document.getElementById('ocapModal').style.display='none';
-            document.getElementById('ocapFrame').src='about:blank';
-        }
-        document.getElementById('ocapModal').addEventListener('click', function(e){ if(e.target===this) ocapClose(); });
+        // Esc：先關對角度視窗，其次關 EMST 明細（emstClose 由主程式掛在 window 上）
         document.addEventListener('keydown', function(e){
             if(e.key!=='Escape')return;
             if(document.getElementById('wmatchModal').style.display==='block')wmClose();
-            else ocapClose();
+            else if(window.emstClose)window.emstClose();
         });
     </script>
 

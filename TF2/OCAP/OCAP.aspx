@@ -1459,17 +1459,6 @@ renderSections(groupBySection(SECTIONS, []));
 $('date').value = toDateString(new Date());
 ping();
 search();
-
-// 深連結：?uchart_id=..&chart_seq=..（NPW 網頁 EMST 按鈕開啟）→ 直接開該筆明細
-(function () {
-  var q = new URLSearchParams(location.search);
-  var uid = String(q.get('uchart_id') || '').replace(/\D/g, '');
-  var seq = String(q.get('chart_seq') || '').replace(/\D/g, '');
-  if (!uid || !seq) return;
-  callApi('detail', { uchart_id: uid, chart_seq: seq })
-    .then(function (d) { if (d && d.row) openDetail(d.row); })
-    .catch(function (e) { alert('OCAP 明細載入失敗：' + (e && e.message ? e.message : e)); });
-})();
 </script>
 
 </body>
