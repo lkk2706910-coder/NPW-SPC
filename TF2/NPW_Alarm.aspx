@@ -1311,6 +1311,13 @@
         }
 
         // 給 EMST 公版用的 wafer count 字串：一筆就只給數字，多筆用「EQPID: 數字」分號串起
+        // EMST 公版用的 wafer count 列：NISACVD 的計數器會同時列出 A-PM 與 B-PM，公版只填 B-PM 片數；
+        // 沒有 B-PM 列（非 NISACVD 或 MF）就照原本全部列
+        function emstWaferRows(rows) {
+          var b = (rows || []).filter(function (r) { return String(r.DISP_METERTYPE || '').toUpperCase() === 'B-PM'; });
+          return b.length ? b : (rows || []);
+        }
+
         function waferCountSummary(rows) {
           if (!rows || !rows.length) return '';
           if (rows.length === 1) return fmtNum(rows[0].DATA_VAL);
@@ -1484,8 +1491,8 @@
           _emst = { saved: false, touched: {} };
           $('emst-tool').value = String(row.PROCESSINGUNIT || '').toUpperCase();
           $('emst-wc').value = '';
-          $('emst-action').value = '';
-          $('emst-followup').value = '';
+          $('emst-action').value = '3-1.';     // 公版 3/4 項預填編號，Enter 自動帶下一號（見 emstNumberedEnter）
+          $('emst-followup').value = '4-1.';
           $('emst-meta').textContent = block === 'N' ? 'NON-ADDER：Tool 取 Tool_name + RECIPE 尾碼' : 'ADDER：Tool 取 Tool_name';
           dSetStatus($('emst-status'), '');
           $('emst-save').disabled = false;
@@ -1516,8 +1523,8 @@
               _emst.saved = true;
               $('emst-tool').value = n.tool || '';
               $('emst-wc').value = n.waferCount || '';
-              $('emst-action').value = n.action || '';
-              $('emst-followup').value = n.followUp || '';
+              $('emst-action').value = n.action || '3-1.';
+              $('emst-followup').value = n.followUp || '4-1.';
               dSetStatus($('emst-status'), '上次儲存：' + (n.updatedAt || ''), 'ok');
             })
             .catch(function (err) {
@@ -1670,7 +1677,7 @@
               var notes = [];
               if (data.noSuffixAsMf) notes.push('Tool_name 沒有 chamber 字母，視為 MF');
               el.innerHTML = renderWaferCount(data) + (notes.length ? '<div class="wc-note">' + escapeHtml(notes.join('；')) + '</div>' : '');
-              emstSetWaferCount(waferCountSummary(data.rows));
+              emstSetWaferCount(waferCountSummary(emstWaferRows(data.rows)));  // NISACVD 只填 B-PM 片數
             })
             .catch(function (err) {
               if (seq !== _detailSeq) return;
@@ -1975,6 +1982,21 @@
         }
 
         // ---- 綁定（modal 標記在本 script 之後，首次開啟時才綁）與本頁入口 ----
+        // 公版 3/4 項的輸入格：Enter 換行時自動帶出下一個編號（3-1. → 3-2. → …）。
+        // 下一號 = 目前內容裡最大的「N-k.」+1；空白時直接給 N-1.；Shift+Enter / 中文輸入法選字中不觸發
+        function emstNumberedEnter(ta, n) {
+          ta.addEventListener('keydown', function (e) {
+            if (e.key !== 'Enter' || e.shiftKey || e.ctrlKey || e.altKey || e.isComposing) return;
+            e.preventDefault();
+            var v = ta.value, re = new RegExp('^' + n + '-(\\d+)\\.', 'gm'), m, max = 0;
+            while ((m = re.exec(v))) max = Math.max(max, parseInt(m[1], 10));
+            var ins = (v.trim() === '' ? '' : '\n') + n + '-' + (max + 1) + '.';
+            var s = ta.selectionStart, en = ta.selectionEnd;
+            ta.value = v.substring(0, s) + ins + v.substring(en);
+            ta.selectionStart = ta.selectionEnd = s + ins.length;
+          });
+        }
+
         var _dBound = false;
         function dBindOnce() {
             if (_dBound) return; _dBound = true;
@@ -1983,6 +2005,8 @@
             $('emst-copy').addEventListener('click', emstCopy);
             $('emst-tool').addEventListener('input', function () { _emst.touched.tool = true; });
             $('emst-wc').addEventListener('input', function () { _emst.touched.wc = true; });
+            emstNumberedEnter($('emst-action'), '3');
+            emstNumberedEnter($('emst-followup'), '4');
             $('detail-modal').addEventListener('click', function (e) { if (e.target === this) closeDetail(); });
             window.addEventListener('message', function (e) {
                 if (e.data && e.data.type === 'wm-open' && _currentDetail && _currentDetail.wmImg) wmOpenPopup(_currentDetail.wmImg);
