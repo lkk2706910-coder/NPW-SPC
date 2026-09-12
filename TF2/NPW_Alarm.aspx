@@ -214,58 +214,121 @@
         .npw-report-card .adder-map-thumb{width:184px;max-width:184px;height:auto;border:1px solid #bbb;background:#fafafa;object-fit:contain;display:block;margin:0 auto;cursor:zoom-in;}
         .emst-btn{padding:4px 12px;border:1px solid #1976d2;border-radius:6px;background:#fff;color:#1976d2;font-size:12px;font-weight:700;cursor:pointer;}
         .emst-btn:hover{background:#1976d2;color:#fff;}
-        /* ===== EMST 明細彈窗（版面參考 OCAP.aspx 明細頁；所有規則皆以 #emstModal 限定，避免與本頁 .card 等衝突）===== */
-        #emstModal{display:none;position:fixed;inset:0;z-index:1190;background:rgba(15,23,42,.55);align-items:flex-start;justify-content:center;padding:24px 16px;overflow:auto;}
-        #emstModal .em-modal{background:#fff;border-radius:12px;width:100%;max-width:1400px;box-shadow:0 24px 64px rgba(2,6,23,.35);overflow:hidden;color:#26303d;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans TC",Arial,sans-serif;}
-        #emstModal .em-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 18px;background:linear-gradient(135deg,#1e88e5,#1565c0);color:#fff;}
-        #emstModal .em-head h3{margin:0;font-size:16px;font-weight:600;word-break:break-all;}
-        #emstModal .em-head .sub{font-size:12px;opacity:.9;}
-        #emstModal .em-head .block{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.5px;padding:1px 8px;border-radius:999px;margin-right:8px;vertical-align:middle;background:rgba(255,255,255,.22);color:#fff;}
-        #emstModal .em-head .block.non-adder{background:#ffd54f;color:#4a3200;}
-        #emstModal .em-close{background:transparent;border:0;color:#fff;font-size:26px;line-height:1;padding:0 4px;cursor:pointer;}
-        #emstModal .em-close:hover{background:rgba(255,255,255,.15);}
-        #emstModal .em-body{padding:16px 18px 20px;}
-        #emstModal .info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px 18px;margin-bottom:16px;}
-        #emstModal .info-grid .k{font-size:11px;color:#6b7684;letter-spacing:.3px;}
-        #emstModal .info-grid .v{font-size:13px;color:#26303d;word-break:break-all;min-height:20px;}
-        #emstModal .info-grid .v.pending{color:#98a2b3;}
-        #emstModal .info-grid .wide{grid-column:span 2;}
-        #emstModal .wc-line{display:flex;gap:8px;align-items:baseline;font-size:12px;white-space:nowrap;}
-        #emstModal .wc-line .wc-eq{font-family:Consolas,"Courier New",monospace;color:#45505f;min-width:128px;}
-        #emstModal .wc-line .wc-meter{color:#6b7684;min-width:120px;}
-        #emstModal .wc-line .wc-val{font-weight:600;}
-        #emstModal .wc-line .wc-spec{color:#6b7684;}
-        #emstModal .wc-line.hit .wc-eq{color:#1565c0;font-weight:600;}
-        #emstModal .wc-line.over .wc-val{color:#c62828;}
-        #emstModal .wc-note{font-size:11px;color:#98a2b3;margin-top:4px;}
-        #emstModal .detail-grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr) minmax(0,1fr);gap:14px;}
-        #emstModal .detail-grid.non-adder{grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);}
-        @media (max-width:960px){#emstModal .detail-grid,#emstModal .detail-grid.non-adder{grid-template-columns:1fr;}}
-        #emstModal .em-card{border:1px solid #e3e8ef;border-radius:10px;padding:12px;background:#fff;display:flex;flex-direction:column;min-width:0;}
-        #emstModal .em-card[hidden]{display:none;}  /* ADDER 不顯示 Profile；NON-ADDER 不顯示 PRE/ADDER Map（hidden 需勝過上面的 display:flex） */
-        #emstModal .em-card h4{margin:0 0 8px;font-size:13px;font-weight:600;color:#45505f;display:flex;align-items:center;justify-content:space-between;gap:8px;}
-        #emstModal .em-card h4 small{font-weight:400;color:#98a2b3;font-size:11px;}
-        #emstModal .spark{position:relative;width:100%;height:320px;}
-        #emstModal .spark canvas{display:block;width:100% !important;height:100% !important;}
-        #emstModal .map-box{display:flex;align-items:center;justify-content:center;min-height:320px;background:#fafbfd;border:1px dashed #dfe5ee;border-radius:8px;color:#98a2b3;font-size:13px;text-align:center;padding:8px;}
-        #emstModal .map-box img{max-width:100%;max-height:420px;width:auto;display:block;border:1px solid #cfd7e3;background:#fff;margin:0 auto;}
-        #emstModal .map-hint{font-size:11px;color:#98a2b3;margin-top:6px;text-align:center;}
-        #emstModal .emst{margin-top:14px;}
-        #emstModal .emst-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;}
-        @media (max-width:960px){#emstModal .emst-grid{grid-template-columns:1fr;}}
-        #emstModal .emst-grid label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:#6b7684;}
-        #emstModal .emst-grid label.full{grid-column:1 / -1;}
-        #emstModal .emst-grid input,#emstModal .emst-grid textarea{font:inherit;font-size:13px;padding:7px 10px;border:1px solid #cfd7e3;border-radius:6px;color:#26303d;background:#fff;}
-        #emstModal .emst-grid textarea{resize:vertical;min-height:64px;}
-        #emstModal .emst-grid input:focus,#emstModal .emst-grid textarea:focus{outline:none;border-color:#1e88e5;box-shadow:0 0 0 3px rgba(30,136,229,.12);}
-        #emstModal .emst-actions{display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap;}
-        #emstModal .emst-actions button{padding:7px 14px;border:0;border-radius:6px;background:#1e88e5;color:#fff;font-weight:600;cursor:pointer;}
-        #emstModal .emst-actions button.ghost{background:#fff;color:#1e88e5;border:1px solid #cfd7e3;}
-        #emstModal .emst-actions button.ghost:hover{background:#f0f6fd;}
-        #emstModal .emst-actions button:disabled{opacity:.6;cursor:default;}
-        #emstModal .status{font-size:13px;color:#6b7684;margin-left:auto;}
-        #emstModal .status.error{color:#c62828;}
-        #emstModal .status.ok{color:#2e7d32;}
+        /* ===== EMST 明細（照抄 OCAP.aspx 的 CSS，全部限定在 #detail-modal，避免與本頁 .card/.status 衝突）===== */
+        #detail-modal[hidden], #detail-modal [hidden] { display: none !important; }
+        #detail-modal .card { margin: 0; }
+#detail-modal button.ghost {
+  background: #fff;
+  color: #1e88e5;
+  border: 1px solid #cfd7e3;
+  padding: 6px 12px;
+}
+#detail-modal button.ghost:hover { background: #f0f6fd; }
+
+/* ===== 狀態訊息 ===== */
+#detail-modal .status { font-size: 13px; color: #6b7684; }
+#detail-modal .status.error { color: #c62828; }
+#detail-modal .status.ok { color: #2e7d32; }
+#detail-modal .status.warn { color: #b26a00; }
+#detail-modal {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(15, 23, 42, .55);
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 24px 16px; overflow: auto;
+}
+#detail-modal .modal {
+  background: #fff; border-radius: 12px; width: 100%; max-width: 1400px;
+  box-shadow: 0 24px 64px rgba(2, 6, 23, .35);
+  overflow: hidden;
+}
+#detail-modal .modal-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px 18px; background: linear-gradient(135deg, #1e88e5, #1565c0); color: #fff;
+}
+#detail-modal .modal-head h3 { margin: 0; font-size: 16px; font-weight: 600; word-break: break-all; }
+#detail-modal .modal-head .sub { font-size: 12px; opacity: .9; }
+#detail-modal .modal-head .block {
+  display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .5px;
+  padding: 1px 8px; border-radius: 999px; margin-right: 8px; vertical-align: middle;
+  background: rgba(255,255,255,.22); color: #fff;
+}
+#detail-modal .modal-head .block.non-adder { background: #ffd54f; color: #4a3200; }
+#detail-modal .modal-close {
+  background: transparent; border: 0; color: #fff; font-size: 26px; line-height: 1;
+  padding: 0 4px; cursor: pointer;
+}
+#detail-modal .modal-close:hover { background: rgba(255,255,255,.15); }
+#detail-modal .modal-body { padding: 16px 18px 20px; }
+
+#detail-modal .info-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px 18px; margin-bottom: 16px;
+}
+#detail-modal .info-grid .k { font-size: 11px; color: #6b7684; letter-spacing: .3px; }
+#detail-modal .info-grid .v { font-size: 13px; color: #26303d; word-break: break-all; min-height: 20px; }
+#detail-modal .info-grid .v.pending { color: #98a2b3; }
+#detail-modal .info-grid .wide { grid-column: span 2; }
+#detail-modal .wc-line { display: flex; gap: 8px; align-items: baseline; font-size: 12px; white-space: nowrap; }
+#detail-modal .wc-line .wc-eq { font-family: Consolas, "Courier New", monospace; color: #45505f; min-width: 128px; }
+#detail-modal .wc-line .wc-meter { color: #6b7684; min-width: 120px; }
+#detail-modal .wc-line .wc-val { font-weight: 600; }
+#detail-modal .wc-line .wc-spec { color: #6b7684; }
+#detail-modal .wc-line.hit .wc-eq { color: #1565c0; font-weight: 600; }   /* 該筆 chart 經過的 chamber */
+#detail-modal .wc-line.over .wc-val { color: #c62828; }                    /* 已達或超過 SPEC */
+#detail-modal .wc-note { font-size: 11px; color: #98a2b3; margin-top: 4px; }
+
+#detail-modal .detail-grid {
+  display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 14px;
+}
+#detail-modal .detail-grid.non-adder { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); }
+/* 有對位置卡片時多一欄 */
+#detail-modal .detail-grid.with-wm { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr); }
+#detail-modal .detail-grid.non-adder.with-wm { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr); }
+@media (max-width: 1100px) { #detail-modal .detail-grid.with-wm, #detail-modal .detail-grid.non-adder.with-wm { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 960px) { #detail-modal .detail-grid, #detail-modal .detail-grid.non-adder, #detail-modal .detail-grid.with-wm, #detail-modal .detail-grid.non-adder.with-wm { grid-template-columns: 1fr; } }
+
+/* 內嵌的對位置圖：WaferMatch.html?embed=1，畫面是 600x850 直式 */
+#detail-modal .wm-inline { width: 100%; aspect-ratio: 600 / 850; border: 1px solid #e3e8ef; border-radius: 8px; background: #fafbfd; display: block; }
+#detail-modal .wm-inline.blank { display: none; }
+#detail-modal .card {
+  border: 1px solid #e3e8ef; border-radius: 10px; padding: 12px; background: #fff;
+  display: flex; flex-direction: column; min-width: 0;
+}
+#detail-modal .card h4 {
+  margin: 0 0 8px; font-size: 13px; font-weight: 600; color: #45505f;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+}
+#detail-modal .card h4 small { font-weight: 400; color: #98a2b3; font-size: 11px; }
+#detail-modal .spark { position: relative; width: 100%; height: 320px; }
+#detail-modal .spark canvas { display: block; width: 100% !important; height: 100% !important; }
+#detail-modal .map-box {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 320px; background: #fafbfd; border: 1px dashed #dfe5ee; border-radius: 8px;
+  color: #98a2b3; font-size: 13px; text-align: center; padding: 8px;
+}
+#detail-modal .map-box img {
+  max-width: 100%; max-height: 420px; display: block; border: 1px solid #cfd7e3; background: #fff;
+}
+#detail-modal .map-box a { display: block; }
+#detail-modal .map-box a.zoom img { cursor: zoom-in; }
+#detail-modal .map-box a.wm img { cursor: crosshair; }
+#detail-modal .map-hint { font-size: 11px; color: #98a2b3; margin-top: 6px; text-align: center; }
+/* EMST 填寫區塊 */
+#detail-modal .emst { margin-top: 14px; }
+#detail-modal .emst-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
+@media (max-width: 960px) { #detail-modal .emst-grid { grid-template-columns: 1fr; } }
+#detail-modal .emst-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #6b7684; }
+#detail-modal .emst-grid label.full { grid-column: 1 / -1; }
+#detail-modal .emst-grid input, #detail-modal .emst-grid textarea {
+  font: inherit; font-size: 13px; padding: 7px 10px;
+  border: 1px solid #cfd7e3; border-radius: 6px; color: #26303d; background: #fff;
+}
+#detail-modal .emst-grid textarea { resize: vertical; min-height: 64px; }
+#detail-modal .emst-grid input:focus, #detail-modal .emst-grid textarea:focus { outline: none; border-color: #1e88e5; box-shadow: 0 0 0 3px rgba(30,136,229,.12); }
+#detail-modal .emst-actions { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+#detail-modal .emst-actions .status { margin-left: auto; }
+        #detail-modal .emst { margin-top: 14px; }
         .npw-report-card .dup-chart{background:#ffe19a!important;}
         .npw-report-card .dim-row{background:#d9d9d9!important;}
         .npw-report-card .inline-empty{padding:8px 10px;color:#666;font-size:12px;background:#fff;border:1px dashed #999;}
@@ -1154,194 +1217,795 @@
             els.forEach(el=>_mapObserver.observe(el));
         }
 
-        // ===== EMST 填寫明細彈窗（參考 OCAP.aspx 明細頁，本頁自帶；資料走本頁 op）=====
-        const _emstRows={};            // mkey -> 該列資料（建表時登錄）
-        let _emstSeq=0, _emstCur=null, _emstBound=false;
-        let _emst={saved:false,touched:{}};   // saved=已有儲存內容（預填不覆蓋）；touched=使用者已動過的欄位
-        const $e=id=>document.getElementById(id);
-        function emSetText(id,v){const el=$e(id);const t=(v==null||String(v).trim()==='')?'':String(v);el.textContent=t||'—';el.classList.remove('pending');}
-        function emStatus(text,kind){const el=$e('emst-status');el.textContent=text||'';el.className='status'+(kind?' '+kind:'');}
-        // EMST 的 Tool：ADDER 用 Tool_name；NON-ADDER 用 Tool_name + RECIPE 最後一段尾碼（限 1~3 英文字母，Tool_name 已含 chamber 時不加）
-        function emstToolName(tool,recipe,isAdder){
-            tool=String(tool||'').trim().toUpperCase();
-            if(isAdder||!tool)return tool;
-            if(/^[A-Z0-9]+-[A-Z]\d{1,2}[A-Z]+$/.test(tool))return tool;
-            const r=String(recipe||'').trim();const i=r.lastIndexOf('-');if(i<0)return tool;
-            const suf=r.substring(i+1).trim().toUpperCase();
-            return /^[A-Z]{1,3}$/.test(suf)?tool+suf:tool;
+        // ===== EMST 填寫明細（照抄 OCAP.aspx 的明細 JS；資料源改接本頁 op；命名避免與本頁函式衝突）=====
+        const TREND_DAYS = 60;
+        const WM_VERSION = '2';
+        const EMST_NOTE_URL = PAGE + '?op=emst';
+        function $(id) { return document.getElementById(id); }
+        function dSetStatus(el, text, kind) { el.textContent = text; el.className = 'status' + (kind ? ' ' + kind : ''); }
+        // OCAP 的 callApi(action, params) → 本頁 op；回傳形狀對齊 OCAP 的期待
+        function callApi(action, params) {
+            params = params || {};
+            var enc = encodeURIComponent, url;
+            if (action === 'detail') url = PAGE + '?op=ocapdetail&uchart_id=' + enc(params.uchart_id) + '&chart_seq=' + enc(params.chart_seq);
+            else if (action === 'port') {
+                // 本頁的 Port 是整日批次背景載入：直接用表格該列已對到的 Port
+                var t = (_currentDetail && _currentDetail.row && _currentDetail.row.__tablePorts) || '';
+                return Promise.resolve({ ports: String(t).split(',').map(function (s) { return s.trim(); }).filter(Boolean) });
+            }
+            else if (action === 'chartdata') url = PAGE + '?op=chartdata&cids=' + enc(params.cid) + '&end=' + enc(params.end) + '&days=' + enc(params.days);
+            else if (action === 'profileimg') url = PAGE + '?op=profileimg&chartId=' + enc(params.uchart_id) + '&chartSeq=' + enc(params.chart_seq) + '&pointValue=' + enc(params.pointValue) + '&site=' + enc(params.site) + '&wafer=' + enc(params.wafer);
+            else if (action === 'wafercount') url = PAGE + '?op=wafercount&tool=' + enc(params.tool) + '&scope=' + enc(params.scope);
+            else return Promise.reject(new Error('unknown action ' + action));
+            url += '&_=' + Date.now();
+            return fetch(url, { cache: 'no-store' }).then(function (res) {
+                return res.json().catch(function () { throw new Error('HTTP ' + res.status + '：回應不是 JSON'); }).then(function (data) {
+                    if (!res.ok || data.error || data.ok === false) throw new Error(data.error || ('HTTP ' + res.status));
+                    if (action === 'chartdata') {
+                        var pts = (data.series && data.series[String(params.cid)]) || [];
+                        var endD = new Date(String(params.end) + 'T00:00:00'); var startD = new Date(endD); startD.setDate(endD.getDate() - Number(params.days || 60));
+                        return { series: pts, start: fmtYMDDash(startD), end: String(params.end), elapsedMs: data.elapsedMs };
+                    }
+                    return data;
+                });
+            });
         }
-        function emFmtNum(v){if(v==null||v==='')return '';const n=Number(String(v).replace(/,/g,''));return isFinite(n)?n.toLocaleString():String(v);}
-        function emWaferCountSummary(rows){if(!rows||!rows.length)return '';if(rows.length===1)return emFmtNum(rows[0].DATA_VAL);return rows.map(r=>r.DISP_EQPID+': '+emFmtNum(r.DATA_VAL)).join('; ');}
-        // 一行一個計數器：EQPID · METERTYPE 現值 / SPEC；經過的 chamber 標藍、達 SPEC 標紅
-        function emRenderWaferCount(data){
-            const hit={};(data.chambers||[]).forEach(c=>hit[c]=true);
-            return data.rows.map(r=>{
-                const val=Number(String(r.DATA_VAL==null?'':r.DATA_VAL).replace(/,/g,''));
-                const spec=Number(String(r.SPEC_VAL==null?'':r.SPEC_VAL).replace(/,/g,''));
-                const over=isFinite(val)&&isFinite(spec)&&r.SPEC_VAL!=null&&r.SPEC_VAL!==''&&val>=spec;
-                const cls='wc-line'+(hit[r.EQPID]?' hit':'')+(over?' over':'');
-                return `<div class="${cls}"><span class="wc-eq">${escapeHtml(r.DISP_EQPID)}</span><span class="wc-meter">${escapeHtml(r.DISP_METERTYPE)}</span><span class="wc-val">${escapeHtml(emFmtNum(r.DATA_VAL))}</span><span class="wc-spec">/ ${(r.SPEC_VAL==null||r.SPEC_VAL==='')?'—':escapeHtml(emFmtNum(r.SPEC_VAL))}</span></div>`;
-            }).join('');
+        function fmtMs(ms) {
+          if (ms == null || ms === '') return '—';
+          ms = Number(ms);
+          if (!isFinite(ms)) return '—';
+          return ms >= 1000 ? (ms / 1000).toFixed(1) + ' s' : Math.round(ms) + ' ms';
         }
-        function emLoadWaferCount(seq,tool,recipe){
-            if(!tool){emSetText('em-wafercount','');return;}
-            const scope=/XFER/i.test(String(recipe||''))?'MF':'CHAMBER';
-            fetch(PAGE+'?'+new URLSearchParams({op:'wafercount',tool,scope}).toString(),{cache:'no-store'})
-                .then(res=>res.json()).then(data=>{
-                    if(seq!==_emstSeq)return;
-                    const el=$e('em-wafercount');el.classList.remove('pending');
-                    if(!data.ok)throw new Error(data.error||'HTTP 錯誤');
-                    const finalScope=data.scope||scope;
-                    const scopeText=finalScope==='MF'?(data.noSuffixAsMf?'MF，Tool_name 沒有 chamber 字母':'MF，RECIPE 含 XFER'):'chamber';
-                    if(!data.rows||!data.rows.length){el.textContent='—（查無計數器資料，範圍：'+scopeText+'，查的是 '+(data.mom||tool)+'）';return;}
-                    const notes=[];if(data.noSuffixAsMf)notes.push('Tool_name 沒有 chamber 字母，視為 MF');
-                    el.innerHTML=emRenderWaferCount(data)+(notes.length?'<div class="wc-note">'+escapeHtml(notes.join('；'))+'</div>':'');
-                    if(!_emst.saved&&!_emst.touched.wc)$e('emst-wc').value=emWaferCountSummary(data.rows);
-                }).catch(err=>{if(seq!==_emstSeq)return;const el=$e('em-wafercount');el.classList.remove('pending');el.textContent='載入失敗：'+err.message;});
+
+
+        var _detailSeq = 0;        // 防止快速切換時舊回應蓋掉新資料
+        var _sparkInstance = null; // 目前的 Chart.js 實例
+        var _currentDetail = null; // 目前明細（含 NPW 對應欄位），對角度時要用
+
+        function setText(id, value, pendingWhenEmpty) {
+          var el = $(id);
+          var text = value == null || String(value).trim() === '' ? '' : String(value);
+          el.textContent = text || (pendingWhenEmpty ? '—' : '—');
+          el.classList.remove('pending');
         }
-        // 讀已儲存的 EMST 內容；有的話四個欄位都用儲存值
-        function emLoadSaved(seq){
-            const c=_emstCur;if(!c)return;
-            fetch(PAGE+'?op=emst&uchart_id='+encodeURIComponent(c.cid)+'&chart_seq='+encodeURIComponent(c.cseq)+'&_='+Date.now(),{cache:'no-store'})
-                .then(res=>res.json()).then(data=>{
-                    if(seq!==_emstSeq)return;
-                    if(!data||!data.ok)throw new Error((data&&data.error)||'HTTP 錯誤');
-                    if(!data.exists||!data.note){emStatus('尚未儲存');return;}
-                    const n=data.note;_emst.saved=true;
-                    $e('emst-tool').value=n.tool||'';$e('emst-wc').value=n.waferCount||'';
-                    $e('emst-action').value=n.action||'';$e('emst-followup').value=n.followUp||'';
-                    emStatus('上次儲存：'+(n.updatedAt||''),'ok');
-                }).catch(err=>{if(seq!==_emstSeq)return;emStatus('讀取儲存內容失敗：'+err.message,'error');});
+
+        // MEASUREPU 顯示用：取 ^SP5^ 後面那段（如 KLA-Tencor^SP5^CUSFSCAN-B05 → CUSFSCAN-B05）；沿用 NPW
+        function parseMeasurePuDetail(s) {
+          if (s == null) return '';
+          var str = String(s);
+          var m = str.match(/\^SP5\^([^\^\s<]+)/i);
+          if (m) return m[1];
+          var i = str.lastIndexOf('^');
+          return i >= 0 ? str.substring(i + 1) : str;
         }
-        function emSave(){
-            const c=_emstCur;if(!c)return;const seq=_emstSeq;
-            const payload={chart_name:c.r.chartName||'',block:c.isAdder?'ADDER':'NON-ADDER',
-                tool:$e('emst-tool').value.trim(),waferCount:$e('emst-wc').value.trim(),
-                action:$e('emst-action').value.trim(),followUp:$e('emst-followup').value.trim()};
-            $e('emst-save').disabled=true;emStatus('儲存中…');
-            fetch(PAGE+'?op=emst&uchart_id='+encodeURIComponent(c.cid)+'&chart_seq='+encodeURIComponent(c.cseq),
-                  {method:'POST',headers:{'Content-Type':'application/json; charset=utf-8'},body:JSON.stringify(payload)})
-                .then(res=>res.json().then(d=>{if(!res.ok||!d.ok)throw new Error(d.error||('HTTP '+res.status));return d;}))
-                .then(d=>{if(seq!==_emstSeq)return;_emst.saved=true;emStatus('已儲存：'+((d.note&&d.note.updatedAt)||''),'ok');})
-                .catch(err=>{if(seq!==_emstSeq)return;emStatus('儲存失敗：'+err.message,'error');})
-                .then(()=>{if(seq===_emstSeq)$e('emst-save').disabled=false;});
+
+        // NPW 的 NON-ADDER：CHART_NAME 含 U% 或 RANGE（與 NPW 的判定相同；後面可能還接 -[Partition Eng] 之類的尾綴）
+        function isNonAdderName(chartName) {
+          return /U%|RANGE/i.test(String(chartName || ''));
         }
-        function emTemplate(){
-            return '1.Tool: '+$e('emst-tool').value.trim()+'\n2.Wafer count: '+$e('emst-wc').value.trim()
-                +'\n3.Action: '+$e('emst-action').value.trim()+'\n4.Follow up: '+$e('emst-followup').value.trim();
+
+        // EMST 的 Tool 名稱：
+        //   ADDER     → Tool_name 原樣
+        //   NON-ADDER → Tool_name + RECIPE 最後一個 '-' 之後的尾碼（限 1~3 個英文字母），例如 SACVD-B06 + STIUSG5.5K_6.0-A → SACVD-B06A
+        //               Tool_name 本身已有 chamber 尾碼時不再加
+        function emstToolName(tool, recipe, block) {
+          tool = String(tool || '').trim().toUpperCase();
+          if (block !== 'N' || !tool) return tool;
+          if (/^[A-Z0-9]+-[A-Z]\d{1,2}[A-Z]+$/.test(tool)) return tool;
+          var r = String(recipe || '').trim();
+          var i = r.lastIndexOf('-');
+          if (i < 0) return tool;
+          var suffix = r.substring(i + 1).trim().toUpperCase();
+          if (!/^[A-Z]{1,3}$/.test(suffix)) return tool;
+          return tool + suffix;
         }
-        function emCopy(){
-            const text=emTemplate();
-            const done=()=>emStatus('已複製公版文字','ok'),fail=()=>emStatus('複製失敗，請手動選取','error');
-            const legacy=()=>{try{const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();const ok=document.execCommand('copy');document.body.removeChild(ta);return ok;}catch(e){return false;}};
-            if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(text).then(done,()=>legacy()?done():fail());
-            else legacy()?done():fail();
+
+        // Tool_name 欄位：NON-ADDER 且 EMST Tool 不同時，一併標出
+        function setToolCell(baseTool, emstTool) {
+          var el = $('d-tool');
+          el.classList.remove('pending');
+          el.textContent = baseTool || '—';
+          if (emstTool && emstTool !== String(baseTool || '').toUpperCase()) {
+            el.textContent += '（EMST / wafer count 用 ' + emstTool + '）';
+          }
         }
-        function emClose(){$e('emstModal').style.display='none';document.body.style.overflow='';_emstSeq++;}
-        function emBindOnce(){
-            if(_emstBound)return;_emstBound=true;
-            $e('emst-save').addEventListener('click',emSave);
-            $e('emst-copy').addEventListener('click',emCopy);
-            $e('emst-tool').addEventListener('input',()=>{_emst.touched.tool=true;});
-            $e('emst-wc').addEventListener('input',()=>{_emst.touched.wc=true;});
-            $e('em-close').addEventListener('click',emClose);
-            $e('emstModal').addEventListener('click',function(e){if(e.target===this)emClose();});
+
+        // 給 EMST 公版用的 wafer count 字串：一筆就只給數字，多筆用「EQPID: 數字」分號串起
+        function waferCountSummary(rows) {
+          if (!rows || !rows.length) return '';
+          if (rows.length === 1) return fmtNum(rows[0].DATA_VAL);
+          return rows.map(function (r) { return r.DISP_EQPID + ': ' + fmtNum(r.DATA_VAL); }).join('; ');
         }
-        function emstOpenRow(r){
-            emBindOnce();
-            const seq=++_emstSeq;const isAdder=!!r.isAdder;
-            const cid=String(r.chartId||'').replace(/\D/g,''),cseq=String(r.chartSeq||'').replace(/\D/g,'');
-            _emstCur={r,seq,isAdder,cid,cseq,tool:'',recipe:''};
-            _emst={saved:false,touched:{}};
-            // 標題與表格已知欄位
-            $e('em-block').textContent=isAdder?'ADDER':'NON-ADDER';$e('em-block').className='block'+(isAdder?'':' non-adder');
-            $e('em-title').textContent=r.chartName||'(無 CHART_NAME)';
-            $e('em-subtitle').textContent=(r.processUnit||'')+' · '+((r.dates&&r.dates.length)?r.dates.join(', '):'');
-            emSetText('em-tool',r.processUnit);emSetText('em-ids',cid+' / '+cseq);emSetText('em-port',r.ports);
-            emSetText('em-measure',parseMeasurePu(r.measurePu));emSetText('em-wafer',r.wafer);emSetText('em-mean',r.pointValue);emSetText('em-parameter',r.parameter);
-            ['em-lot','em-recipe','em-status-v','em-create','em-owner','em-wafercount'].forEach(id=>{$e(id).textContent='載入中…';$e(id).classList.add('pending');});
-            $e('em-card-premap').hidden=!isAdder;$e('em-card-addermap').hidden=!isAdder;$e('em-card-profile').hidden=isAdder;
-            $e('em-grid').className='detail-grid'+(isAdder?'':' non-adder');
-            $e('em-premap').textContent='載入中…';$e('em-addermap').textContent='載入中…';$e('em-profile').textContent='載入中…';
-            $e('em-trend-status').textContent='載入中…';$e('em-trend-range').textContent='';
-            // EMST 表單重設
-            $e('emst-tool').value=String(r.processUnit||'').toUpperCase();$e('emst-wc').value='';$e('emst-action').value='';$e('emst-followup').value='';
-            $e('emst-meta').textContent=isAdder?'ADDER：Tool 取 Tool_name':'NON-ADDER：Tool 取 Tool_name + RECIPE 尾碼';
-            emStatus('');$e('emst-save').disabled=false;
-            $e('emstModal').style.display='flex';document.body.style.overflow='hidden';
-            if(!cid||!cseq){
-                ['em-lot','em-recipe','em-status-v','em-create','em-owner'].forEach(id=>emSetText(id,''));
-                $e('em-wafercount').textContent='—';$e('em-trend-status').textContent='此筆缺少 CHART_ID / CHART_SEQ';
-                emStatus('此筆缺少 CHART_ID / CHART_SEQ，無法儲存','error');$e('emst-save').disabled=true;
+
+        // SPC 系統 site：OXSE-A 系列在 12AP14，其餘 12AP58（沿用 NPW）
+        function siteOf(processUnit) {
+          return String(processUnit || '').trim().toUpperCase().indexOf('OXSE-A') === 0 ? '12AP14' : '12AP58';
+        }
+
+        function openDetail(row) {
+          var seq = ++_detailSeq;
+          var block = (row.__isAdder === true) ? 'A' : (row.__isAdder === false ? 'N' : (isNonAdderName(row.CHART_NAME) ? 'N' : 'A'));  // 以表格的 ADDER/NON-ADDER 為準
+          var wmEnabled = true;  // 本頁無 section 概念：一律開對位置
+          _currentDetail = { row: row, npw: null, ports: [], block: block, wm: wmEnabled };
+
+          // 不開對角度的 section 把「點擊可對角度」提示藏起來
+          var hints = document.querySelectorAll('#detail-modal .wm-hint');
+          for (var h = 0; h < hints.length; h++) hints[h].hidden = !wmEnabled;
+
+          // ADDER 顯示 PRE_Map + ADDER_Map；NON-ADDER 顯示 Profile
+          $('d-block').textContent = block === 'N' ? 'NON-ADDER' : 'ADDER';
+          $('d-block').className = 'block' + (block === 'N' ? ' non-adder' : '');
+          $('d-grid').className = 'detail-grid' + (block === 'N' ? ' non-adder' : '') + (wmEnabled ? ' with-wm' : '');
+          $('d-card-premap').hidden = block === 'N';
+          $('d-card-addermap').hidden = block === 'N';
+          $('d-card-profile').hidden = block !== 'N';
+          $('d-card-wm').hidden = !wmEnabled;
+          _currentDetail.wmImg = null;
+          wmResetInline();
+
+          // 先用清單已有的資料填，等 API 回來再補
+          $('d-title').textContent = row.CHART_NAME || '(無 CHART_NAME)';
+          $('d-subtitle').textContent = (row.OWNERDEPT || '') + ' · ' + (row.CREATE_TIME || '');
+          setText('d-tool', row.PROCESSINGUNIT);
+          setText('d-ids', row.UCHART_ID + ' / ' + row.CHART_SEQ);
+          setText('d-lot', row.LOT);
+          setText('d-recipe', row.RECIPE);
+          setText('d-parameter', row.PARAMETER);
+          setText('d-status', row.STATUS);
+          setText('d-create', row.CREATE_TIME);
+          setText('d-owner', row.CHART_OWNER);
+
+          ['d-port', 'd-measure', 'd-wafer', 'd-mean', 'd-wafercount'].forEach(function (id) {
+            $(id).textContent = '載入中…';
+            $(id).className = 'v pending';
+          });
+          var wcEnabled = true;  // 一律查 wafer count
+          _currentDetail.wc = wcEnabled;
+          if (!wcEnabled) { $('d-wafercount').textContent = '—（此 section 尚未啟用）'; }
+          $('d-premap').innerHTML = '載入中…';
+          $('d-addermap').innerHTML = '載入中…';
+          $('d-profile').innerHTML = '載入中…';
+          $('d-trend-status').textContent = '載入中…';
+          $('d-trend-range').textContent = '';
+          emstReset(row, block);
+
+          if (_sparkInstance) { try { _sparkInstance.destroy(); } catch (e) {} _sparkInstance = null; }
+
+          $('detail-modal').hidden = false;
+          document.body.style.overflow = 'hidden';
+
+          var ids = { uchart_id: row.UCHART_ID, chart_seq: row.CHART_SEQ };
+          var endDate = String(row.CREATE_TIME || '').substring(0, 10);
+
+          // 各來源耗時（伺服器端 / 含網路），用來判斷慢在哪一段
+          _currentDetail.timing = {};
+          _currentDetail.markTiming = null;
+          $('d-timing').textContent = '';
+          var tStart = Date.now();
+          function markTiming(name, data) {
+            if (seq !== _detailSeq) return;
+            _currentDetail.timing[name] = { server: data && data.elapsedMs, total: Date.now() - tStart };
+            $('d-timing').textContent = '耗時：' + Object.keys(_currentDetail.timing).map(function (k) {
+              var t = _currentDetail.timing[k];
+              return k + ' ' + fmtMs(t.server) + '/' + fmtMs(t.total);
+            }).join(' · ') + '（伺服器/含等待）';
+          }
+          _currentDetail.markTiming = markTiming;
+
+          // 明細（含 NPW 對應欄位）→ 之後才知道 PointValue/site，再叫 Map 代理
+          callApi('detail', ids)
+            .then(function (data) {
+              if (seq !== _detailSeq) return;
+              markTiming('明細', data);
+              var d = data.row || {};
+              _currentDetail.npw = d;
+              // 本頁的列資料沒有 LOT/RECIPE/STATUS/OWNER，改由明細回填（OCAP 是清單列自帶）
+              row.LOT = d.LOT; row.RECIPE = d.RECIPE; row.STATUS = d.STATUS; row.CREATE_TIME = d.CREATE_TIME || d.NPW_UPDATE_TIME;
+              row.CHART_OWNER = d.CHART_OWNER; row.OWNERDEPT = d.OWNERDEPT; row.PROCESSINGUNIT = row.PROCESSINGUNIT || d.PROCESSINGUNIT || d.PROCESSUNIT;
+              setText('d-lot', row.LOT); setText('d-recipe', row.RECIPE); setText('d-parameter', d.PARAMETER || row.PARAMETER);
+              setText('d-status', data.ocapFound ? row.STATUS : '（無 OCAP 紀錄）'); setText('d-create', row.CREATE_TIME); setText('d-owner', row.CHART_OWNER);
+              $('d-subtitle').textContent = (row.OWNERDEPT || '') + ' · ' + (row.CREATE_TIME || '');
+
+              // NPW 的 PROCESSUNIT 比 OCAP 的 PROCESSINGUNIT 完整（含 chamber 字母），有就用它
+              setText('d-wafer', d.WAFER);
+              setText('d-mean', d.MEAN_VALUE);
+
+              // EMST 用的 Tool：ADDER 直接用 Tool_name；NON-ADDER 用 Tool_name + RECIPE 最後一段尾碼（SACVD-B06 + …-A → SACVD-B06A）
+              var baseTool = d.PROCESSUNIT || d.PROCESSINGUNIT || row.PROCESSINGUNIT || '';
+              var recipe = d.RECIPE || row.RECIPE || '';
+              _currentDetail.emstTool = emstToolName(baseTool, recipe, block);
+              setToolCell(baseTool, _currentDetail.emstTool);
+              emstSetTool(_currentDetail.emstTool);
+
+              // Measure_Tool：OCAP 的 MEAS_EQUIPMENT 優先，其次 NPW 的 MEASUREPU，最後等 Map 代理
+              var meas = d.MEAS_EQUIPMENT || parseMeasurePuDetail(d.MEASUREPU);
+              if (meas) setText('d-measure', meas);
+
+              loadMaps(seq, d);
+              // wafer count 也用 EMST Tool 查（NON-ADDER 會查到 RECIPE 尾碼那個 chamber）
+              if (wcEnabled) loadWaferCount(seq, _currentDetail.emstTool, recipe);
+              emstLoadSaved(seq);
+            })
+            .catch(function (err) {
+              if (seq !== _detailSeq) return;
+              $('d-premap').textContent = '明細載入失敗：' + err.message;
+              $('d-profile').textContent = '明細載入失敗：' + err.message;
+              $('d-addermap').textContent = '—';
+              ['d-measure', 'd-wafer', 'd-mean'].forEach(function (id) { setText(id, ''); });
+              // 明細失敗時退回用清單上的 PROCESSINGUNIT / RECIPE
+              _currentDetail.emstTool = emstToolName(row.PROCESSINGUNIT || '', row.RECIPE || '', block);
+              setToolCell(row.PROCESSINGUNIT || '', _currentDetail.emstTool);
+              emstSetTool(_currentDetail.emstTool);
+              if (wcEnabled) loadWaferCount(seq, _currentDetail.emstTool, row.RECIPE);
+              emstLoadSaved(seq);
+            });
+
+          // Port（跨庫查詢較慢）與 Trend chart 不依賴明細，平行載入
+          callApi('port', ids)
+            .then(function (data) {
+              if (seq !== _detailSeq) return;
+              markTiming('Port', data);
+              _currentDetail.ports = data.ports || [];
+              setText('d-port', _currentDetail.ports.join(', '));
+              wmRefreshInline();
+            })
+            .catch(function () {
+              if (seq !== _detailSeq) return;
+              setText('d-port', '');
+            });
+
+          callApi('chartdata', { cid: row.UCHART_ID, end: endDate, days: TREND_DAYS })
+            .then(function (data) {
+              if (seq !== _detailSeq) return;
+              markTiming('Trend', data);
+              var pts = data.series || [];
+              $('d-trend-range').textContent = data.start + ' ~ ' + data.end + '（' + pts.length + ' 點）';
+              if (!pts.length) { $('d-trend-status').textContent = '此區間沒有趨勢資料'; return; }
+              $('d-trend-status').textContent = '';
+              _sparkInstance = drawSparkDetail($('d-spark'), pts, {
+                block: block,
+                uclLclPct: block === 'A' ? 0.10 : 0.01,
+                alarmSeq: String(row.CHART_SEQ),
+                alarmDay: endDate
+              });
+            })
+            .catch(function (err) {
+              if (seq !== _detailSeq) return;
+              $('d-trend-status').textContent = 'Trend chart 載入失敗：' + err.message;
+            });
+        }
+
+        // ===== EMST 填寫區塊 =====
+        // 狀態：_emst.saved = 已有儲存過的內容（此時預填不覆蓋 Tool / Wafer count）；
+        //       _emst.touched = 使用者已動過的欄位（自動預填不覆蓋使用者手打的值）
+        var _emst = { saved: false, touched: {} };
+
+        function emstReset(row, block) {
+          _emst = { saved: false, touched: {} };
+          $('emst-tool').value = String(row.PROCESSINGUNIT || '').toUpperCase();
+          $('emst-wc').value = '';
+          $('emst-action').value = '';
+          $('emst-followup').value = '';
+          $('emst-meta').textContent = block === 'N' ? 'NON-ADDER：Tool 取 Tool_name + RECIPE 尾碼' : 'ADDER：Tool 取 Tool_name';
+          dSetStatus($('emst-status'), '');
+          $('emst-save').disabled = false;
+        }
+
+        function emstSetTool(tool) {
+          if (_emst.saved || _emst.touched.tool) return;
+          $('emst-tool').value = tool || '';
+        }
+
+        function emstSetWaferCount(text) {
+          if (_emst.saved || _emst.touched.wc) return;
+          $('emst-wc').value = text || '';
+        }
+
+        // 讀已儲存的內容；有的話四個欄位都用儲存值
+        function emstLoadSaved(seq) {
+          var row = _currentDetail && _currentDetail.row;
+          if (!row) return;
+          var url = EMST_NOTE_URL + '&uchart_id=' + encodeURIComponent(row.UCHART_ID) + '&chart_seq=' + encodeURIComponent(row.CHART_SEQ) + '&_=' + Date.now();
+          fetch(url, { method: 'GET' })
+            .then(function (res) { return res.json(); })
+            .then(function (data) {
+              if (seq !== _detailSeq) return;
+              if (!data || !data.ok) throw new Error((data && data.error) || 'HTTP 錯誤');
+              if (!data.exists || !data.note) { dSetStatus($('emst-status'), '尚未儲存'); return; }
+              var n = data.note;
+              _emst.saved = true;
+              $('emst-tool').value = n.tool || '';
+              $('emst-wc').value = n.waferCount || '';
+              $('emst-action').value = n.action || '';
+              $('emst-followup').value = n.followUp || '';
+              dSetStatus($('emst-status'), '上次儲存：' + (n.updatedAt || ''), 'ok');
+            })
+            .catch(function (err) {
+              if (seq !== _detailSeq) return;
+              dSetStatus($('emst-status'), '讀取儲存內容失敗：' + err.message, 'error');
+            });
+        }
+
+        function emstSave() {
+          var row = _currentDetail && _currentDetail.row;
+          if (!row) return;
+          var seq = _detailSeq;
+          var payload = {
+            chart_name: row.CHART_NAME || '',
+            block: _currentDetail.block === 'N' ? 'NON-ADDER' : 'ADDER',
+            tool: $('emst-tool').value.trim(),
+            waferCount: $('emst-wc').value.trim(),
+            action: $('emst-action').value.trim(),
+            followUp: $('emst-followup').value.trim()
+          };
+          var url = EMST_NOTE_URL + '&uchart_id=' + encodeURIComponent(row.UCHART_ID) + '&chart_seq=' + encodeURIComponent(row.CHART_SEQ);
+          $('emst-save').disabled = true;
+          dSetStatus($('emst-status'), '儲存中…');
+          fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json; charset=utf-8' }, body: JSON.stringify(payload) })
+            .then(function (res) { return res.json().then(function (d) { if (!res.ok || !d.ok) throw new Error(d.error || ('HTTP ' + res.status)); return d; }); })
+            .then(function (data) {
+              if (seq !== _detailSeq) return;
+              _emst.saved = true;
+              dSetStatus($('emst-status'), '已儲存：' + (data.note && data.note.updatedAt || ''), 'ok');
+            })
+            .catch(function (err) {
+              if (seq !== _detailSeq) return;
+              dSetStatus($('emst-status'), '儲存失敗：' + err.message, 'error');
+            })
+            .then(function () { if (seq === _detailSeq) $('emst-save').disabled = false; });
+        }
+
+        // 組成公版文字並複製到剪貼簿
+        function emstTemplateText() {
+          return '1.Tool: ' + $('emst-tool').value.trim()
+            + '\n2.Wafer count: ' + $('emst-wc').value.trim()
+            + '\n3.Action: ' + $('emst-action').value.trim()
+            + '\n4.Follow up: ' + $('emst-followup').value.trim();
+        }
+
+        function emstCopy() {
+          var text = emstTemplateText();
+          var done = function () { dSetStatus($('emst-status'), '已複製公版文字', 'ok'); };
+          var fail = function () { dSetStatus($('emst-status'), '複製失敗，請手動選取', 'error'); };
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(done, function () { legacyCopy(text) ? done() : fail(); });
+          } else {
+            legacyCopy(text) ? done() : fail();
+          }
+        }
+
+        function legacyCopy(text) {
+          try {
+            var ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed'; ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            var ok = document.execCommand('copy');
+            document.body.removeChild(ta);
+            return ok;
+          } catch (e) { return false; }
+        }
+
+        // PRE_Map / ADDER_Map / MeasurePU：透過 SpcMapInfoProxy.ashx 抓 SPC 系統頁面（沿用 NPW）
+        // NON-ADDER 只用它補 Measure_Tool，圖改走 loadProfile
+        function loadMaps(seq, d) {
+          var site = siteOf(d.PROCESSUNIT || d.PROCESSINGUNIT);
+          var pv = d.MEAN_VALUE == null ? '' : String(d.MEAN_VALUE);
+          var isNonAdder = _currentDetail && _currentDetail.block === 'N';
+          if (isNonAdder) loadProfile(seq, d, site, pv);
+
+          var url = MAP_PROXY
+            + '?site=' + encodeURIComponent(site)
+            + '&uchart_id=' + encodeURIComponent(d.UCHART_ID)
+            + '&chart_seq=' + encodeURIComponent(d.CHART_SEQ)
+            + '&PointValue=' + encodeURIComponent(pv !== '' ? pv : '10');
+
+          fetch(url, { credentials: 'include' })
+            .then(function (res) { return res.json(); })
+            .then(function (p) {
+              if (seq !== _detailSeq) return;
+              if (!p || !p.ok) throw new Error((p && p.error) || 'proxy 回傳失敗');
+
+              // Measure_Tool 若前面沒填到，用代理抓到的 MeasurePU
+              if ($('d-measure').classList.contains('pending') || $('d-measure').textContent === '—') {
+                setText('d-measure', p.measurePU ? parseMeasurePuDetail(p.measurePU) : '');
+              }
+
+              if (isNonAdder) return;  // NON-ADDER 沒有 PRE/ADDER Map
+
+              $('d-premap').innerHTML = p.preMapImgUrl
+                ? dMapThumbHtml(String(p.preMapImgUrl), 'PRE MAP')
+                : '無 PRE_Map';
+
+              if (p.adderMapImgUrl) {
+                if (_currentDetail.wm) {
+                  _currentDetail.wmImg = String(p.adderMapImgUrl);
+                  wmRefreshInline();
+                  $('d-addermap').innerHTML = dAdderMapThumbHtml(String(p.adderMapImgUrl));
+                  $('d-addermap').querySelector('a.wm').addEventListener('click', function () {
+                    wmOpenPopup(String(p.adderMapImgUrl));
+                  });
+                } else {
+                  $('d-addermap').innerHTML = dPlainThumbHtml(String(p.adderMapImgUrl), 'ADDER MAP');
+                }
+              } else {
+                $('d-addermap').textContent = '無 ADDER_Map';
+                wmResetInline('無 ADDER_Map，無法對位置');
+              }
+            })
+            .catch(function (err) {
+              if (seq !== _detailSeq) return;
+              if ($('d-measure').classList.contains('pending')) setText('d-measure', '');
+              if (isNonAdder) return;
+              $('d-premap').textContent = 'Map 載入失敗：' + err.message;
+              $('d-addermap').textContent = '—';
+            });
+        }
+
+        // RECIPE 含 XFER → 只看母機台（MF）；不含 → 只看 chamber
+        function waferCountScope(recipe) {
+          return /XFER/i.test(String(recipe || '')) ? 'MF' : 'CHAMBER';
+        }
+
+        // Wafer count：依 Tool_name 拆 chamber，列出累計片數 / SPEC（沿用 wafer_count 網站規則）；範圍由 RECIPE 決定
+        function loadWaferCount(seq, tool, recipe) {
+          if (!tool) { setText('d-wafercount', ''); return; }
+          var scope = waferCountScope(recipe);
+          callApi('wafercount', { tool: tool, scope: scope })
+            .then(function (data) {
+              if (seq !== _detailSeq) return;
+              if (_currentDetail.markTiming) _currentDetail.markTiming('WaferCount', data);
+              var el = $('d-wafercount');
+              el.classList.remove('pending');
+              if (!data.supported) { el.textContent = '—（無法解析 Tool_name：' + tool + '）'; return; }
+              var finalScope = data.scope || scope;   // 後端可能因為沒有 chamber 字母而改成 MF
+              var scopeText = finalScope === 'MF'
+                ? (data.noSuffixAsMf ? 'MF，Tool_name 沒有 chamber 字母' : 'MF，RECIPE 含 XFER')
+                : 'chamber';
+              if (!data.rows || !data.rows.length) {
+                el.textContent = '—（查無計數器資料，範圍：' + scopeText + '，查的是 ' + (data.mom || tool) + '）';
                 return;
-            }
-            // 1) 明細：OCAP 紀錄 + chart 列（無 OCAP 紀錄時仍回 chart 列）
-            fetch(PAGE+'?op=ocapdetail&uchart_id='+encodeURIComponent(cid)+'&chart_seq='+encodeURIComponent(cseq)+'&_='+Date.now(),{cache:'no-store'})
-                .then(res=>res.json()).then(data=>{
-                    if(seq!==_emstSeq)return;
-                    if(!data.ok)throw new Error(data.error||'HTTP 錯誤');
-                    const d=data.row||{};
-                    emSetText('em-lot',d.LOT);emSetText('em-recipe',d.RECIPE);
-                    emSetText('em-status-v',data.ocapFound?d.STATUS:'（無 OCAP 紀錄）');
-                    emSetText('em-create',d.CREATE_TIME||d.NPW_UPDATE_TIME);emSetText('em-owner',d.CHART_OWNER);
-                    if(d.WAFER!=null&&String(d.WAFER)!=='')emSetText('em-wafer',d.WAFER);
-                    if(d.MEAN_VALUE!=null&&String(d.MEAN_VALUE)!=='')emSetText('em-mean',d.MEAN_VALUE);
-                    const baseTool=d.PROCESSUNIT||d.PROCESSINGUNIT||r.processUnit||'';const recipe=d.RECIPE||'';
-                    _emstCur.tool=emstToolName(baseTool,recipe,isAdder);_emstCur.recipe=recipe;
-                    const tEl=$e('em-tool');tEl.textContent=baseTool||'—';
-                    if(_emstCur.tool&&_emstCur.tool!==String(baseTool).toUpperCase())tEl.textContent+='（EMST / wafer count 用 '+_emstCur.tool+'）';
-                    if(!_emst.saved&&!_emst.touched.tool)$e('emst-tool').value=_emstCur.tool;
-                    const meas=d.MEAS_EQUIPMENT||parseMeasurePu(d.MEASUREPU);if(meas)emSetText('em-measure',meas);
-                    emLoadWaferCount(seq,_emstCur.tool,recipe);
-                    emLoadSaved(seq);
-                }).catch(err=>{
-                    if(seq!==_emstSeq)return;
-                    ['em-lot','em-recipe','em-status-v','em-create','em-owner'].forEach(id=>emSetText(id,''));
-                    const el=$e('em-wafercount');el.classList.remove('pending');el.textContent='明細載入失敗：'+err.message;
-                    _emstCur.tool=emstToolName(r.processUnit,'',isAdder);
-                    if(!_emst.touched.tool)$e('emst-tool').value=_emstCur.tool;
-                    emLoadSaved(seq);
-                });
-            // 2) Map / Profile：沿用本頁 proxy 與縮圖（可點擊對角度）
-            const puUp=String(r.processUnit||'').trim().toUpperCase();const site=puUp.startsWith('OXSE-A')?'12AP14':'12AP58';
-            const pv=r.pointValue==null?'':String(r.pointValue);
-            if(isAdder){
-                fetchProxy(site,cid,cseq,pv).then(d=>{
-                    if(seq!==_emstSeq)return;
-                    if(!d||!d.ok){$e('em-premap').textContent='—';$e('em-addermap').textContent='—';return;}
-                    $e('em-premap').innerHTML=d.preMapImgUrl?mapThumbHtml(String(d.preMapImgUrl),'PRE MAP'):'—';
-                    $e('em-addermap').innerHTML=d.adderMapImgUrl?adderMapThumbHtml(String(d.adderMapImgUrl),r.processUnit,r.ports,r.chartName):'—';
-                    if(d.measurePU&&$e('em-measure').textContent==='—')emSetText('em-measure',parseMeasurePu(d.measurePU));
-                });
-            }else{
-                fetchProfile(site,cid,cseq,pv,r.wafer==null?'':String(r.wafer)).then(d=>{
-                    if(seq!==_emstSeq)return;
-                    $e('em-profile').innerHTML=(d&&d.ok&&d.imgUrl)?profileThumbHtml(String(d.imgUrl),r.processUnit,r.ports,r.chartName):'無 Profile 圖';
-                });
-            }
-            // 3) Trend：沿用 op=chartdata + drawSpark（近 60 天，alarm 日標紅）
-            const endDate=(r.dates&&r.dates.length)?r.dates[r.dates.length-1]:toISODateLocal(new Date());
-            fetch(PAGE+'?'+new URLSearchParams({op:'chartdata',cids:cid,end:endDate,days:'60'}).toString(),{cache:'no-store'})
-                .then(res=>res.json()).then(data=>{
-                    if(seq!==_emstSeq)return;
-                    const pts=(data.series&&data.series[cid])||[];
-                    $e('em-trend-range').textContent=pts.length?('（'+pts.length+' 點）'):'';
-                    if(!pts.length){$e('em-trend-status').textContent='此區間沒有趨勢資料';return;}
-                    $e('em-trend-status').textContent='';
-                    const cv=$e('em-spark');
-                    if(window.Chart&&Chart.getChart){const old=Chart.getChart(cv);if(old)old.destroy();}
-                    drawSpark(cv,pts,r.dates||[],cid,{block:isAdder?'A':'N',uclLclPct:isAdder?YBOUND_PCT:YBOUND_PCT_NON});
-                }).catch(err=>{if(seq!==_emstSeq)return;$e('em-trend-status').textContent='Trend chart 載入失敗：'+err.message;});
+              }
+              var notes = [];
+              if (data.noSuffixAsMf) notes.push('Tool_name 沒有 chamber 字母，視為 MF');
+              el.innerHTML = renderWaferCount(data) + (notes.length ? '<div class="wc-note">' + escapeHtml(notes.join('；')) + '</div>' : '');
+              emstSetWaferCount(waferCountSummary(data.rows));
+            })
+            .catch(function (err) {
+              if (seq !== _detailSeq) return;
+              var el = $('d-wafercount');
+              el.classList.remove('pending');
+              el.textContent = '載入失敗：' + err.message;
+            });
         }
-        // 表格 EMST 按鈕（inline onclick）用的全域入口
-        window.emstOpen=function(btn){
-            const r=_emstRows[btn.getAttribute('data-pk')||''];
-            if(!r){alert('找不到此列資料，請重新整理');return;}
-            // Port 為背景載入，可能晚於建表：以該列 Port 欄當下的值為準
-            try{const pc=btn.closest('tr').querySelector('td.port-cell');const t=pc?pc.textContent.trim():'';if(t&&t!=='...')r.ports=t;}catch(e){}
-            emstOpenRow(r);
+
+        function fmtNum(v) {
+          if (v == null || v === '') return '';
+          var n = Number(String(v).replace(/,/g, ''));
+          return isFinite(n) ? n.toLocaleString() : String(v);
+        }
+
+        // 一行一個計數器：EQPID · METERTYPE  現值 / SPEC；經過的 chamber 標藍、達 SPEC 標紅
+        function renderWaferCount(data) {
+          var hit = {};
+          (data.chambers || []).forEach(function (c) { hit[c] = true; });
+          return data.rows.map(function (r) {
+            var val = Number(String(r.DATA_VAL == null ? '' : r.DATA_VAL).replace(/,/g, ''));
+            var spec = Number(String(r.SPEC_VAL == null ? '' : r.SPEC_VAL).replace(/,/g, ''));
+            var over = isFinite(val) && isFinite(spec) && r.SPEC_VAL != null && r.SPEC_VAL !== '' && val >= spec;
+            var cls = 'wc-line' + (hit[r.EQPID] ? ' hit' : '') + (over ? ' over' : '');
+            return '<div class="' + cls + '">'
+              + '<span class="wc-eq">' + escapeHtml(r.DISP_EQPID) + '</span>'
+              + '<span class="wc-meter">' + escapeHtml(r.DISP_METERTYPE) + '</span>'
+              + '<span class="wc-val">' + escapeHtml(fmtNum(r.DATA_VAL)) + '</span>'
+              + '<span class="wc-spec">/ ' + (r.SPEC_VAL == null || r.SPEC_VAL === '' ? '—' : escapeHtml(fmtNum(r.SPEC_VAL))) + '</span>'
+              + '</div>';
+          }).join('');
+        }
+
+        // NON-ADDER Profile RAW 圖：後端 profileimg 抓 SPC 的 contour 頁，優先挑該 WAFER 的圖（沿用 NPW）
+        function loadProfile(seq, d, site, pv) {
+          callApi('profileimg', {
+            uchart_id: d.UCHART_ID, chart_seq: d.CHART_SEQ,
+            pointValue: pv, site: site, wafer: d.WAFER == null ? '' : String(d.WAFER)
+          })
+            .then(function (p) {
+              if (seq !== _detailSeq) return;
+              if (!p.imgUrl) { $('d-profile').textContent = '無 Profile 圖'; wmResetInline('無 Profile 圖，無法對位置'); return; }
+              if (_currentDetail.wm) {
+                _currentDetail.wmImg = String(p.imgUrl);
+                wmRefreshInline();
+                $('d-profile').innerHTML = dProfileThumbHtml(String(p.imgUrl));
+                $('d-profile').querySelector('a.wm').addEventListener('click', function () {
+                  wmOpenPopup(String(p.imgUrl));
+                });
+              } else {
+                $('d-profile').innerHTML = dPlainThumbHtml(String(p.imgUrl), 'Profile RAW');
+              }
+            })
+            .catch(function (err) {
+              if (seq !== _detailSeq) return;
+              $('d-profile').textContent = 'Profile 載入失敗：' + err.message;
+            });
+        }
+
+        // PRE_Map：點擊以 openie: 協定用 IE 開原圖（沿用 NPW 的做法，SPC 系統圖頁需要 IE）
+        function dMapThumbHtml(imgUrl, alt) {
+          return '<a class="zoom" href="openie:' + encodeURIComponent(imgUrl) + '" target="_blank" rel="noopener noreferrer" title="Open ' + escapeHtml(alt) + ' (IE)">'
+            + '<img src="' + escapeHtml(imgUrl) + '" alt="' + escapeHtml(alt) + '" loading="lazy"></a>';
+        }
+
+        // 只顯示圖、不可點（不開對角度的 section 用）
+        function dPlainThumbHtml(imgUrl, alt) {
+          return '<img src="' + escapeHtml(imgUrl) + '" alt="' + escapeHtml(alt) + '" loading="lazy">';
+        }
+
+        // ADDER_Map：點擊開 Wafer Match 對角度
+        function dAdderMapThumbHtml(imgUrl) {
+          return '<a class="wm" href="javascript:void(0)" title="點擊對角度（Wafer Match）">'
+            + '<img src="' + escapeHtml(imgUrl) + '" alt="ADDER MAP" loading="lazy"></a>';
+        }
+
+        // Profile：點擊開 Wafer Match 對角度（side / chamber / offset 由 CHART_NAME 推導）
+        function dProfileThumbHtml(imgUrl) {
+          return '<a class="wm" href="javascript:void(0)" title="點擊對角度（Wafer Match）">'
+            + '<img src="' + escapeHtml(imgUrl) + '" alt="Profile RAW" loading="lazy"></a>';
+        }
+
+        function closeDetail() {
+          _detailSeq++;
+          wmResetInline();
+          $('detail-modal').hidden = true;
+          document.body.style.overflow = '';
+          if (_sparkInstance) { try { _sparkInstance.destroy(); } catch (e) {} _sparkInstance = null; }
+        }
+
+        // ===== Trend chart（Chart.js）：沿用 NPW 網站 drawSpark 的畫法 =====
+        // 代表值（取最後一個有效的 CL 值）
+        function reprValDetail(pts, key) {
+          for (var i = pts.length - 1; i >= 0; i--) {
+            var v = pts[i] && pts[i][key];
+            if (v != null && isFinite(Number(v))) return Number(v);
+          }
+          return null;
+        }
+
+        // opts: { block:'A'|'N', uclLclPct, alarmSeq, alarmDay }
+        //   ADDER(A)：MEAN_VALUE/UCL/XBAR(CL)/+1σ/+2σ，Y 軸 0 ~ UCL×(1+pct)
+        //   NON-ADDER(N)：MEAN_VALUE/UCL/±2σ/±1σ/XBAR/LCL，Y 軸 LCL×(1-pct) ~ UCL×(1+pct)
+        //   alarm 點（CHART_SEQ 相同、或當天 ALARM_COUNT>=1）標紅放大
+        function drawSparkDetail(canvas, pts, opts) {
+          if (!canvas || !window.Chart || !pts || !pts.length) return null;
+          opts = opts || {};
+
+          var yMin = null, yMax = null;
+          if (opts.uclLclPct != null) {
+            var u = reprValDetail(pts, 'ucl'), l = reprValDetail(pts, 'lcl');
+            if (u != null) yMax = u * (1 + opts.uclLclPct);
+            yMin = (opts.block === 'A') ? 0 : ((l != null) ? l * (1 - opts.uclLclPct) : 0);
+          }
+          var hasMin = yMin != null, hasMax = yMax != null;
+
+          var labels = pts.map(function (p) { return String(p.d || '').replace('T', ' '); });
+          var meanRaw = pts.map(function (p) { return p.mean == null ? null : Number(p.mean); });
+          var ucl = pts.map(function (p) { return p.ucl == null ? null : Number(p.ucl); });
+          var lcl = pts.map(function (p) { return p.lcl == null ? null : Number(p.lcl); });
+          var cl  = pts.map(function (p) { return p.xbar == null ? null : Number(p.xbar); });
+
+          var alarmPt = pts.map(function (p) {
+            var sameSeq = opts.alarmSeq && String(p.seq) === String(opts.alarmSeq);
+            var sameDay = opts.alarmDay && String(p.d || '').substring(0, 10) === opts.alarmDay && Number(p.alarm) >= 1;
+            return !!(sameSeq || sameDay);
+          });
+
+          // 超出上下界的點裁到邊界並標紅（tooltip 仍顯示真值）
+          var overTop  = meanRaw.map(function (v) { return hasMax && isFinite(v) && v !== null && v > yMax; });
+          var underBot = meanRaw.map(function (v) { return hasMin && isFinite(v) && v !== null && v < yMin; });
+          var mean = meanRaw.map(function (v, i) { return v == null ? null : (overTop[i] ? yMax : (underBot[i] ? yMin : v)); });
+          var ptColor  = alarmPt.map(function (a, i) { return (a || overTop[i] || underBot[i]) ? 'red' : '#000'; });
+          var ptRadius = alarmPt.map(function (a, i) { return (a || overTop[i] || underBot[i]) ? 5 : 3; });
+
+          var yScale = { ticks: { font: { size: 9 } } };
+          if (hasMin) yScale.min = yMin;
+          if (hasMax) yScale.max = yMax;
+          if (!hasMin && !hasMax) yScale.beginAtZero = true;
+
+          var meanDs = {
+            label: 'MEAN_VALUE', data: mean, borderColor: '#000', backgroundColor: 'rgba(0,0,0,0.1)',
+            pointStyle: 'triangle', fill: false, tension: .2, borderWidth: 1.5,
+            pointBackgroundColor: ptColor, pointBorderColor: ptColor, pointRadius: ptRadius, pointHoverRadius: 6
+          };
+          function line(label, data, color, dash, width) {
+            return { label: label, data: data, borderColor: color, borderDash: dash, fill: false, pointRadius: 0, borderWidth: width || 1.2, spanGaps: true };
+          }
+
+          var datasets;
+          if (opts.block === 'N') {
+            var avg1  = pts.map(function (p) { return p.avg1  == null ? null : Number(p.avg1); });
+            var avgn1 = pts.map(function (p) { return p.avgn1 == null ? null : Number(p.avgn1); });
+            var avg2  = pts.map(function (p) { return p.avg2  == null ? null : Number(p.avg2); });
+            var avgn2 = pts.map(function (p) { return p.avgn2 == null ? null : Number(p.avgn2); });
+            datasets = [meanDs,
+              line('UCL', ucl, 'red', [4, 2]),
+              line('+2σ', avg2, 'orange', [6, 2]),
+              line('+1σ', avg1, '#1976d2', [2, 2]),
+              line('XBAR (CL)', cl, '#0f766e', [0, 0]),
+              line('-1σ', avgn1, '#1976d2', [2, 2]),
+              line('-2σ', avgn2, 'orange', [6, 2]),
+              line('LCL', lcl, 'red', [4, 2])
+            ];
+          } else {
+            var p1 = pts.map(function (p) { return (p.xbar == null || p.sigma == null) ? null : Number(p.xbar) + Number(p.sigma); });
+            var p2 = pts.map(function (p) { return (p.xbar == null || p.sigma == null) ? null : Number(p.xbar) + 2 * Number(p.sigma); });
+            datasets = [meanDs,
+              line('UCL', ucl, 'red', [4, 2], 1.5),
+              line('XBAR (CL)', cl, '#0f766e', [0, 0], 1.5),
+              line('+1σ (XBAR+σ)', p1, '#1976d2', [2, 2], 1),
+              line('+2σ (XBAR+2σ)', p2, 'orange', [6, 2], 1)
+            ];
+          }
+
+          return new Chart(canvas.getContext('2d'), {
+            type: 'line',
+            data: { labels: labels, datasets: datasets },
+            options: {
+              animation: false, responsive: true, maintainAspectRatio: false,
+              layout: { padding: { top: 4 } },
+              plugins: {
+                legend: { display: true, position: 'top', align: 'end', labels: { usePointStyle: true, pointStyle: 'line', boxWidth: 26, boxHeight: 8, padding: 8, font: { size: 9, weight: '700' } } },
+                tooltip: { callbacks: { label: function (c) {
+                  if (c.dataset.label === 'MEAN_VALUE') {
+                    var rv = meanRaw[c.dataIndex];
+                    var p = pts[c.dataIndex] || {};
+                    return 'MEAN_VALUE: ' + (rv == null ? '-' : rv)
+                      + (overTop[c.dataIndex] ? ' (>上限)' : (underBot[c.dataIndex] ? ' (<下限)' : ''))
+                      + (p.lot ? '  LOT ' + p.lot : '') + (p.wafer ? '  W' + p.wafer : '');
+                  }
+                  return c.dataset.label + ': ' + c.formattedValue;
+                } } }
+              },
+              scales: {
+                x: { ticks: { font: { size: 8 }, maxRotation: 90, minRotation: 90, autoSkip: true, maxTicksLimit: 14 } },
+                y: yScale
+              }
+            }
+          });
+        }
+
+        // ===== 對角度（Wafer Match）：沿用 NPW 網站的參數推導 =====
+
+        function wmParamsFor(imgUrl) {
+          if (!_currentDetail) return null;
+          var npw = _currentDetail.npw || {};
+          var row = _currentDetail.row || {};
+          var tool = npw.PROCESSUNIT || row.PROCESSINGUNIT || '';
+          var port = (_currentDetail.ports || []).join(', ');
+          var cname = row.CHART_NAME || '';
+          var isProfile = _currentDetail.block === 'N';
+
+          var p = isProfile ? wmDeriveProfileParams(tool, port, cname) : wmDeriveParams(tool, port, cname);
+          if (!p) return { error: '無法從 Tool_name / Port / CHART_NAME 推導對角度參數（Tool_name：' + tool + '）' };
+
+          var offset = isProfile ? p.offset : 0;
+          var qs = 'mode=' + encodeURIComponent(p.mode) + '&cass=' + encodeURIComponent(p.cass)
+            + '&side=' + encodeURIComponent(p.side) + '&station=' + encodeURIComponent(p.station)
+            + '&offset=' + encodeURIComponent(offset) + '&img=' + encodeURIComponent(imgUrl);
+          var title = p.entity + '-B' + p.bnum + (p.letter || '') + '｜' + p.mode + '｜CASS ' + p.cass + '｜' + p.side + '｜' + p.station
+            + (isProfile ? '｜offset ' + offset + '°' : '');
+          return { qs: qs, title: title };
+        }
+
+        // 開完整的對位置視窗
+        function wmOpenPopup(imgUrl) {
+          var w = wmParamsFor(imgUrl);
+          if (!w) return;
+          if (w.error) { alert(w.error); return; }
+          $('wmatchTitle').textContent = '對角度 · ' + w.title;
+          $('wmatchFrame').src = 'WaferMatch.html?v=' + WM_VERSION + '&' + w.qs;
+          $('wmatchModal').style.display = 'block';
+        }
+
+        // 內嵌在明細頁的小圖：圖片網址或 Port 有變就重算一次；src 沒變就不重載
+        function wmResetInline(message) {
+          var frame = $('d-wm-frame');
+          frame.src = 'about:blank';
+          frame.className = 'wm-inline blank';
+          $('d-wm-placeholder').hidden = false;
+          $('d-wm-placeholder').textContent = message || '等待 Map 載入…';
+          $('d-wm-title').textContent = '點擊可放大';
+        }
+
+        function wmRefreshInline() {
+          if (!_currentDetail || !_currentDetail.wm || !_currentDetail.wmImg) return;
+          var w = wmParamsFor(_currentDetail.wmImg);
+          if (!w || w.error) { wmResetInline(w ? w.error : ''); return; }
+          var src = 'WaferMatch.html?v=' + WM_VERSION + '&embed=1&' + w.qs;
+          var frame = $('d-wm-frame');
+          if (frame.getAttribute('data-src') !== src) {
+            frame.setAttribute('data-src', src);
+            frame.src = src;
+          }
+          frame.className = 'wm-inline';
+          wmFixInlineHeight();
+          $('d-wm-placeholder').hidden = true;
+          $('d-wm-title').textContent = w.title + '｜點擊可放大';
+        }
+
+        // 舊瀏覽器不支援 aspect-ratio 時，用 JS 依寬度算高度（版面圖是 600x850）
+        function wmFixInlineHeight() {
+          var frame = $('d-wm-frame');
+          var supportsAspect = window.CSS && CSS.supports && CSS.supports('aspect-ratio', '1 / 1');
+          if (supportsAspect || !frame.clientWidth) { frame.style.height = ''; return; }
+          frame.style.height = Math.round(frame.clientWidth * 850 / 600) + 'px';
+        }
+
+        // iframe 載入後，由父頁直接整理裡面的畫面（同網域可以存取）：
+        //   不管伺服器上的 WaferMatch.html 是不是有 embed 模式的新版，都把設定區與即時放大圖藏掉、重算縮放，
+        //   並把點畫面接到開完整視窗。偵測到舊版時在卡片標題提醒重新部署。
+        function wmInlineLoaded() {
+          var frame = $('d-wm-frame');
+          if (!frame.getAttribute('data-src') || !frame.src || /about:blank$/.test(frame.src)) return;
+          var doc, win;
+          try { doc = frame.contentDocument; win = frame.contentWindow; } catch (e) { return; }
+          if (!doc || !doc.body) return;
+
+          var isNew = doc.documentElement.classList.contains('embed');
+          ['toolbar', 'live-panel'].forEach(function (id) {
+            var el = doc.getElementById(id);
+            if (el) { el.hidden = true; el.style.display = 'none'; }
+          });
+          var wrap = doc.getElementById('main-wrap');
+          if (wrap) { wrap.style.margin = '0'; wrap.style.gap = '0'; }
+          var box = doc.getElementById('canvas-container');
+          if (box) { box.style.boxShadow = 'none'; box.style.borderRadius = '0'; box.style.cursor = 'pointer'; }
+          doc.body.style.background = 'transparent';
+          doc.body.style.overflow = 'hidden';
+          try { if (typeof win.applyResponsiveScale === 'function') win.applyResponsiveScale(); } catch (e) {}
+
+          if (!isNew) {
+            // 舊版不會 postMessage，自己接點擊；並提醒伺服器上的檔案要更新
+            var canvas = doc.getElementById('mainCanvas');
+            if (canvas && !canvas.getAttribute('data-ocap-click')) {
+              canvas.setAttribute('data-ocap-click', '1');
+              canvas.addEventListener('click', function () { if (_currentDetail && _currentDetail.wmImg) wmOpenPopup(_currentDetail.wmImg); });
+            }
+            $('d-wm-title').textContent += '｜伺服器上的 WaferMatch.html 是舊版，請重新部署';
+          }
+        }
+
+        // ---- 綁定（modal 標記在本 script 之後，首次開啟時才綁）與本頁入口 ----
+        var _dBound = false;
+        function dBindOnce() {
+            if (_dBound) return; _dBound = true;
+            $('d-close').addEventListener('click', closeDetail);
+            $('emst-save').addEventListener('click', emstSave);
+            $('emst-copy').addEventListener('click', emstCopy);
+            $('emst-tool').addEventListener('input', function () { _emst.touched.tool = true; });
+            $('emst-wc').addEventListener('input', function () { _emst.touched.wc = true; });
+            $('detail-modal').addEventListener('click', function (e) { if (e.target === this) closeDetail(); });
+            window.addEventListener('message', function (e) {
+                if (e.data && e.data.type === 'wm-open' && _currentDetail && _currentDetail.wmImg) wmOpenPopup(_currentDetail.wmImg);
+            });
+            $('d-wm-frame').addEventListener('load', wmInlineLoaded);
+            window.addEventListener('resize', wmFixInlineHeight);
+        }
+        const _emstRows = {};   // mkey -> 表格該列資料（建表時登錄）
+        window.emstOpen = function (btn) {
+            var r = _emstRows[btn.getAttribute('data-pk') || ''];
+            if (!r) { alert('找不到此列資料，請重新整理'); return; }
+            var ports = r.ports || '';
+            try { var pc = btn.closest('tr').querySelector('td.port-cell'); var t = pc ? pc.textContent.trim() : ''; if (t && t !== '...') ports = t; } catch (e) {}
+            dBindOnce();
+            var dates = (r.dates && r.dates.length) ? r.dates : [];
+            openDetail({
+                UCHART_ID: String(r.chartId || ''), CHART_SEQ: String(r.chartSeq || ''), CHART_NAME: r.chartName || '',
+                OWNERDEPT: '', CREATE_TIME: dates.length ? dates[dates.length - 1] : toISODateLocal(new Date()),
+                PROCESSINGUNIT: r.processUnit || '', LOT: '', RECIPE: '', PARAMETER: r.parameter || '', STATUS: '', CHART_OWNER: '',
+                __isAdder: !!r.isAdder, __tablePorts: ports
+            });
         };
-        window.emstClose=emClose;
+        window.emstClose = function () { if ($('detail-modal') && !$('detail-modal').hidden) closeDetail(); };
 
         function renderInlineChartDetails(picked){
             const a=document.getElementById('adderChartDetail');
@@ -1426,62 +2090,84 @@
          並以推導出的 mode/CASS/side/station + 該 map 圖自動帶入。
          ============================================================ -->
     <!-- ============================================================
-         EMST 填寫明細彈窗：點表格每筆 alarm 的 EMST 按鈕開啟。
-         版面參考 OCAP.aspx 點 CHART_NAME 的明細頁，但資料全走本頁 op（ocapdetail /
-         wafercount / emst），Map、Profile、Trend 沿用本頁既有 proxy，不連結 OCAP.aspx。
-         ============================================================ -->
-    <div id="emstModal">
-      <div class="em-modal" role="dialog" aria-modal="true" aria-labelledby="em-title">
-        <div class="em-head">
-          <div>
-            <h3><span class="block" id="em-block">ADDER</span><span id="em-title">—</span></h3>
-            <div class="sub" id="em-subtitle"></div>
-          </div>
-          <button type="button" class="em-close" id="em-close" title="關閉" aria-label="關閉">&times;</button>
+         EMST 填寫明細（照抄 OCAP.aspx 的明細視窗；資料改走本頁 op，Map/Profile/Trend 沿用本頁 proxy）
+         明細視窗：點 T_EQ1 的 CHART_NAME 開啟
+     Port / Trend chart / PRE_Map / ADDER_Map / Measure_Tool，沿用 NPW 網站的資料來源
+     ============================================================ -->
+<div class="modal-backdrop" id="detail-modal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="d-title">
+    <div class="modal-head">
+      <div>
+        <h3><span class="block" id="d-block">ADDER</span><span id="d-title">—</span></h3>
+        <div class="sub" id="d-subtitle"></div>
+        <div class="sub" id="d-timing"></div>
+      </div>
+      <button type="button" class="modal-close" id="d-close" title="關閉" aria-label="關閉">&times;</button>
+    </div>
+    <div class="modal-body">
+
+      <div class="info-grid">
+        <div><div class="k">Tool_name</div><div class="v" id="d-tool">—</div></div>
+        <div><div class="k">Port</div><div class="v pending" id="d-port">載入中…</div></div>
+        <div><div class="k">Measure_Tool</div><div class="v pending" id="d-measure">載入中…</div></div>
+        <div><div class="k">CHART_ID / SEQ</div><div class="v" id="d-ids">—</div></div>
+        <div><div class="k">LOT</div><div class="v" id="d-lot">—</div></div>
+        <div><div class="k">WAFER</div><div class="v pending" id="d-wafer">—</div></div>
+        <div><div class="k">RECIPE</div><div class="v" id="d-recipe">—</div></div>
+        <div><div class="k">PARAMETER</div><div class="v" id="d-parameter">—</div></div>
+        <div><div class="k">STATUS</div><div class="v" id="d-status">—</div></div>
+        <div><div class="k">CREATE_TIME</div><div class="v" id="d-create">—</div></div>
+        <div><div class="k">MEAN_VALUE</div><div class="v pending" id="d-mean">—</div></div>
+        <div><div class="k">CHART_OWNER</div><div class="v" id="d-owner">—</div></div>
+        <div class="wide"><div class="k">Wafer count（PM 後累計 / SPEC；RECIPE 含 XFER 或 Tool_name 無 chamber 尾碼看 MF，否則看 chamber）</div><div class="v pending" id="d-wafercount">載入中…</div></div>
+      </div>
+
+      <!-- ADDER：Trend + PRE_Map + ADDER_Map；NON-ADDER（-U% / -RANGE）：Trend + Profile -->
+      <div class="detail-grid" id="d-grid">
+        <div class="card">
+          <h4>Trend_Chart <small id="d-trend-range"></small></h4>
+          <div class="spark"><canvas id="d-spark"></canvas></div>
+          <div class="map-hint" id="d-trend-status"></div>
         </div>
-        <div class="em-body">
-          <div class="info-grid">
-            <div><div class="k">Tool_name</div><div class="v" id="em-tool">—</div></div>
-            <div><div class="k">Port</div><div class="v" id="em-port">—</div></div>
-            <div><div class="k">Measure_Tool</div><div class="v" id="em-measure">—</div></div>
-            <div><div class="k">CHART_ID / SEQ</div><div class="v" id="em-ids">—</div></div>
-            <div><div class="k">LOT</div><div class="v pending" id="em-lot">載入中…</div></div>
-            <div><div class="k">WAFER</div><div class="v" id="em-wafer">—</div></div>
-            <div><div class="k">RECIPE</div><div class="v pending" id="em-recipe">載入中…</div></div>
-            <div><div class="k">PARAMETER</div><div class="v" id="em-parameter">—</div></div>
-            <div><div class="k">STATUS（OCAP）</div><div class="v pending" id="em-status-v">載入中…</div></div>
-            <div><div class="k">CREATE_TIME</div><div class="v pending" id="em-create">載入中…</div></div>
-            <div><div class="k">MEAN_VALUE</div><div class="v" id="em-mean">—</div></div>
-            <div><div class="k">CHART_OWNER</div><div class="v pending" id="em-owner">載入中…</div></div>
-            <div class="wide"><div class="k">Wafer count（PM 後累計 / SPEC；RECIPE 含 XFER 或 Tool_name 無 chamber 尾碼看 MF，否則看 chamber）</div><div class="v pending" id="em-wafercount">載入中…</div></div>
-          </div>
-          <div class="detail-grid" id="em-grid">
-            <div class="em-card">
-              <h4>Trend_Chart <small id="em-trend-range"></small></h4>
-              <div class="spark"><canvas id="em-spark"></canvas></div>
-              <div class="map-hint" id="em-trend-status"></div>
-            </div>
-            <div class="em-card" id="em-card-premap"><h4>PRE_Map</h4><div class="map-box" id="em-premap">載入中…</div></div>
-            <div class="em-card" id="em-card-addermap"><h4>ADDER_Map <small>點擊可對角度</small></h4><div class="map-box" id="em-addermap">載入中…</div></div>
-            <div class="em-card" id="em-card-profile" hidden><h4>Profile <small>點擊可對角度</small></h4><div class="map-box" id="em-profile">載入中…</div></div>
-          </div>
-          <div class="em-card emst">
-            <h4>EMST 填寫 <small id="emst-meta"></small></h4>
-            <div class="emst-grid">
-              <label>1. Tool<input type="text" id="emst-tool" autocomplete="off"></label>
-              <label>2. Wafer count<input type="text" id="emst-wc" autocomplete="off"></label>
-              <label class="full">3. Action<textarea id="emst-action" rows="3" placeholder="使用者填寫"></textarea></label>
-              <label class="full">4. Follow up<textarea id="emst-followup" rows="3" placeholder="使用者填寫"></textarea></label>
-            </div>
-            <div class="emst-actions">
-              <button type="button" id="emst-save">儲存</button>
-              <button type="button" class="ghost" id="emst-copy">複製公版文字</button>
-              <span class="status" id="emst-status"></span>
-            </div>
-          </div>
+        <div class="card" id="d-card-premap">
+          <h4>PRE_Map</h4>
+          <div class="map-box" id="d-premap">載入中…</div>
+        </div>
+        <div class="card" id="d-card-addermap">
+          <h4>ADDER_Map <small class="wm-hint">點擊可對角度</small></h4>
+          <div class="map-box" id="d-addermap">載入中…</div>
+        </div>
+        <div class="card" id="d-card-profile" hidden>
+          <h4>Profile <small class="wm-hint">點擊可對角度</small></h4>
+          <div class="map-box" id="d-profile">載入中…</div>
+        </div>
+        <!-- 對位置直接嵌在頁面裡（T_EQ1）；點圖或點 ADDER_Map / Profile 都會開完整視窗 -->
+        <div class="card" id="d-card-wm" hidden>
+          <h4>對位置 <small id="d-wm-title">點擊可放大</small></h4>
+          <iframe class="wm-inline blank" id="d-wm-frame" title="Wafer Match（內嵌）" src="about:blank"></iframe>
+          <div class="map-box" id="d-wm-placeholder">等待 Map 載入…</div>
         </div>
       </div>
+
+      <!-- EMST 填寫：1/2 依規則預填，3/4 使用者手填；儲存到 TF2api/EmstNote.ashx（一筆 OCAP 一個 JSON） -->
+      <div class="card emst">
+        <h4>EMST 填寫 <small id="emst-meta"></small></h4>
+        <div class="emst-grid">
+          <label>1. Tool<input type="text" id="emst-tool" autocomplete="off"></label>
+          <label>2. Wafer count<input type="text" id="emst-wc" autocomplete="off"></label>
+          <label class="full">3. Action<textarea id="emst-action" rows="3" placeholder="使用者填寫"></textarea></label>
+          <label class="full">4. Follow up<textarea id="emst-followup" rows="3" placeholder="使用者填寫"></textarea></label>
+        </div>
+        <div class="emst-actions">
+          <button type="button" id="emst-save">儲存</button>
+          <button type="button" class="ghost" id="emst-copy">複製公版文字</button>
+          <span class="status" id="emst-status"></span>
+        </div>
+      </div>
+
     </div>
+  </div>
+</div>
     <div id="wmatchModal" style="display:none;position:fixed;z-index:1200;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);">
         <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:96vw;height:92vh;background:#fff;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,0.4);overflow:hidden;">
             <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px;background:#1976d2;color:#fff;">

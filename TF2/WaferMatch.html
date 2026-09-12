@@ -10,6 +10,12 @@
   #main-wrap { display: flex; align-items: flex-start; gap: 20px; margin: 20px; transform-origin: top center; flex-shrink: 0; }
   #canvas-container { position: relative; background: white; box-shadow: 0 10px 30px rgba(0,0,0,0.15); border-radius: 8px; overflow: hidden; }
 
+  /* embed 模式（?embed=1，嵌在 OCAP 明細頁裡）：只留主畫面，隱藏工具列與即時放大圖，寬度貼齊 iframe */
+  html.embed body { background: transparent; }
+  html.embed #toolbar, html.embed #live-panel { display: none; }
+  html.embed #main-wrap { margin: 0; gap: 0; }
+  html.embed #canvas-container { box-shadow: none; border-radius: 0; cursor: pointer; }
+
   /* 固定即時顯示區（緊貼主畫面右側） */
   #live-panel {
     width: 960px;
@@ -156,6 +162,14 @@
 
 <script>
 const REF_W = 600, REF_H = 850, REF_WAFER_R = 45;
+
+// ?embed=1：嵌在 OCAP 明細頁的小圖模式；點畫面不開放大圖，改通知父頁開完整視窗
+const EMBED = new URLSearchParams(location.search).get('embed') === '1';
+if (EMBED) {
+  document.documentElement.classList.add('embed');
+  // 不只靠 CSS：直接把設定區（工具列）與即時放大圖藏掉，內嵌時只留版面圖
+  ['toolbar', 'live-panel'].forEach(id => { const el = document.getElementById(id); if (el) { el.hidden = true; el.style.display = 'none'; } });
+}
 
 const FI_WAFER_POS = {
   "FI_L": [155, 565],
@@ -389,6 +403,11 @@ function drawArchContact(ctx, cx, cy, r, deg) {
 }
 
 canvas.addEventListener('click', (e) => {
+  if (EMBED) {
+    // 嵌入模式：整張畫面點下去就請父頁開完整的對位置視窗
+    try { window.parent.postMessage({ type: 'wm-open' }, '*'); } catch (err) {}
+    return;
+  }
   const rect = canvas.getBoundingClientRect();
   const x = (e.clientX - rect.left) * (REF_W / rect.width),
         y = (e.clientY - rect.top) * (REF_H / rect.height);
@@ -1205,9 +1224,10 @@ function applyResponsiveScale() {
   const naturalW = wrap.offsetWidth;
   const naturalH = wrap.offsetHeight;
   if (naturalW === 0) return;
-  const sidePad = 24;
+  const sidePad = EMBED ? 0 : 24;
   const availW = window.innerWidth - sidePad;
-  const k = Math.min(1, availW / naturalW);
+  // 一般模式最多 1:1；embed 模式允許放大到填滿 iframe 寬度
+  const k = EMBED ? (availW / naturalW) : Math.min(1, availW / naturalW);
   wrap.style.transform = `scale(${k})`;
   shell.style.height = (naturalH * k) + 'px';
 }
