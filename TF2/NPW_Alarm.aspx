@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>TF2 NPW Alarm 週報</title>
+    <title>TF2 NPW Alarm 日報</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.3.0/dist/chart.umd.min.js"></script>
     <style>
         :root {
@@ -161,8 +161,6 @@
     <div class="topbar">
         <h1>TF2 NPW</h1>
         <div class="seg-tabs">
-            <button type="button" class="seg-btn active" data-sec="weekly">NPW Alarm 週報</button>
-            <button type="button" class="seg-btn" data-sec="downchart">down chart 作業區</button>
         </div>
         <span id="saveStatus" class="save-status"></span>
     </div>
@@ -221,7 +219,7 @@
         <section id="sec-weekly">
         <div class="card npw-report-card">
             <div class="npw-toolbar">
-                <h2 style="margin:0;">NPW Alarm 週報</h2>
+                <h2 style="margin:0;">NPW Alarm 日報</h2>
                 <label for="pickDate">選擇日期</label>
                 <span class="npw-date-wrap">
                     <input id="pickDate" type="date" />
@@ -240,152 +238,12 @@
             </div>
             <div id="error" class="npw-error" style="display:none;"></div>
 
-            <!-- ========== ADDER ========== -->
-            <div class="report-scroll">
-            <table class="report" id="tblAdder">
-                <colgroup>
-                    <col class="entity">
-                    <col class="date"><col class="date"><col class="date"><col class="date"><col class="date"><col class="date"><col class="date">
-                    <col class="statS"><col class="statM"><col class="statS"><col class="statS">
-                    <col class="statS"><col class="statS"><col class="statM">
-                </colgroup>
-                <thead>
-                    <tr><th class="section-title" colspan="15">ADDER</th></tr>
-                    <tr>
-                        <th class="h-green">Entity</th>
-                        <th class="h-green date-head"></th>
-                        <th class="h-green date-head"></th>
-                        <th class="h-green date-head"></th>
-                        <th class="h-green date-head"></th>
-                        <th class="h-green date-head"></th>
-                        <th class="h-green date-head"></th>
-                        <th class="h-green date-head"></th>
-                        <th class="h-amber">Alarm<br/>Counts</th>
-                        <th class="h-amber">Over Weekly to<br/>Day Count</th>
-                        <th class="h-amber">Weekly to<br/>Day Target</th>
-                        <th class="h-amber">Weekly<br/>Target Count</th>
-                        <th class="h-amber">Alarm<br/>rate</th>
-                        <th class="h-amber">Weekly<br/>Target Rate</th>
-                        <th class="h-amber">Total Monitor<br/>Count</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr data-entity="NISACVD">
-                        <td class="left entity-cell">NISACVD</td>
-                        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
-                        <td>0</td>
-                        <td class="barcell"><span class="bar"></span><span class="txt">0</span></td>
-                        <td>0</td><td>0</td>
-                        <td>0%</td><td>0%</td><td>0</td>
-                    </tr>
-                    <tr data-entity="SACVD">
-                        <td class="left entity-cell">SACVD</td>
-                        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
-                        <td>0</td>
-                        <td class="barcell"><span class="bar"></span><span class="txt">0</span></td>
-                        <td>0</td><td>0</td>
-                        <td>0%</td><td>0%</td><td>0</td>
-                    </tr>
-                </tbody>
-                <tfoot>
-                    <tr>
-                        <td class="total-label" colspan="8">Total Alarm</td>
-                        <td id="adderTotalAlarm">0</td>
-                        <td class="total-good" colspan="2" id="adderTotalAlarmRate">0%</td>
-                        <td></td><td></td>
-                        <td class="total-warn" colspan="2" id="adderTotalWeeklyTargetRate">0%</td>
-                    </tr>
-                </tfoot>
-            </table>
-            </div>
             <div id="adderChartDetail"></div>
 
-            <!-- ========== NON-ADDER ========== -->
-            <div class="report-scroll">
-            <table class="report" id="tblNonAdder">
-                <colgroup>
-                    <col class="entity">
-                    <col class="date"><col class="date"><col class="date"><col class="date"><col class="date"><col class="date"><col class="date">
-                    <col class="statS"><col class="statM"><col class="statS"><col class="statS">
-                    <col class="statS"><col class="statS"><col class="statM">
-                </colgroup>
-                <thead>
-                    <tr><th class="section-title" colspan="15">NON-ADDER</th></tr>
-                    <tr>
-                        <th class="h-green">Entity</th>
-                        <th class="h-green date-head"></th>
-                        <th class="h-green date-head"></th>
-                        <th class="h-green date-head"></th>
-                        <th class="h-green date-head"></th>
-                        <th class="h-green date-head"></th>
-                        <th class="h-green date-head"></th>
-                        <th class="h-green date-head"></th>
-                        <th class="h-amber">Alarm<br/>Counts</th>
-                        <th class="h-amber">Over Weekly to<br/>Day Count</th>
-                        <th class="h-amber">Weekly to<br/>Day Target</th>
-                        <th class="h-amber">Weekly<br/>Target Count</th>
-                        <th class="h-amber">Alarm<br/>rate</th>
-                        <th class="h-amber">Weekly<br/>Target Rate</th>
-                        <th class="h-amber">Total Monitor<br/>Count</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr data-entity="NISACVD">
-                        <td class="left entity-cell">NISACVD</td>
-                        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
-                        <td>0</td>
-                        <td class="barcell"><span class="bar"></span><span class="txt">0</span></td>
-                        <td>0</td><td>0</td>
-                        <td>0%</td><td>0%</td><td>0</td>
-                    </tr>
-                    <tr data-entity="SACVD">
-                        <td class="left entity-cell">SACVD</td>
-                        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
-                        <td>0</td>
-                        <td class="barcell"><span class="bar"></span><span class="txt">0</span></td>
-                        <td>0</td><td>0</td>
-                        <td>0%</td><td>0%</td><td>0</td>
-                    </tr>
-                </tbody>
-                <tfoot>
-                    <tr>
-                        <td class="total-label" colspan="8">Total Alarm</td>
-                        <td id="nonAdderTotalAlarm">0</td>
-                        <td class="total-good" colspan="2" id="nonAdderTotalAlarmRate">0%</td>
-                        <td></td><td></td>
-                        <td class="total-warn" colspan="2" id="nonAdderTotalWeeklyTargetRate">0%</td>
-                    </tr>
-                </tfoot>
-            </table>
-            </div>
             <div id="nonAdderChartDetail"></div>
         </div>
         </section>
-
-        <section id="sec-downchart" hidden>
-            <div class="dc-toolbar">
-                <button id="dcPrev" type="button">◀ 上週</button>
-                <input id="dcDate" type="date" />
-                <button id="dcNext" type="button">下週 ▶</button>
-                <span id="dcWeek" class="npw-week-hint"></span>
-            </div>
-            <div id="downAdderSummary" style="display:flex;gap:24px;flex-wrap:wrap;margin:8px 0 16px;"></div>
-            <div id="downSchedule"></div>
-        </section>
     </div>
-
-    <script>
-    // 上方區塊切換：NPW Alarm 週報 / down chart 作業區
-    (function(){
-        const btns=[...document.querySelectorAll('.seg-btn')];
-        const secs={weekly:document.getElementById('sec-weekly'),downchart:document.getElementById('sec-downchart')};
-        function show(name){
-            for(const k in secs){if(secs[k])secs[k].hidden=(k!==name);}
-            btns.forEach(b=>b.classList.toggle('active',b.getAttribute('data-sec')===name));
-        }
-        btns.forEach(b=>b.addEventListener('click',()=>show(b.getAttribute('data-sec'))));
-    })();
-    </script>
 
     <script>
     // NPW Alarm 週報：沿用原工具(TF2_NPW.html)的判讀邏輯，資料來源改為
@@ -398,7 +256,9 @@
         function fmtYMD(d){const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),dd=String(d.getDate()).padStart(2,'0');return `${y}/${m}/${dd}`;}
         function fmtYMDDash(d){const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),dd=String(d.getDate()).padStart(2,'0');return `${y}-${m}-${dd}`;}
         // 以「選擇日往前的禮拜二」為第一天
-        function startTuesdayFor(sel){const d=new Date(sel.getFullYear(),sel.getMonth(),sel.getDate());const diff=((d.getDay()-2)+7)%7;d.setDate(d.getDate()-diff);return d;}
+        // 資料區間改為「每日」：起點即所選日期本身（原為該週的週二）。
+        // 後端 op=alarm / op=port 也改為單日範圍，其餘沿用週版的迴圈皆無害。
+        function startTuesdayFor(sel){return new Date(sel.getFullYear(),sel.getMonth(),sel.getDate());}
         function getWeekNumber(d){const date=new Date(d.getFullYear(),d.getMonth(),d.getDate());const dayNr=(date.getDay()+6)%7;date.setDate(date.getDate()-dayNr+3);const ft=new Date(date.getFullYear(),0,4);const fd=(ft.getDay()+6)%7;ft.setDate(ft.getDate()-fd+3);return 1+Math.round((date-ft)/(7*24*3600*1000));}
 
         function setHeadersByPickedDate(picked){
@@ -424,6 +284,7 @@
         let chartAlarmSeq={};  // key|chartKey -> Set(CHART_SEQ)
         let chartProcUnit={};  // key|chartKey -> PROCESSUNIT
         let chartPort={};      // key|chartKey -> Set(PORTID)（來自 ews_lothist，背景載入）
+        let chartMon={};       // key|chartKey -> Set(MONITOR_TYPE)（欄位顯示用）
         let chartAlarmMean={}; // key|chartKey -> MEAN_VALUE (代表 alarm 點，與 CHART_SEQ 同一筆)
         let chartAlarmWafer={};// key|chartKey -> WAFER (同一筆代表 alarm 點)
         let chartParameter={}; // key|chartKey -> PARAMETER (profile myParaList 用)
@@ -457,7 +318,7 @@
             const days=[];
             for(let i=0;i<7;i++){const d=new Date(start.getFullYear(),start.getMonth(),start.getDate());d.setDate(start.getDate()+i);days.push(fmtYMDDash(d));}
             const stats={};
-            chartAlarmStats={};chartAlarmDateStats={};chartMeasurePu={};chartAlarmSeq={};chartProcUnit={};chartAlarmMean={};chartAlarmWafer={};chartParameter={};chartPort={};
+            chartAlarmStats={};chartAlarmDateStats={};chartMeasurePu={};chartAlarmSeq={};chartProcUnit={};chartAlarmMean={};chartAlarmWafer={};chartParameter={};chartPort={};chartMon={};
             function entOf(pu){if(!pu)return null;const s=String(pu).toUpperCase();const i=s.indexOf('-');return i===-1?s:s.substring(0,i);}
 
             for(const row of rawData){
@@ -490,8 +351,7 @@
                     else if(CT==='XBAR'){ds.totalMonNonAdder+=MON;es.sum.totalMonNonAdder+=MON;}
                 }
 
-                // Alarm 條件
-                if(MT!=='NORMAL'&&MT!=='PM')continue;
+                // Alarm 條件（MONITOR_TYPE 改為 all，不再篩選；型別另以欄位顯示）
                 if(!(alarmCnt>=1))continue;
                 if(isEng)continue;
 
@@ -508,6 +368,7 @@
                 if(!chartAlarmDateStats[key])chartAlarmDateStats[key]={};
                 if(!chartAlarmDateStats[key][ck])chartAlarmDateStats[key][ck]=new Set();
                 chartAlarmDateStats[key][ck].add(ut);
+                {const mk=key+'|'+ck;if(!chartMon[mk])chartMon[mk]=new Set();if(MT)chartMon[mk].add(MT);}
                 if(row.MEASUREPU!=null&&String(row.MEASUREPU).trim()!=='')chartMeasurePu[key+'|'+ck]=String(row.MEASUREPU);
                 if(row.PROCESSUNIT!=null)chartProcUnit[key+'|'+ck]=String(row.PROCESSUNIT);
                 {const plk=_portLookup[String(row.LOT||'')+'|'+ut+'|'+(isAdder?'A':'N')];if(plk&&plk.size){const pk=key+'|'+ck;if(!chartPort[pk])chartPort[pk]=new Set();plk.forEach(p=>chartPort[pk].add(p));}}
@@ -523,6 +384,7 @@
 
         function updateTableByStats(tableId,stats,days,isAdder,picked){
             const tbl=document.getElementById(tableId);
+            if(!tbl)return;  // 計數表格已移除，安全略過
             const tbody=tbl.querySelector('tbody');
             const rows=tbody.querySelectorAll('tr[data-entity]');
 
@@ -660,8 +522,6 @@
                 let ut=row.UPDATE_TIME;if(!ut)continue;
                 if(typeof ut==='string'){ut=ut.substring(0,10);}else{const j=new Date(ut);if(isNaN(j.getTime()))continue;ut=fmtYMDDash(j);}
                 if(!days.includes(ut))continue;
-                const MT=String(row.MONITOR_TYPE||'').toUpperCase();
-                if(MT!=='NORMAL'&&MT!=='PM')continue;
                 if(!(Number(row.ALARM_COUNT)>=1))continue;
                 if(String(row.CHART_DESC||'').trim().toUpperCase()==='ENGINEERING')continue;
                 const CT=String(row.CHART_TYPE||'').trim().toUpperCase();
@@ -945,7 +805,8 @@
                     const pointValue=chartAlarmMean[mkey];
                     const wafer=chartAlarmWafer[mkey];
                     const parameter=chartParameter[mkey];
-                    allRows.push({entity,chartId,chartName,cnt,nameKey,dates,ports,mkey,measurePu,processUnit,chartSeq,pointValue,wafer,parameter});
+                    const monTypes=chartMon[mkey]?Array.from(chartMon[mkey]).sort():[];
+                    allRows.push({entity,chartId,chartName,cnt,nameKey,dates,ports,monTypes,mkey,measurePu,processUnit,chartSeq,pointValue,wafer,parameter});
                 }
             }
 
@@ -964,10 +825,10 @@
                 return String(a.chartName||'').localeCompare(String(b.chartName||''));
             });
 
-            const colCount=isAdder?11:10;
-            let head=`<tr><th colspan="${colCount}">${blockLabel} - Chart Alarm Detail (W${getWeekNumber(start)})</th></tr>
+            const colCount=isAdder?12:11;
+            let head=`<tr><th colspan="${colCount}">${blockLabel} - Chart Alarm Detail (${fmtYMDDash(start)})</th></tr>
                 <tr><th style="width:80px;">Entity</th><th style="width:110px;">Tool_name</th><th style="width:80px;">CHART_ID</th><th class="cn-col">CHART_NAME</th>
-                <th style="width:70px;text-align:center;">Alarm 次數</th><th style="width:160px;">ALARM 日期</th><th style="width:90px;">Port</th>`;
+                <th style="width:90px;text-align:center;">Monitor type</th><th style="width:70px;text-align:center;">Alarm 次數</th><th style="width:160px;">ALARM 日期</th><th style="width:90px;">Port</th>`;
             if(isAdder)head+=`<th style="width:380px;text-align:center;">Trend_Chart</th><th style="width:200px;text-align:center;">PRE_Map</th><th style="width:200px;text-align:center;">ADDER_Map</th><th style="width:110px;">Measure_Tool</th>`;
             else head+=`<th style="width:380px;text-align:center;">Trend_Chart</th><th style="width:200px;text-align:center;">Profile</th><th style="width:110px;">Measure_Tool</th>`;
             head+=`</tr>`;
@@ -1004,7 +865,14 @@
                     const profileCell=`<td class="npw-cell-map"><span class="profile-img" data-site="${site}" data-cid="${cid}" data-seq="${seq}" data-pv="${pv}" ${waferAttr} ${wmAttr} style="color:#999;">...</span></td>`;
                     extra=previewCell+profileCell+measureCell;
                 }
+                // Monitor type：PM/NORMAL 藍色、DOWN（及其他）黑色
+                const mtHtml=(r.monTypes||[]).map(t=>{
+                    const up=String(t).toUpperCase();
+                    const col=(up==='PM'||up==='NORMAL')?'#1976d2':'#111';
+                    return `<span style="color:${col};font-weight:700;">${escapeHtml(t)}</span>`;
+                }).join(', ');
                 html+=`<tr class="${rowClass}"><td>${escapeHtml(r.entity)}</td><td>${escapeHtml(r.processUnit||'')}</td><td>${cid}</td><td class="cn-col">${nameHtml}</td>
+                    <td style="text-align:center;">${mtHtml}</td>
                     <td style="text-align:center;">${escapeHtml(r.cnt)}</td><td>${escapeHtml(datesText)}</td><td class="port-cell" data-pk="${escapeHtml(r.mkey)}">${escapeHtml(r.ports||(_portsLoading?'...':''))}</td>${extra}</tr>`;
             }
             html+='</tbody></table>';
@@ -1239,7 +1107,7 @@
         (function init(){
             const input=document.getElementById('pickDate');
             const weekHint=document.getElementById('weekHint');
-            function updateWeekHint(d){weekHint.textContent='W'+getWeekNumber(startTuesdayFor(d));}
+            function updateWeekHint(d){const wd=['日','一','二','三','四','五','六'][d.getDay()];weekHint.textContent='（'+wd+'）';}
 
             const today=new Date();
             input.value=toISODateLocal(today);

@@ -230,7 +230,7 @@ public partial class NPW_Alarm : Page
     //   - ADDER / NON-ADDER: CHART_TYPE 'C-C' / 'XBAR'
     //   - Entity: PROCESSUNIT prefix before '-' (only NISACVD / SACVD shown)
     //   - exclude Engineering: CHART_DESC <> 'Engineering'
-    //   - MONITOR_TYPE IN (NORMAL, PM)
+    //   - MONITOR_TYPE: all types included (shown as a column on the client)
     //   - Alarm: ALARM_COUNT >= 1 (decided on the client)
     // The SQL pre-filters only drop rows the client would discard anyway, so it
     // does not change results, it only shrinks the payload.
@@ -239,13 +239,13 @@ public partial class NPW_Alarm : Page
         DateTime refDate;
         if (!DateTime.TryParse(Request.QueryString["date"], out refDate)) refDate = DateTime.Today;
         // week start = most recent Tuesday on or before refDate
-        int diff = (((int)refDate.DayOfWeek) - ((int)DayOfWeek.Tuesday) + 7) % 7;
-        DateTime weekStart = refDate.Date.AddDays(-diff);   // Tuesday
-        DateTime weekEndExcl = weekStart.AddDays(7);        // next Tuesday (exclusive)
-        DateTime weekEnd = weekStart.AddDays(6);            // Monday
+        // Daily range: the report now covers the picked single day (was weekly).
+        DateTime weekStart = refDate.Date;                  // picked day
+        DateTime weekEndExcl = weekStart.AddDays(1);        // next day (exclusive)
+        DateTime weekEnd = weekStart;                       // same day
 
         var days = new List<string>();
-        for (int i = 0; i < 7; i++) days.Add(weekStart.AddDays(i).ToString("yyyy-MM-dd"));
+        days.Add(weekStart.ToString("yyyy-MM-dd"));
 
         string sql =
             "SELECT PROCESSUNIT, CONVERT(varchar(10), UPDATE_TIME, 23) AS UPDATE_TIME, " +
@@ -253,7 +253,6 @@ public partial class NPW_Alarm : Page
             "LOT, RECIPE " +
             "FROM " + ChartTable + " WITH (NOLOCK) " +
             "WHERE UPDATE_TIME >= @p0 AND UPDATE_TIME < @p1 " +
-            "AND MONITOR_TYPE IN ('NORMAL','PM') " +
             "AND ISNULL(CHART_DESC,'') <> 'Engineering' " +
             "AND CHART_TYPE IN ('C-C','XBAR') " +
             "AND (PROCESSUNIT LIKE 'NISACVD%' OR PROCESSUNIT LIKE 'SACVD%')";
@@ -263,7 +262,7 @@ public partial class NPW_Alarm : Page
         Response.Write(ser.Serialize(new Dictionary<string, object> {
             { "ok", true },
             { "week", new Dictionary<string, object> {
-                { "label", "W" + IsoWeek(weekStart) },
+                { "label", weekStart.ToString("yyyy-MM-dd") },
                 { "start", weekStart.ToString("yyyy-MM-dd") },
                 { "end", weekEnd.ToString("yyyy-MM-dd") },
                 { "days", days }
@@ -303,9 +302,9 @@ public partial class NPW_Alarm : Page
     {
         DateTime refDate;
         if (!DateTime.TryParse(Request.QueryString["date"], out refDate)) refDate = DateTime.Today;
-        int diff = (((int)refDate.DayOfWeek) - ((int)DayOfWeek.Tuesday) + 7) % 7;
-        DateTime weekStart = refDate.Date.AddDays(-diff);   // Tuesday
-        DateTime weekEndExcl = weekStart.AddDays(7);        // next Tuesday (exclusive)
+        // Daily range: matches HandleAlarm (single picked day).
+        DateTime weekStart = refDate.Date;
+        DateTime weekEndExcl = weekStart.AddDays(1);
 
         string sql =
             "SELECT DISTINCT c.LOT, CONVERT(varchar(10), c.UPDATE_TIME, 23) AS UPDATE_TIME, lh.PORTID, " +
@@ -321,7 +320,6 @@ public partial class NPW_Alarm : Page
             "WHERE c.UPDATE_TIME >= @p0 AND c.UPDATE_TIME < @p1 " +
             "AND c.ALARM_COUNT >= 1 AND c.LOT IS NOT NULL AND c.LASTDATATMST IS NOT NULL " +
             "AND (c.CHART_TYPE = 'XBAR' OR c.RECIPE IS NOT NULL) " +
-            "AND c.MONITOR_TYPE IN ('NORMAL','PM') " +
             "AND ISNULL(c.CHART_DESC,'') <> 'Engineering' " +
             "AND c.CHART_TYPE IN ('C-C','XBAR') " +
             "AND (c.PROCESSUNIT LIKE 'NISACVD%' OR c.PROCESSUNIT LIKE 'SACVD%')";
