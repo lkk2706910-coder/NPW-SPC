@@ -606,6 +606,7 @@ public partial class NPW_Alarm : Page
             note["block"] = TextField(incoming, "block", 10);
             note["tool"] = TextField(incoming, "tool", 100);
             note["waferCount"] = TextField(incoming, "waferCount", 500);
+            note["item"] = TextField(incoming, "item", EmstMaxText);
             note["action"] = TextField(incoming, "action", EmstMaxText);
             note["followUp"] = TextField(incoming, "followUp", EmstMaxText);
             note["createdAt"] = (existing != null && existing.ContainsKey("createdAt")) ? existing["createdAt"] : now;

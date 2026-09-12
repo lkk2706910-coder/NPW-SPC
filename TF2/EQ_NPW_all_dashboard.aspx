@@ -1491,8 +1491,9 @@
           _emst = { saved: false, touched: {} };
           $('emst-tool').value = String(row.PROCESSINGUNIT || '').toUpperCase();
           $('emst-wc').value = '';
-          $('emst-action').value = '3-1.';     // 公版 3/4 項預填編號，Enter 自動帶下一號（見 emstNumberedEnter）
-          $('emst-followup').value = '4-1.';
+          $('emst-item').value = '';
+          $('emst-action').value = '4-1.';     // 公版 4/5 項預填編號，Enter 自動帶下一號（見 emstNumberedEnter）
+          $('emst-followup').value = '5-1.';
           $('emst-meta').textContent = block === 'N' ? 'NON-ADDER：Tool 取 Tool_name + RECIPE 尾碼' : 'ADDER：Tool 取 Tool_name';
           dSetStatus($('emst-status'), '');
           $('emst-save').disabled = false;
@@ -1530,8 +1531,10 @@
               _emst.saved = true;
               $('emst-tool').value = n.tool || '';
               $('emst-wc').value = n.waferCount || '';
-              $('emst-action').value = n.action || '3-1.';
-              $('emst-followup').value = n.followUp || '4-1.';
+              $('emst-item').value = n.item || '';
+              // 舊版公版 Action/Follow up 是 3-x./4-x.，載入時改成現行的 4-x./5-x.
+              $('emst-action').value = emstRenumber(n.action, '3', '4') || '4-1.';
+              $('emst-followup').value = emstRenumber(n.followUp, '4', '5') || '5-1.';
               dSetStatus($('emst-status'), '上次儲存：' + (n.updatedAt || ''), 'ok');
             })
             .catch(function (err) {
@@ -1549,6 +1552,7 @@
             block: _currentDetail.block === 'N' ? 'NON-ADDER' : 'ADDER',
             tool: $('emst-tool').value.trim(),
             waferCount: $('emst-wc').value.trim(),
+            item: $('emst-item').value.trim(),
             action: $('emst-action').value.trim(),
             followUp: $('emst-followup').value.trim()
           };
@@ -1570,16 +1574,26 @@
         }
 
         // 組成公版文字並複製到剪貼簿
-        // 3/4 項為多列內容：標題自成一列，3-1./4-1. 等每一列都放在標題下方
+        // 4/5 項為多列內容：標題自成一列，4-1./5-1. 等每一列都放在標題下方
         function emstBlockLines(text) {
           var s = String(text || '').replace(/\r\n?/g, '\n').trim();
           return s ? '\n' + s : '';
         }
+        // 3 Item 為自由文字：單列就接在標題後面，多列則和 4/5 一樣放在標題下方
+        function emstItemText(text) {
+          var s = String(text || '').replace(/\r\n?/g, '\n').trim();
+          return s.indexOf('\n') >= 0 ? '\n' + s : (s ? ' ' + s : '');
+        }
+        // 把舊版儲存的 from-x. 列首編號改成 to-x.（如 3-1. → 4-1.）
+        function emstRenumber(text, from, to) {
+          return String(text || '').replace(new RegExp('^' + from + '-(\\d+)\\.', 'gm'), to + '-$1.');
+        }
         function emstTemplateText() {
           return '1.Tool: ' + $('emst-tool').value.trim()
             + '\n2.Wafer count: ' + $('emst-wc').value.trim()
-            + '\n3.Action:' + emstBlockLines($('emst-action').value)
-            + '\n4.Follow up:' + emstBlockLines($('emst-followup').value);
+            + '\n3.Item:' + emstItemText($('emst-item').value)
+            + '\n4.Action:' + emstBlockLines($('emst-action').value)
+            + '\n5.Follow up:' + emstBlockLines($('emst-followup').value);
         }
 
         function emstCopy() {
@@ -2017,8 +2031,8 @@
             $('emst-copy').addEventListener('click', emstCopy);
             $('emst-tool').addEventListener('input', function () { _emst.touched.tool = true; });
             $('emst-wc').addEventListener('input', function () { _emst.touched.wc = true; });
-            emstNumberedEnter($('emst-action'), '3');
-            emstNumberedEnter($('emst-followup'), '4');
+            emstNumberedEnter($('emst-action'), '4');
+            emstNumberedEnter($('emst-followup'), '5');
             $('detail-modal').addEventListener('click', function (e) { if (e.target === this) closeDetail(); });
             window.addEventListener('message', function (e) {
                 if (e.data && e.data.type === 'wm-open' && _currentDetail && _currentDetail.wmImg) wmOpenPopup(_currentDetail.wmImg);
@@ -2185,14 +2199,15 @@
         </div>
       </div>
 
-      <!-- EMST 填寫：1/2 依規則預填，3/4 使用者手填；儲存到 TF2api/EmstNote.ashx（一筆 OCAP 一個 JSON） -->
+      <!-- EMST 填寫：1/2 依規則預填，3 Item 自由填寫，4/5 自動編號；儲存到 ?op=emst（每天一個 JSON） -->
       <div class="card emst">
         <h4>EMST 填寫 <small id="emst-meta"></small></h4>
         <div class="emst-grid">
           <label>1. Tool<input type="text" id="emst-tool" autocomplete="off"></label>
           <label>2. Wafer count<input type="text" id="emst-wc" autocomplete="off"></label>
-          <label class="full">3. Action<textarea id="emst-action" rows="3" placeholder="使用者填寫"></textarea></label>
-          <label class="full">4. Follow up<textarea id="emst-followup" rows="3" placeholder="使用者填寫"></textarea></label>
+          <label class="full">3. Item<textarea id="emst-item" rows="2" placeholder="使用者填寫（不編號）"></textarea></label>
+          <label class="full">4. Action<textarea id="emst-action" rows="3" placeholder="使用者填寫"></textarea></label>
+          <label class="full">5. Follow up<textarea id="emst-followup" rows="3" placeholder="使用者填寫"></textarea></label>
         </div>
         <div class="emst-actions">
           <button type="button" id="emst-save">儲存</button>
