@@ -14,10 +14,10 @@ using System.Web.UI;
 // No-auth home page + AI chat proxy + NPW weekly alarm data.
 //
 // Routes:
-//   GET  NPW_Alarm.aspx            -> renders the page (no auth required)
-//   POST NPW_Alarm.aspx?op=chat    -> proxy to LLM
-//   GET  NPW_Alarm.aspx?op=data    -> generic TF2_NPW_CHART query
-//   GET  NPW_Alarm.aspx?op=alarm   -> raw rows for the weekly alarm report
+//   GET  EQ_NPW_all_dashboard.aspx            -> renders the page (no auth required)
+//   POST EQ_NPW_all_dashboard.aspx?op=chat    -> proxy to LLM
+//   GET  EQ_NPW_all_dashboard.aspx?op=data    -> generic TF2_NPW_CHART query
+//   GET  EQ_NPW_all_dashboard.aspx?op=alarm   -> raw rows for the weekly alarm report
 //
 // NOTE: keep this file pure ASCII. Some servers compile .cs as Big5/CP950,
 // which can eat the newline after a non-ASCII char and break compilation.

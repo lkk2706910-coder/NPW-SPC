@@ -1,10 +1,10 @@
-<%@ Page Language="C#" AutoEventWireup="true" Inherits="NPW_Alarm" CodeFile="NPW_Alarm.aspx.cs" EnableSessionState="false" %>
+<%@ Page Language="C#" AutoEventWireup="true" Inherits="NPW_Alarm" CodeFile="EQ_NPW_all_dashboard.aspx.cs" EnableSessionState="false" %>
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>TF2 NPW Alarm 日報</title>
+    <title>TF2/T_EQ1 AMAT daily all NPW alarm dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.3.0/dist/chart.umd.min.js"></script>
     <style>
         :root {
@@ -159,7 +159,7 @@
 </head>
 <body>
     <div class="topbar">
-        <h1>TF2 NPW</h1>
+        <h1>TF2/T_EQ1 AMAT daily all NPW alarm dashboard</h1>
         <div class="seg-tabs">
         </div>
         <span id="saveStatus" class="save-status"></span>
@@ -336,7 +336,7 @@
         <section id="sec-weekly">
         <div class="card npw-report-card">
             <div class="npw-toolbar">
-                <h2 style="margin:0;">NPW Alarm 日報</h2>
+                <h2 style="margin:0;">TF2/T_EQ1 AMAT daily all NPW alarm dashboard</h2>
                 <label for="pickDate">選擇日期</label>
                 <span class="npw-date-wrap">
                     <input id="pickDate" type="date" />
@@ -364,10 +364,10 @@
 
     <script>
     // NPW Alarm 週報：沿用原工具(TF2_NPW.html)的判讀邏輯，資料來源改為
-    // NPW_Alarm.aspx?op=alarm（DB: GPTDB_USPC.dbo.TF2_NPW_CHART）。
+    // EQ_NPW_all_dashboard.aspx?op=alarm（DB: GPTDB_USPC.dbo.TF2_NPW_CHART）。
     (function () {
-        // 自我參照目前頁面（NPW_Alarm.aspx 或 NPW_Alarm_TF1.aspx），讓 TF1/TF2 各自打自己的後端
-        const PAGE = location.pathname.split('/').pop() || 'NPW_Alarm.aspx';
+        // 自我參照目前頁面（EQ_NPW_all_dashboard.aspx；TF1 版為 NPW_Alarm_TF1.aspx），讓 TF1/TF2 各自打自己的後端
+        const PAGE = location.pathname.split('/').pop() || 'EQ_NPW_all_dashboard.aspx';
         // ===== 日期工具 =====
         function toISODateLocal(d){const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),dd=String(d.getDate()).padStart(2,'0');return `${y}-${m}-${dd}`;}
         function fmtYMD(d){const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),dd=String(d.getDate()).padStart(2,'0');return `${y}/${m}/${dd}`;}
@@ -2349,10 +2349,10 @@
 
     <script>
         // ============================================================
-        //  AI Chat Widget -- talks to NPW_Alarm.aspx?op=chat (no auth).
+        //  AI Chat Widget -- talks to EQ_NPW_all_dashboard.aspx?op=chat (no auth).
         // ============================================================
         (function () {
-            const PROXY_URL = (location.pathname.split('/').pop() || 'NPW_Alarm.aspx') + '?op=chat';
+            const PROXY_URL = (location.pathname.split('/').pop() || 'EQ_NPW_all_dashboard.aspx') + '?op=chat';
             const STORAGE_KEY = 'webTemplateLite.aiSessions';
             const ACTIVE_KEY  = 'webTemplateLite.aiActiveId';
 
