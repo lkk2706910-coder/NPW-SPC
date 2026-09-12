@@ -212,6 +212,8 @@
         .npw-report-card .npw-spark canvas{display:block;width:100%!important;height:100%!important;}
         .npw-report-card .npw-cell-map{text-align:center;padding:2px!important;}
         .npw-report-card .adder-map-thumb{width:184px;max-width:184px;height:auto;border:1px solid #bbb;background:#fafafa;object-fit:contain;display:block;margin:0 auto;cursor:zoom-in;}
+        .emst-btn{padding:4px 12px;border:1px solid #1976d2;border-radius:6px;background:#fff;color:#1976d2;font-size:12px;font-weight:700;cursor:pointer;}
+        .emst-btn:hover{background:#1976d2;color:#fff;}
         .npw-report-card .dup-chart{background:#ffe19a!important;}
         .npw-report-card .dim-row{background:#d9d9d9!important;}
         .npw-report-card .inline-empty{padding:8px 10px;color:#666;font-size:12px;background:#fff;border:1px dashed #999;}
@@ -825,12 +827,12 @@
                 return String(a.chartName||'').localeCompare(String(b.chartName||''));
             });
 
-            const colCount=isAdder?12:11;
+            const colCount=isAdder?13:12;
             let head=`<tr><th colspan="${colCount}">${blockLabel} - Chart Alarm Detail (${fmtYMDDash(start)})</th></tr>
                 <tr><th style="width:80px;">Entity</th><th style="width:110px;">Tool_name</th><th style="width:80px;">CHART_ID</th><th class="cn-col">CHART_NAME</th>
                 <th style="width:90px;text-align:center;">Monitor type</th><th style="width:70px;text-align:center;">Alarm 次數</th><th style="width:160px;">ALARM 日期</th><th style="width:90px;">Port</th>`;
-            if(isAdder)head+=`<th style="width:380px;text-align:center;">Trend_Chart</th><th style="width:200px;text-align:center;">PRE_Map</th><th style="width:200px;text-align:center;">ADDER_Map</th><th style="width:110px;">Measure_Tool</th>`;
-            else head+=`<th style="width:380px;text-align:center;">Trend_Chart</th><th style="width:200px;text-align:center;">Profile</th><th style="width:110px;">Measure_Tool</th>`;
+            if(isAdder)head+=`<th style="width:380px;text-align:center;">Trend_Chart</th><th style="width:200px;text-align:center;">PRE_Map</th><th style="width:200px;text-align:center;">ADDER_Map</th><th style="width:110px;">Measure_Tool</th><th style="width:70px;text-align:center;">EMST 填寫</th>`;
+            else head+=`<th style="width:380px;text-align:center;">Trend_Chart</th><th style="width:200px;text-align:center;">Profile</th><th style="width:110px;">Measure_Tool</th><th style="width:70px;text-align:center;">EMST 填寫</th>`;
             head+=`</tr>`;
 
             let html=`<table class="chart-detail"><thead>${head}</thead><tbody>`;
@@ -854,16 +856,18 @@
                 const puInit=escapeHtml(parseMeasurePu(r.measurePu));
                 const previewCell=`<td class="npw-cell-preview"><div class="npw-spark" data-cid="${cid}" data-block="${isAdder?'A':'N'}"><canvas></canvas></div></td>`;
                 const measureCell=`<td><span class="map-info" ${da}>${puInit||'<span style="color:#999;">...</span>'}</span></td>`;
+                // EMST 填寫區：每筆 alarm 一顆按鈕，點擊以彈窗開 OCAP 明細頁（OCAP/OCAP.aspx 深連結）
+                const emstCell=`<td style="text-align:center;"><button type="button" class="emst-btn" data-cid="${cid}" data-seq="${seq}" onclick="ocapOpen(this)">EMST</button></td>`;
                 let extra='';
                 if(isAdder){
                     extra=previewCell+
                           `<td class="npw-cell-map"><span class="pre-map" ${da} style="color:#999;">...</span></td>`+
                           `<td class="npw-cell-map"><span class="adder-map" ${da} ${wmAttr} style="color:#999;">...</span></td>`+
-                          measureCell;
+                          measureCell+emstCell;
                 }else{
                     const waferAttr=`data-wafer="${escapeHtml(r.wafer==null?'':String(r.wafer))}"`;
                     const profileCell=`<td class="npw-cell-map"><span class="profile-img" data-site="${site}" data-cid="${cid}" data-seq="${seq}" data-pv="${pv}" ${waferAttr} ${wmAttr} style="color:#999;">...</span></td>`;
-                    extra=previewCell+profileCell+measureCell;
+                    extra=previewCell+profileCell+measureCell+emstCell;
                 }
                 // Monitor type：PM/NORMAL 藍色、DOWN（及其他）黑色
                 const mtHtml=(r.monTypes||[]).map(t=>{
@@ -1176,6 +1180,16 @@
          對角度（Wafer Match）：點 ADDER_map 時彈窗，iframe 載入 WaferMatch.html
          並以推導出的 mode/CASS/side/station + 該 map 圖自動帶入。
          ============================================================ -->
+    <!-- EMST 填寫：點表格 EMST 按鈕，以彈窗載入 OCAP 明細頁（深連結 uchart_id+chart_seq） -->
+    <div id="ocapModal" style="display:none;position:fixed;z-index:1190;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);">
+        <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:96vw;height:92vh;background:#fff;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,0.4);overflow:hidden;">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px;background:#455a64;color:#fff;">
+                <span id="ocapTitle" style="font-weight:700;font-size:14px;">EMST 填寫 · OCAP 明細</span>
+                <span onclick="ocapClose()" style="cursor:pointer;font-size:24px;line-height:1;">&times;</span>
+            </div>
+            <iframe id="ocapFrame" title="OCAP 明細" style="border:0;width:100%;height:calc(100% - 40px);" src="about:blank"></iframe>
+        </div>
+    </div>
     <div id="wmatchModal" style="display:none;position:fixed;z-index:1200;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);">
         <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:96vw;height:92vh;background:#fff;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,0.4);overflow:hidden;">
             <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px;background:#1976d2;color:#fff;">
@@ -1290,7 +1304,25 @@
             document.getElementById('wmatchFrame').src='about:blank';  // 停止 iframe、釋放
         }
         document.getElementById('wmatchModal').addEventListener('click', function(e){ if(e.target===this) wmClose(); });
-        document.addEventListener('keydown', function(e){ if(e.key==='Escape') wmClose(); });
+        // EMST 填寫：以彈窗開 OCAP 明細頁（每筆 alarm 的 CHART_ID + CHART_SEQ 深連結）
+        function ocapOpen(btn){
+            const cid=String(btn.getAttribute('data-cid')||'').replace(/\D/g,'');
+            const seq=String(btn.getAttribute('data-seq')||'').replace(/\D/g,'');
+            if(!cid||!seq){ alert('此筆缺少 CHART_ID / CHART_SEQ，無法開啟 OCAP 明細'); return; }
+            document.getElementById('ocapTitle').textContent=`EMST 填寫 · OCAP 明細（${cid} / ${seq}）`;
+            document.getElementById('ocapFrame').src='OCAP/OCAP.aspx?uchart_id='+encodeURIComponent(cid)+'&chart_seq='+encodeURIComponent(seq);
+            document.getElementById('ocapModal').style.display='block';
+        }
+        function ocapClose(){
+            document.getElementById('ocapModal').style.display='none';
+            document.getElementById('ocapFrame').src='about:blank';
+        }
+        document.getElementById('ocapModal').addEventListener('click', function(e){ if(e.target===this) ocapClose(); });
+        document.addEventListener('keydown', function(e){
+            if(e.key!=='Escape')return;
+            if(document.getElementById('wmatchModal').style.display==='block')wmClose();
+            else ocapClose();
+        });
     </script>
 
     <!-- ============================================================
