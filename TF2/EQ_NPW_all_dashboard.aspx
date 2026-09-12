@@ -1570,11 +1570,16 @@
         }
 
         // 組成公版文字並複製到剪貼簿
+        // 3/4 項為多列內容：標題自成一列，3-1./4-1. 等每一列都放在標題下方
+        function emstBlockLines(text) {
+          var s = String(text || '').replace(/\r\n?/g, '\n').trim();
+          return s ? '\n' + s : '';
+        }
         function emstTemplateText() {
           return '1.Tool: ' + $('emst-tool').value.trim()
             + '\n2.Wafer count: ' + $('emst-wc').value.trim()
-            + '\n3.Action: ' + $('emst-action').value.trim()
-            + '\n4.Follow up: ' + $('emst-followup').value.trim();
+            + '\n3.Action:' + emstBlockLines($('emst-action').value)
+            + '\n4.Follow up:' + emstBlockLines($('emst-followup').value);
         }
 
         function emstCopy() {
