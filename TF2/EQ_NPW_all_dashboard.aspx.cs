@@ -8,6 +8,7 @@ using System.IO;
 using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Web;
 using System.Web.Script.Serialization;
 using System.Web.UI;
@@ -19,6 +20,10 @@ using System.Web.UI;
 //   POST EQ_NPW_all_dashboard.aspx?op=chat    -> proxy to LLM
 //   GET  EQ_NPW_all_dashboard.aspx?op=data    -> generic TF2_NPW_CHART query
 //   GET  EQ_NPW_all_dashboard.aspx?op=alarm   -> raw rows for the weekly alarm report
+//   GET  EQ_NPW_all_dashboard.aspx?op=port    -> Port lookup for one day (cached, see CachedJson)
+//   GET  EQ_NPW_all_dashboard.aspx?op=mapinfo -> SPC PRE/ADDER map + MeasurePU (cached)
+//   GET  EQ_NPW_all_dashboard.aspx?op=profileimg -> SPC profile image (cached)
+//        add &nocache=1 to any of the three to force a live query
 //
 // NOTE: keep this file pure ASCII. Some servers compile .cs as Big5/CP950,
 // which can eat the newline after a non-ASCII char and break compilation.
@@ -79,11 +84,16 @@ public partial class NPW_Alarm : Page
             Response.End();
             return;
         }
-        if (string.Equals(opStr, "port", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(opStr, "port", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(opStr, "mapinfo", StringComparison.OrdinalIgnoreCase))
         {
             Response.ContentType = "application/json; charset=utf-8";
             Response.Cache.SetCacheability(HttpCacheability.NoCache);
-            try { HandlePort(); }
+            try
+            {
+                if (string.Equals(opStr, "port", StringComparison.OrdinalIgnoreCase)) HandlePort();
+                else HandleMapInfo();
+            }
             catch (Exception ex)
             {
                 Response.StatusCode = 500;
@@ -319,6 +329,149 @@ public partial class NPW_Alarm : Page
     //     and is kicked off only AFTER the main table has rendered.
     // Returns { ok, rows: [ { LOT, UPDATE_TIME, PORTID }, ... ] }; the client
     // groups PORTIDs per LOT+day and fills the Port column in place.
+    // ===== Shared result cache (memory + JSON file, no scheduler needed) =====
+    //
+    // The slow lookups (Port cross-db query, SPC map info / profile page
+    // scraping) return the same answer for everyone, so the first request
+    // that succeeds stores the JSON under cache/<kind>/<key>.json (and in
+    // HttpRuntime.Cache); later requests from any user are served from there.
+    //   - fresh window per kind (see callers); after that the stale copy is
+    //     still returned immediately and ONE background refresh is started
+    //   - a per-key lock makes concurrent first requests wait for one query
+    //     instead of all hitting the DB / SPC site
+    //   - ?nocache=1 forces a live query and overwrites the cache
+    //   - responses get "cached":true/false, "cachedAt", "stale" prepended
+    // Files survive app-pool recycles; folder hidden by web.config hiddenSegments.
+    private const string CacheFolder = "cache";
+    private static readonly object _cacheLocksGate = new object();
+    private static readonly Dictionary<string, object> _cacheLocks = new Dictionary<string, object>();
+    private static readonly HashSet<string> _cacheRefreshing = new HashSet<string>();
+
+    private sealed class CacheHit
+    {
+        public string Json;
+        public DateTime At;
+    }
+
+    private static object CacheLockFor(string id)
+    {
+        lock (_cacheLocksGate)
+        {
+            object o;
+            if (!_cacheLocks.TryGetValue(id, out o)) { o = new object(); _cacheLocks[id] = o; }
+            return o;
+        }
+    }
+
+    private static string CacheSafeKey(string key)
+    {
+        string s = Regex.Replace(key ?? "", "[^0-9A-Za-z_.-]", "_");
+        return s.Length > 150 ? s.Substring(0, 150) : s;
+    }
+
+    private static CacheHit CacheRead(string folder, string kind, string key)
+    {
+        string id = "npwcache|" + kind + "|" + key;
+        CacheHit hit = HttpRuntime.Cache[id] as CacheHit;
+        if (hit != null) return hit;
+        try
+        {
+            string path = Path.Combine(Path.Combine(folder, kind), CacheSafeKey(key) + ".json");
+            if (!File.Exists(path)) return null;
+            string json = File.ReadAllText(path, Encoding.UTF8);
+            if (string.IsNullOrEmpty(json)) return null;
+            hit = new CacheHit { Json = json, At = File.GetLastWriteTime(path) };
+            HttpRuntime.Cache.Insert(id, hit, null, DateTime.Now.AddHours(12), System.Web.Caching.Cache.NoSlidingExpiration);
+            return hit;
+        }
+        catch { return null; }
+    }
+
+    private static CacheHit CacheWrite(string folder, string kind, string key, string json)
+    {
+        var hit = new CacheHit { Json = json, At = DateTime.Now };
+        HttpRuntime.Cache.Insert("npwcache|" + kind + "|" + key, hit, null, DateTime.Now.AddHours(12), System.Web.Caching.Cache.NoSlidingExpiration);
+        try
+        {
+            string dir = Path.Combine(folder, kind);
+            Directory.CreateDirectory(dir);
+            string path = Path.Combine(dir, CacheSafeKey(key) + ".json");
+            string tmp = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            File.WriteAllText(tmp, json, new UTF8Encoding(false));
+            if (File.Exists(path)) File.Delete(path);
+            File.Move(tmp, path);
+        }
+        catch { /* memory copy still serves this process */ }
+        return hit;
+    }
+
+    // produce() must not touch Request/Response/Server (it may run on a
+    // background thread); capture what it needs before calling this.
+    // freshFor(json) decides how long a produced result stays fresh, so
+    // callers can keep "nothing found" results short and real hits long.
+    private static string CachedJson(string folder, string kind, string key, bool bypass,
+        Func<string> produce, Func<string, TimeSpan> freshFor)
+    {
+        string id = kind + "|" + key;
+        CacheHit hit = bypass ? null : CacheRead(folder, kind, key);
+        if (hit != null)
+        {
+            bool stale = (DateTime.Now - hit.At) > freshFor(hit.Json);
+            if (stale) CacheRefreshInBackground(folder, kind, key, id, produce);
+            return CacheDecorate(hit, true, stale);
+        }
+        lock (CacheLockFor(id))
+        {
+            if (!bypass)
+            {
+                hit = CacheRead(folder, kind, key);   // another request just filled it
+                if (hit != null) return CacheDecorate(hit, true, false);
+            }
+            string json = produce();
+            hit = CacheWrite(folder, kind, key, json);
+            return CacheDecorate(hit, false, false);
+        }
+    }
+
+    private static void CacheRefreshInBackground(string folder, string kind, string key, string id, Func<string> produce)
+    {
+        lock (_cacheRefreshing)
+        {
+            if (_cacheRefreshing.Contains(id)) return;
+            _cacheRefreshing.Add(id);
+        }
+        ThreadPool.QueueUserWorkItem(delegate
+        {
+            try
+            {
+                lock (CacheLockFor(id)) CacheWrite(folder, kind, key, produce());
+            }
+            catch { /* keep serving the stale copy */ }
+            finally { lock (_cacheRefreshing) _cacheRefreshing.Remove(id); }
+        });
+    }
+
+    // Prepend cache meta to a JSON object body ("{...}" -> "{"cached":..,...}").
+    private static string CacheDecorate(CacheHit hit, bool cached, bool stale)
+    {
+        string body = (hit.Json ?? "").Trim();
+        string meta = "\"cached\":" + (cached ? "true" : "false") +
+                      ",\"cachedAt\":\"" + hit.At.ToString("yyyy-MM-dd HH:mm:ss") + "\"" +
+                      ",\"stale\":" + (stale ? "true" : "false");
+        if (!body.StartsWith("{")) return "{" + meta + ",\"data\":" + body + "}";
+        string rest = body.Substring(1).TrimStart();
+        return "{" + meta + (rest.StartsWith("}") ? "" : ",") + rest;
+    }
+
+    private bool NoCacheRequested()
+    {
+        string v = Request.QueryString["nocache"];
+        return v != null && v != "0" && !string.Equals(v, "false", StringComparison.OrdinalIgnoreCase);
+    }
+
+    // Port rows for one day. Fresh 15 min for today and the last 7 days (EWS
+    // records for NON-ADDER may arrive up to 7 days after the alarm), 7 days
+    // for older dates; a stale copy is still served while one refresh runs.
     private void HandlePort()
     {
         DateTime refDate;
@@ -326,11 +479,24 @@ public partial class NPW_Alarm : Page
         // Daily range: matches HandleAlarm (single picked day).
         DateTime weekStart = refDate.Date;
         DateTime weekEndExcl = weekStart.AddDays(1);
+        string table = ChartTable;                       // reads Request; capture for the closure
+        string folder = Server.MapPath(CacheFolder);
+        string key = weekStart.ToString("yyyy-MM-dd") + (table.IndexOf("TF1", StringComparison.OrdinalIgnoreCase) >= 0 ? "_TF1" : "");
+        bool recent = weekStart >= DateTime.Today.AddDays(-7);
+        TimeSpan fresh = recent ? TimeSpan.FromMinutes(15) : TimeSpan.FromDays(7);
 
+        string json = CachedJson(folder, "port", key, NoCacheRequested(),
+            delegate { return QueryPortJson(table, weekStart, weekEndExcl); },
+            delegate(string j) { return fresh; });
+        Response.Write(json);
+    }
+
+    private static string QueryPortJson(string table, DateTime weekStart, DateTime weekEndExcl)
+    {
         string sql =
             "SELECT DISTINCT c.LOT, CONVERT(varchar(10), c.UPDATE_TIME, 23) AS UPDATE_TIME, lh.PORTID, " +
             "CASE WHEN c.CHART_TYPE = 'C-C' THEN 'A' ELSE 'N' END AS BLK " +
-            "FROM " + ChartTable + " c WITH (NOLOCK) " +
+            "FROM " + table + " c WITH (NOLOCK) " +
             "CROSS APPLY (SELECT TOP 1 h.PORTID FROM [MESI_DB].[dbo].[ews_lothist] h WITH (NOLOCK) " +
             "WHERE h.LOTID = CASE WHEN RIGHT(c.LOT,4)='_ADD' THEN LEFT(c.LOT, LEN(c.LOT)-4) ELSE c.LOT END " +
             "AND (c.CHART_TYPE = 'XBAR' OR c.RECIPE LIKE h.PPID + '%') " +
@@ -347,9 +513,93 @@ public partial class NPW_Alarm : Page
         var rows = QueryRows(sql, weekStart, weekEndExcl);
 
         var ser = new JavaScriptSerializer { MaxJsonLength = int.MaxValue };
-        Response.Write(ser.Serialize(new Dictionary<string, object> {
+        return ser.Serialize(new Dictionary<string, object> {
             { "ok", true }, { "rows", rows }
-        }));
+        });
+    }
+
+    // ===== SPC map info (PRE / ADDER map + MeasurePU), cached =====
+    // Same scraping as TF2api/SpcMapInfoProxy.ashx, moved here so the result
+    // can be cached: a chart point's maps never change, so a hit stays fresh
+    // for 30 days; "nothing found" is retried after 10 minutes.
+    //   GET ?op=mapinfo&site=12AP58&uchart_id=..&chart_seq=..&PointValue=..
+    private void HandleMapInfo()
+    {
+        string site = Regex.Replace(Request.QueryString["site"] ?? "12AP58", "[^0-9A-Za-z]", "");
+        if (!string.Equals(site, "12AP58", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(site, "12AP14", StringComparison.OrdinalIgnoreCase)) site = "12AP58";
+        string uchartId = Regex.Replace(Request.QueryString["uchart_id"] ?? Request.QueryString["uchartId"] ?? "", "[^0-9]", "");
+        string chartSeq = Regex.Replace(Request.QueryString["chart_seq"] ?? Request.QueryString["chartSeq"] ?? "", "[^0-9]", "");
+        string pointValue = Regex.Replace(Request.QueryString["PointValue"] ?? Request.QueryString["pointValue"] ?? "10", "[^0-9.]", "");
+        if (pointValue.Length == 0) pointValue = "10";
+        if (uchartId.Length == 0 || chartSeq.Length == 0)
+        {
+            Response.StatusCode = 400;
+            Response.Write("{\"ok\":false,\"error\":\"uchart_id/chart_seq required\"}");
+            return;
+        }
+        string folder = Server.MapPath(CacheFolder);
+        string key = site + "_" + uchartId + "_" + chartSeq + "_" + pointValue;
+        string json = CachedJson(folder, "mapinfo", key, NoCacheRequested(),
+            delegate { return ScrapeMapInfoJson(site, uchartId, chartSeq, pointValue); },
+            delegate(string j) { return MapInfoFound(j) ? TimeSpan.FromDays(30) : TimeSpan.FromMinutes(10); });
+        Response.Write(json);
+    }
+
+    private static bool MapInfoFound(string json)
+    {
+        if (json == null) return false;
+        return Regex.IsMatch(json, "\"(adderMapImgUrl|preMapImgUrl|measurePU|imgUrl)\":\"[^\"]");
+    }
+
+    private static string ScrapeMapInfoJson(string site, string uchartId, string chartSeq, string pointValue)
+    {
+        string url = "http://10.10.101.170/Project1/_Blob_ShowImage_4WebResultLoop.asp" +
+                     "?site=" + Uri.EscapeDataString(site) +
+                     "&uchart_id=" + Uri.EscapeDataString(uchartId) +
+                     "&chart_seq=" + Uri.EscapeDataString(chartSeq) +
+                     "&PointValue=" + Uri.EscapeDataString(pointValue);
+        string html = HttpGetText(url);
+        var ser = new JavaScriptSerializer { MaxJsonLength = int.MaxValue };
+        if (string.IsNullOrWhiteSpace(html))
+            return ser.Serialize(new Dictionary<string, object> { { "ok", false }, { "error", "empty response" }, { "url", url } });
+
+        string measurePU = null;
+        var m1 = Regex.Match(html, @"MeasurePU\s*\([^)]*\)\s*:\s*=\s*<font[^>]*>\s*([^<\r\n]+)\s*</font>", RegexOptions.IgnoreCase);
+        if (m1.Success) measurePU = HttpUtility.HtmlDecode(m1.Groups[1].Value.Trim());
+        else
+        {
+            var m2 = Regex.Match(html, @"MeasurePU[^<]*<font[^>]*>\s*([^<\r\n]+)\s*</font>", RegexOptions.IgnoreCase);
+            if (m2.Success) measurePU = HttpUtility.HtmlDecode(m2.Groups[1].Value.Trim());
+        }
+        // Keep only the last segment, e.g. "KLA-Tencor^SP5^CUSFSCAN-B06" -> "CUSFSCAN-B06"
+        if (!string.IsNullOrWhiteSpace(measurePU) && measurePU.Contains("^"))
+            measurePU = measurePU.Substring(measurePU.LastIndexOf('^') + 1).Trim();
+
+        // All WaferMap imgs on the page, in order: PRE=0, POST=1, BASELINE=2, ADDER=3
+        var waferIds = new List<string>();
+        foreach (Match wm in Regex.Matches(html, @"_Blob_Single_WaferInfo\.asp\?WAFERINFOID=(\d+)", RegexOptions.IgnoreCase))
+        {
+            string wid = wm.Groups[1].Value;
+            if (!waferIds.Contains(wid)) waferIds.Add(wid);
+        }
+        string preWaferInfoId = waferIds.Count >= 1 ? waferIds[0] : null;
+        string adderWaferInfoId = waferIds.Count >= 4 ? waferIds[3] : null;
+        if (string.IsNullOrWhiteSpace(adderWaferInfoId))
+        {
+            var ms = Regex.Match(html, @"Surfscan\s+WaferInfoID\s*:\s*=\s*<font[^>]*>\s*(\d+)\s*</font>", RegexOptions.IgnoreCase);
+            if (ms.Success) adderWaferInfoId = ms.Groups[1].Value;
+        }
+        string baseImgUrl = "http://10.10.101.170/Project1/_Blob_Single_WaferInfo.asp?WAFERINFOID=";
+        return ser.Serialize(new Dictionary<string, object> {
+            { "ok", true }, { "site", site }, { "uchart_id", uchartId }, { "chart_seq", chartSeq }, { "PointValue", pointValue },
+            { "measurePU", measurePU },
+            { "adderWaferInfoId", adderWaferInfoId },
+            { "adderMapImgUrl", string.IsNullOrWhiteSpace(adderWaferInfoId) ? null : baseImgUrl + Uri.EscapeDataString(adderWaferInfoId) },
+            { "preWaferInfoId", preWaferInfoId },
+            { "preMapImgUrl", string.IsNullOrWhiteSpace(preWaferInfoId) ? null : baseImgUrl + Uri.EscapeDataString(preWaferInfoId) },
+            { "debug_waferIds", waferIds.ToArray() }, { "url", url }
+        });
     }
 
     // ===== EMST detail popup (ported from OCAP.aspx, self-contained) =====
@@ -847,6 +1097,19 @@ public partial class NPW_Alarm : Page
             return;
         }
 
+        // Cached like op=mapinfo: a found profile image never changes (30 days),
+        // "not found" is retried after 10 minutes.
+        string folder = Server.MapPath(CacheFolder);
+        string key = site + "_" + chartId + "_" + chartSeq + "_" + pointValue + "_" + wafer;
+        string json = CachedJson(folder, "profile", key, NoCacheRequested(),
+            delegate { return ScrapeProfileJson(site, chartId, chartSeq, pointValue, wafer); },
+            delegate(string j) { return MapInfoFound(j) ? TimeSpan.FromDays(30) : TimeSpan.FromMinutes(10); });
+        Response.Write(json);
+    }
+
+    private static string ScrapeProfileJson(string site, string chartId, string chartSeq, string pointValue, string wafer)
+    {
+        var ser = new JavaScriptSerializer();
         string entryUrl = "http://10.10.101.170/Project1/_Contour_Multi.asp?site=" + Uri.EscapeDataString(site)
             + "&ChartID=" + Uri.EscapeDataString(chartId)
             + "&ChartSEQ=" + Uri.EscapeDataString(chartSeq)
@@ -872,9 +1135,9 @@ public partial class NPW_Alarm : Page
             }
         }
 
-        Response.Write(ser.Serialize(new Dictionary<string, object> {
+        return ser.Serialize(new Dictionary<string, object> {
             { "ok", true }, { "imgUrl", imgUrl }, { "wafer", wafer }, { "url", usedUrl }
-        }));
+        });
     }
 
     // Find the RAW contour <img>; prefer the one whose URL contains the wafer.

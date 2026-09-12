@@ -177,6 +177,7 @@
         .npw-report-card #calBtn:hover{background:#eef4ff;border-color:#1976d2;}
         .npw-report-card #reloadBtn{padding:6px 14px;border:0;border-radius:6px;background:#1976d2;color:#fff;cursor:pointer;}
         .npw-report-card .npw-week-hint{color:#0f4aa8;font-weight:700;}
+        .npw-report-card .npw-port-meta{color:#6b7280;font-size:12px;}
         .npw-report-card .npw-status{color:#555;font-size:12px;}
         .npw-report-card .npw-error{color:#c00;font-size:12px;white-space:pre-line;margin-bottom:8px;}
         .npw-report-card .report-scroll{overflow:auto;}
@@ -352,6 +353,7 @@
                 <span class="npw-week-hint" id="weekHint"></span>
                 <button id="reloadBtn" type="button">重新整理</button>
                 <span id="status" class="npw-status">資料載入中...</span>
+                <span id="portMeta" class="npw-port-meta" title="Port 對應結果由伺服器快取，按「重新整理」會強制重新查詢"></span>
             </div>
             <div id="error" class="npw-error" style="display:none;"></div>
 
@@ -607,14 +609,25 @@
         let _portLookup={};      // 'LOT|yyyy-mm-dd' -> Set(PORTID)
         let _portsLoading=false;
         let _portSeq=0;          // 防止換週後舊回應覆蓋新資料
-        async function loadPorts(picked){
+        // 伺服器端有快取（cache/port/<日期>.json）：第一個人查完，其他人直接拿；
+        // force=true（按「重新整理」）帶 nocache=1 強制重查 DB 並更新快取
+        function setPortMeta(data){
+            const el=document.getElementById('portMeta');if(!el)return;
+            if(!data){el.textContent='';return;}
+            const t=String(data.cachedAt||'').substring(11,16);
+            el.textContent='Port：'+(data.cached?'快取 '+t+(data.stale?'（背景更新中）':''):'即時查詢 '+t);
+        }
+        async function loadPorts(picked,force){
             const seq=++_portSeq;
             _portLookup={};_portsLoading=true;
+            setPortMeta(null);
             try{
                 const qs=new URLSearchParams({op:'port',date:toISODateLocal(picked)});
+                if(force)qs.set('nocache','1');
                 const res=await fetch(PAGE+'?'+qs.toString(),{cache:'no-store'});
                 const data=await res.json();
                 if(seq!==_portSeq)return;
+                if(data.ok)setPortMeta(data);
                 if(data.ok)for(const r of (data.rows||[])){
                     // key 含 BLK（A=ADDER/N=NON-ADDER）：NON-ADDER 只用 LOTID+日期對應
                     //（不比 RECIPE/PPID），同一 LOT 同日兩區塊的 port 集合可能不同
@@ -1005,7 +1018,9 @@
         // ===== Preview 趨勢圖（Chart.js）+ PRE/ADDER MAP / MeasurePU（沿用 refer.html proxy）=====
         let sparkInstances=[];
         // Map / MeasurePU 代理（與 refer.html 相同）。路徑相對於本頁，視部署位置調整。
-        const MAP_PROXY = 'TF2api/SpcMapInfoProxy.ashx';
+        // PRE/ADDER map + MeasurePU 改走本頁 op=mapinfo（同 SpcMapInfoProxy.ashx 的解析，
+        // 但結果在伺服器端快取：第一個人抓到後，其他人/重新整理都不再打 SPC）
+        const MAP_PROXY = PAGE + '?op=mapinfo';
 
         // NON-ADDER profile 單張 RAW 圖：由後端 op=profileimg 抓 contour 頁、擷取單張圖網址。
 
@@ -1168,7 +1183,7 @@
         function fetchProxy(site,uchartId,chartSeq,pv){
             const key=site+'|'+uchartId+'|'+chartSeq+'|'+pv;
             if(_proxyCache[key])return _proxyCache[key];
-            const url=MAP_PROXY+`?site=${_enc(site)}&uchart_id=${_enc(uchartId)}&chart_seq=${_enc(chartSeq)}&PointValue=${_enc(pv!==''?pv:'10')}`;
+            const url=MAP_PROXY+`&site=${_enc(site)}&uchart_id=${_enc(uchartId)}&chart_seq=${_enc(chartSeq)}&PointValue=${_enc(pv!==''?pv:'10')}`;
             _proxyCache[key]=_mapSchedule(()=>fetch(url,{credentials:'include'}).then(r=>r.ok?r.json():null).catch(()=>null));
             return _proxyCache[key];
         }
@@ -1620,7 +1635,7 @@
           } catch (e) { return false; }
         }
 
-        // PRE_Map / ADDER_Map / MeasurePU：透過 SpcMapInfoProxy.ashx 抓 SPC 系統頁面（沿用 NPW）
+        // PRE_Map / ADDER_Map / MeasurePU：透過本頁 op=mapinfo（伺服器端快取）抓 SPC 系統頁面
         // NON-ADDER 只用它補 Measure_Tool，圖改走 loadProfile
         function loadMaps(seq, d) {
           var site = siteOf(d.PROCESSUNIT || d.PROCESSINGUNIT);
@@ -1629,7 +1644,7 @@
           if (isNonAdder) loadProfile(seq, d, site, pv);
 
           var url = MAP_PROXY
-            + '?site=' + encodeURIComponent(site)
+            + '&site=' + encodeURIComponent(site)
             + '&uchart_id=' + encodeURIComponent(d.UCHART_ID)
             + '&chart_seq=' + encodeURIComponent(d.CHART_SEQ)
             + '&PointValue=' + encodeURIComponent(pv !== '' ? pv : '10');
@@ -2087,7 +2102,7 @@
                 if(dcWeek){const s=startTuesdayFor(picked);const e=new Date(s.getFullYear(),s.getMonth(),s.getDate()+6);dcWeek.textContent='W'+getWeekNumber(s)+'（'+fmtMD(s)+'~'+fmtMD(e)+'）';}
             }
 
-            async function reload(picked){
+            async function reload(picked,forcePorts){
                 setHeadersByPickedDate(picked);
                 updateWeekHint(picked);
                 syncWeekControls(picked);
@@ -2095,7 +2110,7 @@
                 try{await loadFromDb(picked);refreshTables(picked);}catch(e){/* 已顯示 */}
                 // Port 跨庫查詢等主表渲染完才啟動：即使伺服器將同一使用者的
                 // 請求序列化（ASP.NET session 鎖），主載入也不會排在慢查詢後面
-                loadPorts(picked);
+                loadPorts(picked,!!forcePorts);
             }
 
             const calBtn=document.getElementById('calBtn');
@@ -2106,7 +2121,7 @@
 
             document.getElementById('reloadBtn').addEventListener('click',()=>{
                 const picked=input.value?new Date(input.value+'T00:00:00'):new Date();
-                reload(picked);
+                reload(picked,true);   // 「重新整理」略過 Port 快取，強制重查 DB
             });
             input.addEventListener('change',()=>{
                 if(!input.value)return;
