@@ -338,7 +338,7 @@ public partial class NPW_Alarm : Page
             "AND h.PORTID IS NOT NULL " +
             "ORDER BY ABS(DATEDIFF(second, h.JPTIME, c.LASTDATATMST))) lh " +
             "WHERE c.UPDATE_TIME >= @p0 AND c.UPDATE_TIME < @p1 " +
-            "AND c.ALARM_COUNT >= 1 AND c.LOT IS NOT NULL AND c.LASTDATATMST IS NOT NULL " +
+            "AND (c.ALARM_COUNT >= 1 OR c.MONITOR_TYPE = 'DOWN') AND c.LOT IS NOT NULL AND c.LASTDATATMST IS NOT NULL " +
             "AND (c.CHART_TYPE = 'XBAR' OR c.RECIPE IS NOT NULL) " +
             "AND ISNULL(c.CHART_DESC,'') <> 'Engineering' " +
             "AND c.CHART_TYPE IN ('C-C','XBAR') " +

@@ -405,7 +405,8 @@
                 }
 
                 // Alarm 條件（MONITOR_TYPE 改為 all，不再篩選；型別另以欄位顯示）
-                if(!(alarmCnt>=1))continue;
+                // DOWN 紀錄的 ALARM_COUNT 多為 0，但仍要列出：DOWN 一律視為要顯示的列
+                if(!(alarmCnt>=1)&&MT!=='DOWN')continue;
                 if(isEng)continue;
 
                 let isAdder;
@@ -575,7 +576,7 @@
                 let ut=row.UPDATE_TIME;if(!ut)continue;
                 if(typeof ut==='string'){ut=ut.substring(0,10);}else{const j=new Date(ut);if(isNaN(j.getTime()))continue;ut=fmtYMDDash(j);}
                 if(!days.includes(ut))continue;
-                if(!(Number(row.ALARM_COUNT)>=1))continue;
+                if(!(Number(row.ALARM_COUNT)>=1)&&String(row.MONITOR_TYPE||'').toUpperCase()!=='DOWN')continue;
                 if(String(row.CHART_DESC||'').trim().toUpperCase()==='ENGINEERING')continue;
                 const CT=String(row.CHART_TYPE||'').trim().toUpperCase();
                 let isAdder;if(CT==='C-C')isAdder=true;else if(CT==='XBAR')isAdder=false;else continue;
