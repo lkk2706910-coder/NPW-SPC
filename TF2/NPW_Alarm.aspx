@@ -242,6 +242,7 @@
         #emstModal .detail-grid.non-adder{grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);}
         @media (max-width:960px){#emstModal .detail-grid,#emstModal .detail-grid.non-adder{grid-template-columns:1fr;}}
         #emstModal .em-card{border:1px solid #e3e8ef;border-radius:10px;padding:12px;background:#fff;display:flex;flex-direction:column;min-width:0;}
+        #emstModal .em-card[hidden]{display:none;}  /* ADDER 不顯示 Profile；NON-ADDER 不顯示 PRE/ADDER Map（hidden 需勝過上面的 display:flex） */
         #emstModal .em-card h4{margin:0 0 8px;font-size:13px;font-weight:600;color:#45505f;display:flex;align-items:center;justify-content:space-between;gap:8px;}
         #emstModal .em-card h4 small{font-weight:400;color:#98a2b3;font-size:11px;}
         #emstModal .spark{position:relative;width:100%;height:320px;}
