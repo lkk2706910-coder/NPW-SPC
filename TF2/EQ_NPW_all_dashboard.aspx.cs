@@ -23,7 +23,8 @@ using System.Web.UI;
 //   GET  EQ_NPW_all_dashboard.aspx?op=port    -> Port lookup for one day (cached, see CachedJson)
 //   GET  EQ_NPW_all_dashboard.aspx?op=mapinfo -> SPC PRE/ADDER map + MeasurePU (cached)
 //   GET  EQ_NPW_all_dashboard.aspx?op=profileimg -> SPC profile image (cached)
-//        add &nocache=1 to any of the three to force a live query
+//   GET  EQ_NPW_all_dashboard.aspx?op=mapimg&u=  -> SPC image bytes (cached, browser-cacheable)
+//        add &nocache=1 to any of the four to force a live query
 //
 // NOTE: keep this file pure ASCII. Some servers compile .cs as Big5/CP950,
 // which can eat the newline after a non-ASCII char and break compilation.
@@ -130,6 +131,19 @@ public partial class NPW_Alarm : Page
             catch (Exception ex)
             {
                 Response.StatusCode = 500;
+                Response.Write("{\"ok\":false,\"error\":\"" + JsonEscape(ex.Message) + "\"}");
+            }
+            Response.End();
+            return;
+        }
+        if (string.Equals(opStr, "mapimg", StringComparison.OrdinalIgnoreCase))
+        {
+            try { HandleMapImg(); }
+            catch (Exception ex)
+            {
+                Response.Clear();
+                Response.StatusCode = 502;
+                Response.ContentType = "application/json; charset=utf-8";
                 Response.Write("{\"ok\":false,\"error\":\"" + JsonEscape(ex.Message) + "\"}");
             }
             Response.End();
@@ -1162,6 +1176,121 @@ public partial class NPW_Alarm : Page
         if (src.StartsWith("http", StringComparison.OrdinalIgnoreCase)) return src;
         if (src.StartsWith("/")) return "http://10.10.101.170" + src;
         return "http://10.10.101.170/Project1/" + src.TrimStart('~').TrimStart('/');
+    }
+
+    // ===== SPC map / profile image bytes, cached =====
+    // The SPC site renders every wafer image on request (slow, and it sends
+    // no browser-cache headers), so the page loads them through this endpoint:
+    //   GET ?op=mapimg&u=<http://10.10.101.170/...image url>
+    // First fetch stores the bytes under cache/img/<sha1>.bin (+ .ct for the
+    // content type) and in memory; later requests, from anyone, are served
+    // from there with Cache-Control so the browser keeps its own copy too.
+    // Only the SPC host is allowed, and only real image bytes are cached.
+    private const string MapImgHost = "10.10.101.170";
+
+    private void HandleMapImg()
+    {
+        string u = (Request.QueryString["u"] ?? "").Trim();
+        Uri uri;
+        if (!Uri.TryCreate(u, UriKind.Absolute, out uri) ||
+            !string.Equals(uri.Host, MapImgHost, StringComparison.OrdinalIgnoreCase) ||
+            (uri.Scheme != "http" && uri.Scheme != "https"))
+        {
+            Response.StatusCode = 400;
+            Response.ContentType = "application/json; charset=utf-8";
+            Response.Write("{\"ok\":false,\"error\":\"invalid image url\"}");
+            return;
+        }
+        string folder = Path.Combine(Server.MapPath(CacheFolder), "img");
+        string key;
+        using (var sha = System.Security.Cryptography.SHA1.Create())
+            key = BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(uri.AbsoluteUri))).Replace("-", "").ToLowerInvariant();
+        string binPath = Path.Combine(folder, key + ".bin");
+        string ctPath = Path.Combine(folder, key + ".ct");
+        string memId = "npwimg|" + key;
+
+        byte[] bytes = null; string ctype = null;
+        object[] mem = HttpRuntime.Cache[memId] as object[];
+        if (mem != null) { bytes = (byte[])mem[0]; ctype = (string)mem[1]; }
+        if (bytes == null && !NoCacheRequested() && File.Exists(binPath))
+        {
+            bytes = File.ReadAllBytes(binPath);
+            ctype = File.Exists(ctPath) ? File.ReadAllText(ctPath).Trim() : "";
+        }
+        if (bytes == null || bytes.Length == 0)
+        {
+            lock (CacheLockFor("img|" + key))
+            {
+                if (!NoCacheRequested() && File.Exists(binPath))
+                {
+                    bytes = File.ReadAllBytes(binPath);
+                    ctype = File.Exists(ctPath) ? File.ReadAllText(ctPath).Trim() : "";
+                }
+                if (bytes == null || bytes.Length == 0)
+                {
+                    bytes = HttpGetBytes(uri.AbsoluteUri, out ctype);
+                    string sniffed = SniffImageType(bytes);
+                    if (sniffed == null)
+                        throw new Exception("SPC did not return an image (" + (ctype ?? "?") + ", " + (bytes == null ? 0 : bytes.Length) + " bytes)");
+                    ctype = sniffed;
+                    try
+                    {
+                        Directory.CreateDirectory(folder);
+                        string tmp = binPath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+                        File.WriteAllBytes(tmp, bytes);
+                        if (File.Exists(binPath)) File.Delete(binPath);
+                        File.Move(tmp, binPath);
+                        File.WriteAllText(ctPath, ctype, new UTF8Encoding(false));
+                    }
+                    catch { /* memory copy still serves this process */ }
+                }
+            }
+        }
+        if (string.IsNullOrEmpty(ctype)) ctype = SniffImageType(bytes) ?? "application/octet-stream";
+        HttpRuntime.Cache.Insert(memId, new object[] { bytes, ctype }, null, DateTime.Now.AddHours(1), System.Web.Caching.Cache.NoSlidingExpiration);
+
+        Response.Clear();
+        Response.ContentType = ctype;
+        Response.Cache.SetCacheability(HttpCacheability.Public);
+        Response.Cache.SetMaxAge(TimeSpan.FromDays(30));
+        Response.Cache.SetExpires(DateTime.Now.AddDays(30));
+        Response.Cache.SetLastModified(File.Exists(binPath) ? File.GetLastWriteTime(binPath) : DateTime.Now);
+        Response.AddHeader("Content-Length", bytes.Length.ToString());
+        Response.BinaryWrite(bytes);
+    }
+
+    private static string SniffImageType(byte[] b)
+    {
+        if (b == null || b.Length < 4) return null;
+        if (b[0] == 0x89 && b[1] == 0x50 && b[2] == 0x4E && b[3] == 0x47) return "image/png";
+        if (b[0] == 0xFF && b[1] == 0xD8) return "image/jpeg";
+        if (b[0] == 0x47 && b[1] == 0x49 && b[2] == 0x46) return "image/gif";
+        if (b[0] == 0x42 && b[1] == 0x4D) return "image/bmp";
+        if (b.Length >= 12 && b[0] == 0x52 && b[1] == 0x49 && b[2] == 0x46 && b[3] == 0x46 && b[8] == 0x57 && b[9] == 0x45 && b[10] == 0x42 && b[11] == 0x50) return "image/webp";
+        return null;
+    }
+
+    private static byte[] HttpGetBytes(string url, out string contentType)
+    {
+        var req = (HttpWebRequest)WebRequest.Create(url);
+        req.Method = "GET";
+        req.UserAgent = "Mozilla/5.0";
+        req.Timeout = 30000;
+        req.ReadWriteTimeout = 30000;
+        req.AllowAutoRedirect = true;
+        req.UseDefaultCredentials = true;
+        req.Credentials = CredentialCache.DefaultCredentials;
+        using (var resp = (HttpWebResponse)req.GetResponse())
+        using (var stream = resp.GetResponseStream())
+        using (var ms = new MemoryStream())
+        {
+            contentType = resp.ContentType;
+            if (stream == null) return null;
+            byte[] buf = new byte[65536];
+            int n;
+            while ((n = stream.Read(buf, 0, buf.Length)) > 0) ms.Write(buf, 0, n);
+            return ms.ToArray();
+        }
     }
 
     // GET a page server-side with Windows integrated auth (intranet pages).
