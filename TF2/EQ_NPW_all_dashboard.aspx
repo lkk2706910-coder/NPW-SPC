@@ -408,6 +408,7 @@
         let chartAlarmMean={}; // key|chartKey -> MEAN_VALUE (代表 alarm 點，與 CHART_SEQ 同一筆)
         let chartAlarmWafer={};// key|chartKey -> WAFER (同一筆代表 alarm 點)
         let chartParameter={}; // key|chartKey -> PARAMETER (profile myParaList 用)
+        let chartAlarmTotal={};// key -> { CHART_ID||CHART_NAME -> 當天該 chart 的 alarm 筆數 }（表格列已拆到 CHART_SEQ，次數仍顯示整張 chart 的合計）
         function setStatus(t,c){const s=document.getElementById('status');s.textContent=t||'';if(c)s.style.color=c;}
         function showError(t){const e=document.getElementById('error');e.textContent=t||'';e.style.display=t?'block':'none';}
 
@@ -438,7 +439,7 @@
             const days=[];
             for(let i=0;i<7;i++){const d=new Date(start.getFullYear(),start.getMonth(),start.getDate());d.setDate(start.getDate()+i);days.push(fmtYMDDash(d));}
             const stats={};
-            chartAlarmStats={};chartAlarmDateStats={};chartMeasurePu={};chartAlarmSeq={};chartProcUnit={};chartAlarmMean={};chartAlarmWafer={};chartParameter={};chartPort={};chartMon={};
+            chartAlarmStats={};chartAlarmDateStats={};chartMeasurePu={};chartAlarmSeq={};chartProcUnit={};chartAlarmMean={};chartAlarmWafer={};chartParameter={};chartPort={};chartMon={};chartAlarmTotal={};
             function entOf(pu){if(!pu)return null;const s=String(pu).toUpperCase();const i=s.indexOf('-');return i===-1?s:s.substring(0,i);}
 
             for(const row of rawData){
@@ -484,8 +485,11 @@
                 // Chart 層級 alarm 統計
                 const key=fmtYMDDash(start)+'|'+entity+'|'+(isAdder?'ADDER':'NON_ADDER');
                 if(!chartAlarmStats[key])chartAlarmStats[key]={};
-                const ck=CID+'||'+CN;
+                // 同一張 chart 當天可能 alarm 多次（不同 CHART_SEQ）：每一筆各自一列，key 含 CHART_SEQ
+                const SEQ=String(row.CHART_SEQ==null?'':row.CHART_SEQ).trim();
+                const ck=CID+'||'+CN+'||'+SEQ;
                 chartAlarmStats[key][ck]=(chartAlarmStats[key][ck]||0)+1;
+                {if(!chartAlarmTotal[key])chartAlarmTotal[key]={};const tk=CID+'||'+CN;chartAlarmTotal[key][tk]=(chartAlarmTotal[key][tk]||0)+1;}
                 if(!chartAlarmDateStats[key])chartAlarmDateStats[key]={};
                 if(!chartAlarmDateStats[key][ck])chartAlarmDateStats[key][ck]=new Set();
                 chartAlarmDateStats[key][ck].add(ut);
@@ -660,7 +664,7 @@
                 let isAdder;if(CT==='C-C')isAdder=true;else if(CT==='XBAR')isAdder=false;else continue;
                 const plk=_portLookup[String(row.LOT||'')+'|'+ut+'|'+(isAdder?'A':'N')];
                 if(!plk||!plk.size)continue;
-                const pk=fmtYMDDash(start)+'|'+entity+'|'+(isAdder?'ADDER':'NON_ADDER')+'|'+(row.CHART_ID||'')+'||'+(row.CHART_NAME||'');
+                const pk=fmtYMDDash(start)+'|'+entity+'|'+(isAdder?'ADDER':'NON_ADDER')+'|'+(row.CHART_ID||'')+'||'+(row.CHART_NAME||'')+'||'+String(row.CHART_SEQ==null?'':row.CHART_SEQ).trim();
                 if(!chartPort[pk])chartPort[pk]=new Set();
                 plk.forEach(p=>chartPort[pk].add(p));
             }
@@ -863,7 +867,7 @@
                             out+='  '+ent+': Alarm '+ac+' / Monitor '+mon+'（rate '+rate+'），Weekly Target '+getWeeklyTargetCount(ent,isA)+'\n';
                             const key=fmtYMDDash(start)+'|'+ent+'|'+(isA?'ADDER':'NON_ADDER');
                             const cm=chartAlarmStats[key]||{},dm=chartAlarmDateStats[key]||{};
-                            Object.keys(cm).forEach(function(ck){const a=ck.split('||');const ds=dm[ck]?Array.from(dm[ck]).sort().join(','):'';out+='    - '+a[1]+'（ID '+a[0]+'）次數'+cm[ck]+' 日期'+ds+'\n';});
+                            Object.keys(cm).forEach(function(ck){const a=ck.split('||');const ds=dm[ck]?Array.from(dm[ck]).sort().join(','):'';out+='    - '+a[1]+'（ID '+a[0]+(a[2]?' SEQ '+a[2]:'')+'）次數'+cm[ck]+' 日期'+ds+'\n';});
                         });
                     });
                 }
@@ -914,26 +918,29 @@
             const start=startTuesdayFor(picked);
             const blockLabel=isAdder?'ADDER':'NON-ADDER';
             const entities=['NISACVD','SACVD'];
-            const chartNameFreq={};
+            const chartNameIds={};   // CHART_NAME -> Set(CHART_ID)：同名不同 ID 才算重複 chart
             const allRows=[];
 
             for(const entity of entities){
+                const key=fmtYMDDash(start)+'|'+entity+'|'+(isAdder?'ADDER':'NON_ADDER');
                 const chartMap=getChartAlarmDetail(start,entity,isAdder)||{};
                 const dateMap=getChartAlarmDateDetail(start,entity,isAdder)||{};
+                const totalMap=chartAlarmTotal[key]||{};
                 for(const ck in chartMap){
-                    const cnt=chartMap[ck];
-                    const [chartId,chartName]=ck.split('||');
+                    // ck = CHART_ID||CHART_NAME||CHART_SEQ：同一 chart 當天多次 alarm 各自一列
+                    const [chartId,chartName,seqOfKey]=ck.split('||');
+                    const cnt=totalMap[chartId+'||'+chartName]||chartMap[ck];   // 次數 = 該 chart 當天合計
                     const nameKey=(chartName||'').toString().trim().toUpperCase();
-                    if(nameKey)chartNameFreq[nameKey]=(chartNameFreq[nameKey]||0)+1;
+                    if(nameKey){if(!chartNameIds[nameKey])chartNameIds[nameKey]=new Set();chartNameIds[nameKey].add(String(chartId||''));}
                     const dateSet=dateMap[ck];
                     const dates=dateSet?Array.from(dateSet).sort():[];
-                    const mkey=fmtYMDDash(start)+'|'+entity+'|'+(isAdder?'ADDER':'NON_ADDER')+'|'+ck;
+                    const mkey=key+'|'+ck;
                     const measurePu=chartMeasurePu[mkey]||'';
                     const processUnit=chartProcUnit[mkey]||'';
                     const portSet=chartPort[mkey];
                     const ports=portSet?Array.from(portSet).sort().join(', '):'';
                     const seqSet=chartAlarmSeq[mkey];
-                    const chartSeq=(seqSet&&seqSet.size)?Array.from(seqSet)[0]:'';
+                    const chartSeq=seqOfKey||((seqSet&&seqSet.size)?Array.from(seqSet)[0]:'');
                     const pointValue=chartAlarmMean[mkey];
                     const wafer=chartAlarmWafer[mkey];
                     const parameter=chartParameter[mkey];
@@ -956,7 +963,9 @@
                 const ea=entityOrder(a.entity),eb=entityOrder(b.entity);
                 if(ea!==eb)return ea-eb;
                 if(b.cnt!==a.cnt)return b.cnt-a.cnt;
-                return String(a.chartName||'').localeCompare(String(b.chartName||''));
+                const nc=String(a.chartName||'').localeCompare(String(b.chartName||''));
+                if(nc!==0)return nc;
+                return (Number(a.chartSeq)||0)-(Number(b.chartSeq)||0);   // 同一 chart 多筆 alarm 依 CHART_SEQ 排
             });
 
             const colCount=12;   // ADDER：…Trend/ADDER_Map/Measure/EMST；NON-ADDER：…Trend/Profile/Measure/EMST
@@ -971,7 +980,7 @@
             for(const r of allRows){
                 const url=buildChartUrl(r.chartId);
                 const nameHtml=url?`<a href="${url}" target="_blank" rel="noopener noreferrer">${escapeHtml(r.chartName||'')}</a>`:escapeHtml(r.chartName||'');
-                const dupByName=r.nameKey&&(chartNameFreq[r.nameKey]>=2);
+                const dupByName=r.nameKey&&chartNameIds[r.nameKey]&&(chartNameIds[r.nameKey].size>=2);
                 const dupByMultiDay=Array.isArray(r.dates)&&r.dates.length>=2;
                 const isDup=dupByName||dupByMultiDay;
                 const datesText=(r.dates&&r.dates.length)?r.dates.join(', '):'';
