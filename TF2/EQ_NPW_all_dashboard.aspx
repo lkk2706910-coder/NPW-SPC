@@ -1021,14 +1021,6 @@
         // PRE/ADDER map + MeasurePU 改走本頁 op=mapinfo（同 SpcMapInfoProxy.ashx 的解析，
         // 但結果在伺服器端快取：第一個人抓到後，其他人/重新整理都不再打 SPC）
         const MAP_PROXY = PAGE + '?op=mapinfo';
-        // 圖檔本身也經本頁 op=mapimg 取得：SPC 每次都現算圖且不給瀏覽器快取，
-        // 改由伺服器存一份（cache/img/）並加 Cache-Control，明細/對角度重開都不再等 SPC。
-        // openie: 連結仍用原始網址（IE 開 SPC 原圖）。
-        window.mapImgSrc = function (u) {
-            u = String(u || '');
-            if (!u || u.indexOf('op=mapimg') >= 0) return u;
-            return PAGE + '?op=mapimg&u=' + encodeURIComponent(u);
-        };
 
         // NON-ADDER profile 單張 RAW 圖：由後端 op=profileimg 抓 contour 頁、擷取單張圖網址。
 
@@ -1156,7 +1148,7 @@
         // extraQuery：額外附加在 URL 後（如 profile 的 &keyword=RAW）
         function mapThumbHtml(imgUrl,alt){
             return `<a href="openie:${encodeURIComponent(imgUrl)}" target="_blank" rel="noopener noreferrer" title="Open ${alt} (IE)">`
-                + `<img class="adder-map-thumb" src="${escapeHtml(mapImgSrc(imgUrl))}" alt="${alt}" loading="lazy" /></a>`;
+                + `<img class="adder-map-thumb" src="${escapeHtml(imgUrl)}" alt="${alt}" loading="lazy" /></a>`;
         }
         // NON-ADDER Profile 縮圖：點擊開啟 Wafer Match Tool（對角度）。
         // side/chamber/offset 由 CHART_NAME 推導（wmOpenFromProfile）。
@@ -1164,7 +1156,7 @@
             return `<a href="javascript:void(0)" title="點擊對角度（Wafer Match）" `
                 + `onclick="wmOpenFromProfile(this)" data-img="${escapeHtml(imgUrl)}" `
                 + `data-tool="${escapeHtml(tool||'')}" data-port="${escapeHtml(port||'')}" data-cname="${escapeHtml(cname||'')}">`
-                + `<img class="adder-map-thumb" src="${escapeHtml(mapImgSrc(imgUrl))}" alt="Profile RAW" loading="lazy" /></a>`;
+                + `<img class="adder-map-thumb" src="${escapeHtml(imgUrl)}" alt="Profile RAW" loading="lazy" /></a>`;
         }
         // ADDER MAP 縮圖：點擊開啟 Wafer Match Tool（對角度），把此 map 當 wafer 貼上並轉到對好的角度。
         // tool/port/cname 來自該列 data-wm-*，用來推導 mode/CASS/side/station。
@@ -1172,7 +1164,7 @@
             return `<a href="javascript:void(0)" title="點擊對角度（Wafer Match）" `
                 + `onclick="wmOpenFromMap(this)" data-img="${escapeHtml(imgUrl)}" `
                 + `data-tool="${escapeHtml(tool||'')}" data-port="${escapeHtml(port||'')}" data-cname="${escapeHtml(cname||'')}">`
-                + `<img class="adder-map-thumb" src="${escapeHtml(mapImgSrc(imgUrl))}" alt="ADDER MAP" loading="lazy" /></a>`;
+                + `<img class="adder-map-thumb" src="${escapeHtml(imgUrl)}" alt="ADDER MAP" loading="lazy" /></a>`;
         }
 
         // ===== Map/Profile：捲到才載入 + 去重 + 快取 + 限流 =====
@@ -1789,24 +1781,24 @@
         // PRE_Map：點擊以 openie: 協定用 IE 開原圖（沿用 NPW 的做法，SPC 系統圖頁需要 IE）
         function dMapThumbHtml(imgUrl, alt) {
           return '<a class="zoom" href="openie:' + encodeURIComponent(imgUrl) + '" target="_blank" rel="noopener noreferrer" title="Open ' + escapeHtml(alt) + ' (IE)">'
-            + '<img src="' + escapeHtml(mapImgSrc(imgUrl)) + '" alt="' + escapeHtml(alt) + '" loading="lazy"></a>';
+            + '<img src="' + escapeHtml(imgUrl) + '" alt="' + escapeHtml(alt) + '" loading="lazy"></a>';
         }
 
         // 只顯示圖、不可點（不開對角度的 section 用）
         function dPlainThumbHtml(imgUrl, alt) {
-          return '<img src="' + escapeHtml(mapImgSrc(imgUrl)) + '" alt="' + escapeHtml(alt) + '" loading="lazy">';
+          return '<img src="' + escapeHtml(imgUrl) + '" alt="' + escapeHtml(alt) + '" loading="lazy">';
         }
 
         // ADDER_Map：點擊開 Wafer Match 對角度
         function dAdderMapThumbHtml(imgUrl) {
           return '<a class="wm" href="javascript:void(0)" title="點擊對角度（Wafer Match）">'
-            + '<img src="' + escapeHtml(mapImgSrc(imgUrl)) + '" alt="ADDER MAP" loading="lazy"></a>';
+            + '<img src="' + escapeHtml(imgUrl) + '" alt="ADDER MAP" loading="lazy"></a>';
         }
 
         // Profile：點擊開 Wafer Match 對角度（side / chamber / offset 由 CHART_NAME 推導）
         function dProfileThumbHtml(imgUrl) {
           return '<a class="wm" href="javascript:void(0)" title="點擊對角度（Wafer Match）">'
-            + '<img src="' + escapeHtml(mapImgSrc(imgUrl)) + '" alt="Profile RAW" loading="lazy"></a>';
+            + '<img src="' + escapeHtml(imgUrl) + '" alt="Profile RAW" loading="lazy"></a>';
         }
 
         function closeDetail() {
@@ -1946,7 +1938,7 @@
           var offset = isProfile ? p.offset : 0;
           var qs = 'mode=' + encodeURIComponent(p.mode) + '&cass=' + encodeURIComponent(p.cass)
             + '&side=' + encodeURIComponent(p.side) + '&station=' + encodeURIComponent(p.station)
-            + '&offset=' + encodeURIComponent(offset) + '&img=' + encodeURIComponent(mapImgSrc(imgUrl));
+            + '&offset=' + encodeURIComponent(offset) + '&img=' + encodeURIComponent(imgUrl);
           var title = p.entity + '-B' + p.bnum + (p.letter || '') + '｜' + p.mode + '｜CASS ' + p.cass + '｜' + p.side + '｜' + p.station
             + (isProfile ? '｜offset ' + offset + '°' : '');
           return { qs: qs, title: title };
@@ -2296,7 +2288,7 @@
             if(!p){ alert('無法從 Tool_name / Port / CHART_NAME 推導對角度參數'); return; }
             const qs='mode='+encodeURIComponent(p.mode)+'&cass='+encodeURIComponent(p.cass)
                     +'&side='+encodeURIComponent(p.side)+'&station='+encodeURIComponent(p.station)
-                    +'&offset=0&img='+encodeURIComponent(mapImgSrc(img));
+                    +'&offset=0&img='+encodeURIComponent(img);
             document.getElementById('wmatchTitle').textContent=
                 `對角度 · ${p.entity}-B${p.bnum}${p.letter}｜${p.mode}｜CASS ${p.cass}｜${p.side}｜${p.station}`;
             document.getElementById('wmatchFrame').src='WaferMatch.html?'+qs;
@@ -2345,7 +2337,7 @@
             if(!p){ alert('無法從 Tool_name / Port / CHART_NAME 推導對角度參數'); return; }
             const qs='mode='+encodeURIComponent(p.mode)+'&cass='+encodeURIComponent(p.cass)
                     +'&side='+encodeURIComponent(p.side)+'&station='+encodeURIComponent(p.station)
-                    +'&offset='+encodeURIComponent(p.offset)+'&img='+encodeURIComponent(mapImgSrc(img));
+                    +'&offset='+encodeURIComponent(p.offset)+'&img='+encodeURIComponent(img);
             document.getElementById('wmatchTitle').textContent=
                 `對角度 · ${p.entity}-B${p.bnum}｜${p.mode}｜CASS ${p.cass}｜${p.side}｜${p.station}｜offset ${p.offset}°`;
             document.getElementById('wmatchFrame').src='WaferMatch.html?'+qs;
