@@ -959,11 +959,11 @@
                 return String(a.chartName||'').localeCompare(String(b.chartName||''));
             });
 
-            const colCount=isAdder?13:12;
+            const colCount=12;   // ADDER：…Trend/ADDER_Map/Measure/EMST；NON-ADDER：…Trend/Profile/Measure/EMST
             let head=`<tr><th colspan="${colCount}">${blockLabel} - Chart Alarm Detail (${fmtYMDDash(start)})</th></tr>
                 <tr><th style="width:80px;">Entity</th><th style="width:110px;">Tool_name</th><th style="width:80px;">CHART_ID</th><th class="cn-col">CHART_NAME</th>
                 <th style="width:90px;text-align:center;">Monitor type</th><th style="width:70px;text-align:center;">Alarm 次數</th><th style="width:160px;">ALARM 日期</th><th style="width:90px;">Port</th>`;
-            if(isAdder)head+=`<th style="width:380px;text-align:center;">Trend_Chart</th><th style="width:200px;text-align:center;">PRE_Map</th><th style="width:200px;text-align:center;">ADDER_Map</th><th style="width:110px;">Measure_Tool</th><th style="width:70px;text-align:center;">EMST 填寫</th>`;
+            if(isAdder)head+=`<th style="width:380px;text-align:center;">Trend_Chart</th><th style="width:200px;text-align:center;">ADDER_Map</th><th style="width:110px;">Measure_Tool</th><th style="width:70px;text-align:center;">EMST 填寫</th>`;
             else head+=`<th style="width:380px;text-align:center;">Trend_Chart</th><th style="width:200px;text-align:center;">Profile</th><th style="width:110px;">Measure_Tool</th><th style="width:70px;text-align:center;">EMST 填寫</th>`;
             head+=`</tr>`;
 
@@ -992,8 +992,8 @@
                 const emstCell=`<td style="text-align:center;"><button type="button" class="emst-btn" data-pk="${escapeHtml(r.mkey)}" onclick="emstOpen(this)">EMST</button></td>`;
                 let extra='';
                 if(isAdder){
+                    // 主頁不顯示 PRE_Map（明細彈窗內仍有）
                     extra=previewCell+
-                          `<td class="npw-cell-map"><span class="pre-map" ${da} style="color:#999;">...</span></td>`+
                           `<td class="npw-cell-map"><span class="adder-map" ${da} ${wmAttr} style="color:#999;">...</span></td>`+
                           measureCell+emstCell;
                 }else{
@@ -1226,7 +1226,7 @@
         }
         let _mapObserver=null;
         function setupLazyMaps(){
-            const els=[...document.querySelectorAll('#adderChartDetail .map-info, #adderChartDetail .pre-map, #adderChartDetail .adder-map, #nonAdderChartDetail .map-info, #nonAdderChartDetail .profile-img')];
+            const els=[...document.querySelectorAll('#adderChartDetail .map-info, #adderChartDetail .adder-map, #nonAdderChartDetail .map-info, #nonAdderChartDetail .profile-img')];
             if(_mapObserver)_mapObserver.disconnect();
             if(!('IntersectionObserver' in window)){ els.forEach(hydrateOne); return; } // 後備：一次載入
             _mapObserver=new IntersectionObserver((entries)=>{
