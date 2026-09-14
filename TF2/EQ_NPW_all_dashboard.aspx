@@ -202,9 +202,10 @@
         .npw-report-card .total-green-over-yellow{background-color:#ffd1e6!important;}
         .npw-report-card #adderChartDetail,.npw-report-card #nonAdderChartDetail{overflow-x:auto;}
         .npw-report-card .chart-detail{width:100%;border-collapse:collapse;background:#fff;border:2px solid #222;margin:-6px 0 18px;}
-        .npw-report-card .chart-detail th,.npw-report-card .chart-detail td{border:1px solid #222;font-size:12px;padding:4px 6px;line-height:1.2;vertical-align:middle;color:#111;text-align:left;word-break:break-all;}
-        .npw-report-card .chart-detail th{background:#f5f5f5;font-weight:700;white-space:nowrap;}
-        .npw-report-card .chart-detail .cn-col{min-width:260px;white-space:normal;word-break:break-word;}
+        /* 表格內文字一律不換行；表格過寬時由外層容器（overflow-x:auto）水平捲動 */
+        .npw-report-card .chart-detail th,.npw-report-card .chart-detail td{border:1px solid #222;font-size:12px;padding:4px 6px;line-height:1.2;vertical-align:middle;color:#111;text-align:left;white-space:nowrap;word-break:normal;}
+        .npw-report-card .chart-detail th{background:#f5f5f5;font-weight:700;}
+        .npw-report-card .chart-detail .cn-col{min-width:260px;}
         .npw-report-card .chart-detail a{color:#1d4ed8;}
         .npw-report-card .npw-mini-btn{font-size:11px;padding:2px 6px;border:1px solid #1976d2;border-radius:4px;background:#fff;color:#1976d2;cursor:pointer;}
         .npw-report-card .npw-mini-btn:hover{background:#1976d2;color:#fff;}
