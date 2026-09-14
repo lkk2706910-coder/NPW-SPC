@@ -1170,7 +1170,8 @@
         // ===== Map/Profile：捲到才載入 + 去重 + 快取 + 限流 =====
         const MAP_CONC = 3;                 // 對目標伺服器的最大同時請求數
         let _mapActive = 0; const _mapQueue = [];
-        function _mapSchedule(fn){ return new Promise(res=>{ _mapQueue.push({fn,res}); _mapPump(); }); }
+        // front=true：插隊（明細彈窗要的圖優先於表格背景載入）
+        function _mapSchedule(fn,front){ return new Promise(res=>{ if(front)_mapQueue.unshift({fn,res}); else _mapQueue.push({fn,res}); _mapPump(); }); }
         function _mapPump(){
             while(_mapActive<MAP_CONC && _mapQueue.length){
                 const job=_mapQueue.shift(); _mapActive++;
@@ -1180,18 +1181,19 @@
         const _enc=encodeURIComponent;
         const _proxyCache={};   // SpcMapInfoProxy 結果（PRE/ADDER/MeasurePU 共用）
         const _profileCache={}; // op=profileimg 結果
-        function fetchProxy(site,uchartId,chartSeq,pv){
+        // 表格與明細彈窗共用：同一張圖只向伺服器要一次（伺服器端另有跨使用者快取）
+        function fetchProxy(site,uchartId,chartSeq,pv,front){
             const key=site+'|'+uchartId+'|'+chartSeq+'|'+pv;
             if(_proxyCache[key])return _proxyCache[key];
             const url=MAP_PROXY+`&site=${_enc(site)}&uchart_id=${_enc(uchartId)}&chart_seq=${_enc(chartSeq)}&PointValue=${_enc(pv!==''?pv:'10')}`;
-            _proxyCache[key]=_mapSchedule(()=>fetch(url,{credentials:'include'}).then(r=>r.ok?r.json():null).catch(()=>null));
+            _proxyCache[key]=_mapSchedule(()=>fetch(url,{credentials:'include'}).then(r=>r.ok?r.json():null).catch(()=>null),front);
             return _proxyCache[key];
         }
-        function fetchProfile(site,cid,seq,pv,wafer){
+        function fetchProfile(site,cid,seq,pv,wafer,front){
             const key=site+'|'+cid+'|'+seq+'|'+pv+'|'+wafer;
             if(_profileCache[key])return _profileCache[key];
             const u=PAGE+'?op=profileimg&chartId='+_enc(cid)+'&chartSeq='+_enc(seq)+'&pointValue='+_enc(pv)+'&site='+_enc(site)+'&wafer='+_enc(wafer);
-            _profileCache[key]=_mapSchedule(()=>fetch(u,{cache:'no-store'}).then(r=>r.ok?r.json():null).catch(()=>null));
+            _profileCache[key]=_mapSchedule(()=>fetch(u,{cache:'no-store'}).then(r=>r.ok?r.json():null).catch(()=>null),front);
             return _profileCache[key];
         }
 
@@ -1414,7 +1416,18 @@
           }
           _currentDetail.markTiming = markTiming;
 
-          // 明細（含 NPW 對應欄位）→ 之後才知道 PointValue/site，再叫 Map 代理
+          // 從表格開啟時已知 PointValue / site / wafer（與表格縮圖相同的 key），
+          // 不等明細查詢就先載 Map / Profile：直接命中表格已抓好的結果，立即顯示
+          _currentDetail.mapsStarted = false;
+          if (row.__pv !== undefined) {
+            _currentDetail.mapsStarted = true;
+            loadMaps(seq, {
+              UCHART_ID: row.UCHART_ID, CHART_SEQ: row.CHART_SEQ,
+              MEAN_VALUE: row.__pv, WAFER: row.__wafer, PROCESSUNIT: row.PROCESSINGUNIT
+            });
+          }
+
+          // 明細（含 NPW 對應欄位）；沒有表格資料時才在這之後叫 Map 代理
           callApi('detail', ids)
             .then(function (data) {
               if (seq !== _detailSeq) return;
@@ -1443,7 +1456,7 @@
               var meas = d.MEAS_EQUIPMENT || parseMeasurePuDetail(d.MEASUREPU);
               if (meas) setText('d-measure', meas);
 
-              loadMaps(seq, d);
+              if (!_currentDetail.mapsStarted) loadMaps(seq, d);
               // wafer count 也用 EMST Tool 查（NON-ADDER 會查到 RECIPE 尾碼那個 chamber）
               if (wcEnabled) loadWaferCount(seq, _currentDetail.emstTool, recipe);
               emstLoadSaved(seq);
@@ -1637,20 +1650,15 @@
 
         // PRE_Map / ADDER_Map / MeasurePU：透過本頁 op=mapinfo（伺服器端快取）抓 SPC 系統頁面
         // NON-ADDER 只用它補 Measure_Tool，圖改走 loadProfile
+        // 走 fetchProxy / fetchProfile：與表格縮圖共用同一份 promise 快取，
+        // 表格已載過的圖在明細裡立即出現；沒載過的插隊優先抓
         function loadMaps(seq, d) {
           var site = siteOf(d.PROCESSUNIT || d.PROCESSINGUNIT);
           var pv = d.MEAN_VALUE == null ? '' : String(d.MEAN_VALUE);
           var isNonAdder = _currentDetail && _currentDetail.block === 'N';
           if (isNonAdder) loadProfile(seq, d, site, pv);
 
-          var url = MAP_PROXY
-            + '&site=' + encodeURIComponent(site)
-            + '&uchart_id=' + encodeURIComponent(d.UCHART_ID)
-            + '&chart_seq=' + encodeURIComponent(d.CHART_SEQ)
-            + '&PointValue=' + encodeURIComponent(pv !== '' ? pv : '10');
-
-          fetch(url, { credentials: 'include' })
-            .then(function (res) { return res.json(); })
+          fetchProxy(site, String(d.UCHART_ID || ''), String(d.CHART_SEQ || ''), pv, true)
             .then(function (p) {
               if (seq !== _detailSeq) return;
               if (!p || !p.ok) throw new Error((p && p.error) || 'proxy 回傳失敗');
@@ -1754,12 +1762,10 @@
 
         // NON-ADDER Profile RAW 圖：後端 profileimg 抓 SPC 的 contour 頁，優先挑該 WAFER 的圖（沿用 NPW）
         function loadProfile(seq, d, site, pv) {
-          callApi('profileimg', {
-            uchart_id: d.UCHART_ID, chart_seq: d.CHART_SEQ,
-            pointValue: pv, site: site, wafer: d.WAFER == null ? '' : String(d.WAFER)
-          })
+          fetchProfile(site, String(d.UCHART_ID || ''), String(d.CHART_SEQ || ''), pv, d.WAFER == null ? '' : String(d.WAFER), true)
             .then(function (p) {
               if (seq !== _detailSeq) return;
+              if (!p || !p.ok) throw new Error((p && p.error) || 'profile 回傳失敗');
               if (!p.imgUrl) { $('d-profile').textContent = '無 Profile 圖'; wmResetInline('無 Profile 圖，無法對位置'); return; }
               if (_currentDetail.wm) {
                 _currentDetail.wmImg = String(p.imgUrl);
@@ -2067,7 +2073,10 @@
                 UCHART_ID: String(r.chartId || ''), CHART_SEQ: String(r.chartSeq || ''), CHART_NAME: r.chartName || '',
                 OWNERDEPT: '', CREATE_TIME: dates.length ? dates[dates.length - 1] : toISODateLocal(new Date()),
                 PROCESSINGUNIT: r.processUnit || '', LOT: '', RECIPE: '', PARAMETER: r.parameter || '', STATUS: '', CHART_OWNER: '',
-                __isAdder: !!r.isAdder, __tablePorts: ports
+                __isAdder: !!r.isAdder, __tablePorts: ports,
+                // 與表格縮圖相同的 Map/Profile key，讓明細直接命中表格已載好的結果
+                __pv: r.pointValue == null ? '' : String(r.pointValue),
+                __wafer: r.wafer == null ? '' : String(r.wafer)
             });
         };
         window.emstClose = function () { if ($('detail-modal') && !$('detail-modal').hidden) closeDetail(); };
