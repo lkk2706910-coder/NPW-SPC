@@ -285,6 +285,7 @@ public partial class NPW_Alarm : Page
 
         string sql =
             "SELECT PROCESSUNIT, CONVERT(varchar(10), UPDATE_TIME, 23) AS UPDATE_TIME, " +
+            "CONVERT(varchar(19), UPDATE_TIME, 120) AS UPDATE_TS, " +
             "MONITOR_TYPE, CHART_TYPE, CHART_NAME, CHART_ID, CHART_SEQ, CHART_DESC, ALARM_COUNT, MEASUREPU, MEAN_VALUE, WAFER, PARAMETER, " +
             "LOT, RECIPE " +
             "FROM " + ChartTable + " WITH (NOLOCK) " +

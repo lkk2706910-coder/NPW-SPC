@@ -182,6 +182,13 @@
         .npw-report-card .npw-ent-filter button+button{border-left:1px solid #1976d2;}
         .npw-report-card .npw-ent-filter button.on{background:#1976d2;color:#fff;}
         .npw-report-card .chart-detail tr.ent-empty td{color:#888;text-align:center;padding:10px;}
+        /* 排序（Tool_name / Alarm 時間）：工具列下拉 + 表頭可點 */
+        .npw-report-card .npw-sort{display:inline-flex;align-items:center;gap:4px;font-size:13px;}
+        .npw-report-card .npw-sort select{padding:4px 6px;border:1px solid #1976d2;border-radius:6px;color:#1976d2;font-weight:700;background:#fff;}
+        .npw-report-card .npw-sort button{padding:4px 8px;border:1px solid #1976d2;border-radius:6px;background:#fff;color:#1976d2;cursor:pointer;font-weight:700;}
+        .npw-report-card .chart-detail th.sortable{cursor:pointer;user-select:none;}
+        .npw-report-card .chart-detail th.sortable:hover{background:#e8f0fb;}
+        .npw-report-card .chart-detail th.sortable .sort-ind{margin-left:4px;color:#1976d2;}
         .npw-report-card .npw-week-hint{color:#0f4aa8;font-weight:700;}
         .npw-report-card .npw-port-meta{color:#6b7280;font-size:12px;}
         .npw-report-card .npw-status{color:#555;font-size:12px;}
@@ -369,6 +376,15 @@
                     <button type="button" data-ent="NISACVD">NISACVD</button>
                     <button type="button" data-ent="SACVD">SACVD</button>
                 </span>
+                <span class="npw-sort" id="sortBox" title="表格排序（也可直接點表頭 Tool_name / ALARM 日期）">
+                    排序
+                    <select id="sortKey">
+                        <option value="">預設（次數多→少）</option>
+                        <option value="tool">Tool_name</option>
+                        <option value="ts">Alarm 時間</option>
+                    </select>
+                    <button type="button" id="sortDir" title="切換升冪 / 降冪">▲ 升冪</button>
+                </span>
                 <button id="reloadBtn" type="button">重新整理</button>
                 <span id="status" class="npw-status">資料載入中...</span>
                 <span id="portMeta" class="npw-port-meta" title="Port 對應結果由伺服器快取，按「重新整理」會強制重新查詢"></span>
@@ -426,6 +442,7 @@
         let chartAlarmWafer={};// key|chartKey -> WAFER (同一筆代表 alarm 點)
         let chartParameter={}; // key|chartKey -> PARAMETER (profile myParaList 用)
         let chartAlarmTotal={};// key -> { CHART_ID||CHART_NAME -> 當天該 chart 的 alarm 筆數 }（表格列已拆到 CHART_SEQ，次數仍顯示整張 chart 的合計）
+        let chartAlarmTs={};   // key|chartKey -> UPDATE_TIME 完整時間 yyyy-MM-dd HH:mm:ss（排序與顯示用）
         function setStatus(t,c){const s=document.getElementById('status');s.textContent=t||'';if(c)s.style.color=c;}
         function showError(t){const e=document.getElementById('error');e.textContent=t||'';e.style.display=t?'block':'none';}
 
@@ -456,7 +473,7 @@
             const days=[];
             for(let i=0;i<7;i++){const d=new Date(start.getFullYear(),start.getMonth(),start.getDate());d.setDate(start.getDate()+i);days.push(fmtYMDDash(d));}
             const stats={};
-            chartAlarmStats={};chartAlarmDateStats={};chartMeasurePu={};chartAlarmSeq={};chartProcUnit={};chartAlarmMean={};chartAlarmWafer={};chartParameter={};chartPort={};chartMon={};chartAlarmTotal={};
+            chartAlarmStats={};chartAlarmDateStats={};chartMeasurePu={};chartAlarmSeq={};chartProcUnit={};chartAlarmMean={};chartAlarmWafer={};chartParameter={};chartPort={};chartMon={};chartAlarmTotal={};chartAlarmTs={};
             function entOf(pu){if(!pu)return null;const s=String(pu).toUpperCase();const i=s.indexOf('-');return i===-1?s:s.substring(0,i);}
 
             for(const row of rawData){
@@ -509,6 +526,7 @@
                 if(!chartAlarmDateStats[key])chartAlarmDateStats[key]={};
                 if(!chartAlarmDateStats[key][ck])chartAlarmDateStats[key][ck]=new Set();
                 chartAlarmDateStats[key][ck].add(ut);
+                {const ts=String(row.UPDATE_TS||'').replace('T',' ');if(ts&&(!chartAlarmTs[key+'|'+ck]||ts>chartAlarmTs[key+'|'+ck]))chartAlarmTs[key+'|'+ck]=ts;}
                 {const mk=key+'|'+ck;if(!chartMon[mk])chartMon[mk]=new Set();if(MT)chartMon[mk].add(MT);}
                 if(row.MEASUREPU!=null&&String(row.MEASUREPU).trim()!=='')chartMeasurePu[key+'|'+ck]=String(row.MEASUREPU);
                 if(row.PROCESSUNIT!=null)chartProcUnit[key+'|'+ck]=String(row.PROCESSUNIT);
@@ -960,7 +978,8 @@
                     const wafer=chartAlarmWafer[mkey];
                     const parameter=chartParameter[mkey];
                     const monTypes=chartMon[mkey]?Array.from(chartMon[mkey]).sort():[];
-                    allRows.push({entity,chartId,chartName,cnt,nameKey,dates,ports,monTypes,mkey,measurePu,processUnit,chartSeq,pointValue,wafer,parameter});
+                    const ts=chartAlarmTs[mkey]||'';
+                    allRows.push({entity,chartId,chartName,cnt,nameKey,dates,ports,monTypes,mkey,measurePu,processUnit,chartSeq,pointValue,wafer,parameter,ts});
                 }
             }
 
@@ -985,8 +1004,8 @@
 
             const colCount=12;   // ADDER：…Trend/ADDER_Map/Measure/EMST；NON-ADDER：…Trend/Profile/Measure/EMST
             let head=`<tr><th colspan="${colCount}">${blockLabel} - Chart Alarm Detail (${fmtYMDDash(start)})</th></tr>
-                <tr><th style="width:80px;">Entity</th><th style="width:110px;">Tool_name</th><th style="width:80px;">CHART_ID</th><th class="cn-col">CHART_NAME</th>
-                <th style="width:90px;text-align:center;">Monitor type</th><th style="width:70px;text-align:center;">Alarm 次數</th><th style="width:160px;">ALARM 日期</th><th style="width:90px;">Port</th>`;
+                <tr><th style="width:80px;">Entity</th><th style="width:110px;" class="sortable" data-sort="tool" title="點擊依 Tool_name 排序">Tool_name<span class="sort-ind"></span></th><th style="width:80px;">CHART_ID</th><th class="cn-col">CHART_NAME</th>
+                <th style="width:90px;text-align:center;">Monitor type</th><th style="width:70px;text-align:center;">Alarm 次數</th><th style="width:160px;" class="sortable" data-sort="ts" title="點擊依 Alarm 時間排序">ALARM 日期<span class="sort-ind"></span></th><th style="width:90px;">Port</th>`;
             if(isAdder)head+=`<th style="width:380px;text-align:center;">Trend_Chart</th><th style="width:200px;text-align:center;">ADDER_Map</th><th style="width:110px;">Measure_Tool</th><th style="width:70px;text-align:center;">EMST 填寫</th>`;
             else head+=`<th style="width:380px;text-align:center;">Trend_Chart</th><th style="width:200px;text-align:center;">Profile</th><th style="width:110px;">Measure_Tool</th><th style="width:70px;text-align:center;">EMST 填寫</th>`;
             head+=`</tr>`;
@@ -998,7 +1017,8 @@
                 const dupByName=r.nameKey&&chartNameIds[r.nameKey]&&(chartNameIds[r.nameKey].size>=2);
                 const dupByMultiDay=Array.isArray(r.dates)&&r.dates.length>=2;
                 const isDup=dupByName||dupByMultiDay;
-                const datesText=(r.dates&&r.dates.length)?r.dates.join(', '):'';
+                // ALARM 日期：有完整時間就顯示到秒（每列已是單筆 alarm），否則只顯示日期
+                const datesText=r.ts?r.ts:((r.dates&&r.dates.length)?r.dates.join(', '):'');
                 const nonAdderDim=(!isAdder)&&!/RANGE|U%/i.test(String(r.chartName||''));
                 const rowClass=isDup?'dup-chart':(nonAdderDim?'dim-row':'');
                 const cid=escapeHtml(r.chartId||''),cname=escapeHtml(r.chartName||'');
@@ -1032,7 +1052,7 @@
                     const col=(up==='PM'||up==='NORMAL')?'#1976d2':'#111';
                     return `<span style="color:${col};font-weight:700;">${escapeHtml(t)}</span>`;
                 }).join(', ');
-                html+=`<tr class="${rowClass}" data-entity="${escapeHtml(r.entity)}"><td>${escapeHtml(r.entity)}</td><td>${escapeHtml(r.processUnit||'')}</td><td>${cid}</td><td class="cn-col">${nameHtml}</td>
+                html+=`<tr class="${rowClass}" data-entity="${escapeHtml(r.entity)}" data-tool="${escapeHtml(r.processUnit||'')}" data-ts="${escapeHtml(r.ts||(r.dates&&r.dates[0])||'')}" data-order="${allRows.indexOf(r)}"><td>${escapeHtml(r.entity)}</td><td>${escapeHtml(r.processUnit||'')}</td><td>${cid}</td><td class="cn-col">${nameHtml}</td>
                     <td style="text-align:center;">${mtHtml}</td>
                     <td style="text-align:center;">${escapeHtml(r.cnt)}</td><td>${escapeHtml(datesText)}</td><td class="port-cell" data-pk="${escapeHtml(r.mkey)}">${escapeHtml(r.ports||(_portsLoading?'...':''))}</td>${extra}</tr>`;
             }
@@ -2180,8 +2200,57 @@
             hydratePreviews(picked);  // Chart.js 趨勢縮圖（chartdata 單次批次查詢）
             setupLazyMaps();          // PRE/ADDER/Profile/MeasurePU：捲到才載入+去重+快取+限流
             applyEntityFilter();      // 依目前選的 Entity 顯示/隱藏列
+            applySort();              // 依目前排序鍵重排列（純 DOM 搬移，不重抓資料）
             hscrollUpdate();          // 表格重建後重新量測浮動橫向捲軸
         }
+
+        // ===== 排序（Tool_name / Alarm 時間）=====
+        // 只在 DOM 內搬動 <tr>，不重新查詢、不重載縮圖；key='' 回到預設順序（data-order）。
+        // 同鍵值時以預設順序當次要排序；選擇記在 localStorage。
+        let _sortKey='',_sortDesc=false;
+        try{_sortKey=localStorage.getItem('npwSortKey')||'';_sortDesc=localStorage.getItem('npwSortDesc')==='1';}catch(e){}
+        function applySort(){
+            const sel=document.getElementById('sortKey'),dirBtn=document.getElementById('sortDir');
+            if(sel&&sel.value!==_sortKey)sel.value=_sortKey;
+            if(dirBtn)dirBtn.textContent=_sortDesc?'▼ 降冪':'▲ 升冪';
+            document.querySelectorAll('#adderChartDetail th.sortable, #nonAdderChartDetail th.sortable').forEach(th=>{
+                const ind=th.querySelector('.sort-ind');if(ind)ind.textContent=(th.getAttribute('data-sort')===_sortKey&&_sortKey)?(_sortDesc?'▼':'▲'):'';
+            });
+            ['adderChartDetail','nonAdderChartDetail'].forEach(id=>{
+                const c=document.getElementById(id);if(!c)return;
+                const tbody=c.querySelector('table.chart-detail tbody');if(!tbody)return;
+                const rows=[...tbody.querySelectorAll('tr[data-entity]')];
+                const empty=tbody.querySelector('tr.ent-empty');
+                const ord=tr=>Number(tr.getAttribute('data-order'))||0;
+                rows.sort((a,b)=>{
+                    if(_sortKey){
+                        const va=String(a.getAttribute('data-'+_sortKey)||''),vb=String(b.getAttribute('data-'+_sortKey)||'');
+                        const c1=va.localeCompare(vb,undefined,{numeric:true,sensitivity:'base'});
+                        if(c1!==0)return _sortDesc?-c1:c1;
+                    }
+                    return ord(a)-ord(b);
+                });
+                rows.forEach(tr=>tbody.appendChild(tr));
+                if(empty)tbody.appendChild(empty);
+            });
+        }
+        function setSort(key,desc){
+            _sortKey=key||'';_sortDesc=!!desc;
+            try{localStorage.setItem('npwSortKey',_sortKey);localStorage.setItem('npwSortDesc',_sortDesc?'1':'0');}catch(e){}
+            applySort();
+        }
+        (function sortInit(){
+            const sel=document.getElementById('sortKey'),dirBtn=document.getElementById('sortDir');
+            if(sel)sel.addEventListener('change',()=>setSort(sel.value,_sortDesc));
+            if(dirBtn)dirBtn.addEventListener('click',()=>setSort(_sortKey,!_sortDesc));
+            // 表頭點擊：同一欄再點一次切換升/降冪
+            document.addEventListener('click',e=>{
+                const th=e.target.closest('#adderChartDetail th.sortable, #nonAdderChartDetail th.sortable');if(!th)return;
+                const k=th.getAttribute('data-sort')||'';
+                setSort(k,k===_sortKey?!_sortDesc:false);
+            });
+            applySort();
+        })();
 
         // ===== Entity 篩選（全部 / NISACVD / SACVD）=====
         // 純前端顯示/隱藏列，不重新查詢；選擇記在 localStorage，下次開頁沿用
