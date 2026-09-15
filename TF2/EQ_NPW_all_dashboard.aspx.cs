@@ -122,11 +122,16 @@ public partial class NPW_Alarm : Page
             Response.End();
             return;
         }
-        if (string.Equals(opStr, "chartdata", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(opStr, "chartdata", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(opStr, "chartid", StringComparison.OrdinalIgnoreCase))
         {
             Response.ContentType = "application/json; charset=utf-8";
             Response.Cache.SetCacheability(HttpCacheability.NoCache);
-            try { HandleChartData(); }
+            try
+            {
+                if (string.Equals(opStr, "chartdata", StringComparison.OrdinalIgnoreCase)) HandleChartData();
+                else HandleChartId();
+            }
             catch (Exception ex)
             {
                 Response.StatusCode = 500;
@@ -880,6 +885,27 @@ public partial class NPW_Alarm : Page
     // SPC trend series for the inline chart thumbnails. ?cids=ID1,ID2,...
     // Optional ?days=60 history window (default 60), bounded by ?end=YYYY-MM-DD.
     // Returns { ok, series: { CHART_ID: [ {d,xbar,ucl,lcl,mean,alarm,lot,wafer}, ... ] } }.
+    // CHART_NAME -> CHART_ID (latest row). Used by the detail modal to find the
+    // S1/S2 sibling chart (W1 <-> W2 / ..C1 <-> ..C2) so both trends can be drawn.
+    //   GET ?op=chartid&name=<CHART_NAME>  -> { ok, chartId, chartName }
+    private void HandleChartId()
+    {
+        string name = (Request.QueryString["name"] ?? "").Trim();
+        var ser = new JavaScriptSerializer();
+        if (name.Length == 0 || name.Length > 300)
+        {
+            Response.Write(ser.Serialize(new Dictionary<string, object> { { "ok", true }, { "chartId", null }, { "chartName", name } }));
+            return;
+        }
+        var rows = QueryRows(
+            "SELECT TOP 1 CHART_ID, CHART_NAME FROM " + ChartTable + " WITH (NOLOCK) " +
+            "WHERE CHART_NAME = @p0 ORDER BY UPDATE_TIME DESC", name);
+        object cid = rows.Count > 0 ? rows[0]["CHART_ID"] : null;
+        Response.Write(ser.Serialize(new Dictionary<string, object> {
+            { "ok", true }, { "chartId", cid == null ? null : Convert.ToString(cid) }, { "chartName", name }
+        }));
+    }
+
     private void HandleChartData()
     {
         string cidsRaw = (Request.QueryString["cids"] ?? "").Trim();

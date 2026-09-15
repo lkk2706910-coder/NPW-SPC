@@ -302,7 +302,10 @@
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
 }
 #detail-modal .card h4 small { font-weight: 400; color: #98a2b3; font-size: 11px; }
-#detail-modal .spark { position: relative; width: 100%; height: 320px; }
+#detail-modal .spark { position: relative; width: 100%; height: 260px; }
+#detail-modal .spark-title { font-size: 12px; font-weight: 700; color: #0f4aa8; margin: 6px 0 2px; }
+#detail-modal .spark-title .cn { color: #555; font-weight: 400; margin-left: 6px; }
+#detail-modal .spark-title .me { color: #c00; margin-left: 6px; }
 #detail-modal .spark canvas { display: block; width: 100% !important; height: 100% !important; }
 #detail-modal .map-box {
   display: flex; align-items: center; justify-content: center;
@@ -1284,7 +1287,41 @@
 
 
         var _detailSeq = 0;        // 防止快速切換時舊回應蓋掉新資料
-        var _sparkInstance = null; // 目前的 Chart.js 實例
+        var _sparkInstance = null; // 目前的 Chart.js 實例（本筆 alarm 的 chart）
+        var _sparkInstance2 = null; // S1/S2 對應 chart 的 Chart.js 實例
+        function dDestroySparks() {
+          if (_sparkInstance) { try { _sparkInstance.destroy(); } catch (e) {} _sparkInstance = null; }
+          if (_sparkInstance2) { try { _sparkInstance2.destroy(); } catch (e) {} _sparkInstance2 = null; }
+        }
+        // 由 CHART_NAME 推導 side 與 S1/S2 對應 chart 名稱：
+        //   ADDER：W1 <-> W2；NON-ADDER：dash 分隔、形如 AC2/BC2/B2 的段落尾數 1 <-> 2
+        function dSideOfName(name) {
+          var s = String(name || '').toUpperCase();
+          var m = s.match(/(^|[-_])W([12])(?=[-_]|$)/);
+          if (m) return 'S' + m[2];
+          var seg = s.split('-').find(function (x) { return /^[ABC]{1,3}[12]$/.test(x); });
+          return seg ? 'S' + seg.slice(-1) : '';
+        }
+        function dSiblingName(name) {
+          var s = String(name || '');
+          var m = s.match(/(^|[-_])W([12])(?=[-_]|$)/i);
+          if (m) { var o = m[2] === '1' ? '2' : '1'; return s.substring(0, m.index + m[1].length) + 'W' + o + s.substring(m.index + m[0].length); }
+          var parts = s.split('-');
+          for (var i = 0; i < parts.length; i++) {
+            if (/^[ABC]{1,3}[12]$/i.test(parts[i])) { parts[i] = parts[i].slice(0, -1) + (parts[i].slice(-1) === '1' ? '2' : '1'); return parts.join('-'); }
+          }
+          return '';
+        }
+        // 對應 chart 的 CHART_ID：先找當天主表資料，沒有再問伺服器（op=chartid）
+        function dFindChartId(name) {
+          try {
+            for (var i = 0; i < rawData.length; i++) if (String(rawData[i].CHART_NAME || '') === name && rawData[i].CHART_ID != null) return Promise.resolve(String(rawData[i].CHART_ID));
+          } catch (e) {}
+          return fetch(PAGE + '?op=chartid&name=' + encodeURIComponent(name) + '&_=' + Date.now(), { cache: 'no-store' })
+            .then(function (r) { return r.json(); })
+            .then(function (d) { return (d && d.ok && d.chartId) ? String(d.chartId) : null; })
+            .catch(function () { return null; });
+        }
         var _currentDetail = null; // 目前明細（含 NPW 對應欄位），對角度時要用
 
         function setText(id, value, pendingWhenEmpty) {
@@ -1399,9 +1436,13 @@
           $('d-profile').innerHTML = '載入中…';
           $('d-trend-status').textContent = '載入中…';
           $('d-trend-range').textContent = '';
+          $('d-trend2-status').textContent = '';
+          $('d-spark-title').textContent = '';
+          $('d-spark2-title').textContent = '';
+          $('d-spark2-wrap').hidden = true;
           emstReset(row, block);
 
-          if (_sparkInstance) { try { _sparkInstance.destroy(); } catch (e) {} _sparkInstance = null; }
+          dDestroySparks();
 
           $('detail-modal').hidden = false;
           document.body.style.overflow = 'hidden';
@@ -1497,6 +1538,13 @@
               setText('d-port', '');
             });
 
+          // Trend：本筆 alarm 的 chart（上）＋ S1/S2 對應 chart（下），同時載入
+          var mySide = dSideOfName(row.CHART_NAME);
+          var sibName = dSiblingName(row.CHART_NAME);
+          var sibSide = sibName ? dSideOfName(sibName) : '';
+          $('d-spark-title').innerHTML = (mySide ? escapeHtml(mySide) : 'Chart') + '<span class="cn">' + escapeHtml(row.CHART_NAME || '') + '</span><span class="me">（本筆 alarm）</span>';
+          var sparkOpts = { block: block, uclLclPct: block === 'A' ? 0.10 : 0.01 };
+
           callApi('chartdata', { cid: row.UCHART_ID, end: endDate, days: TREND_DAYS })
             .then(function (data) {
               if (seq !== _detailSeq) return;
@@ -1505,17 +1553,38 @@
               $('d-trend-range').textContent = data.start + ' ~ ' + data.end + '（' + pts.length + ' 點）';
               if (!pts.length) { $('d-trend-status').textContent = '此區間沒有趨勢資料'; return; }
               $('d-trend-status').textContent = '';
-              _sparkInstance = drawSparkDetail($('d-spark'), pts, {
-                block: block,
-                uclLclPct: block === 'A' ? 0.10 : 0.01,
+              _sparkInstance = drawSparkDetail($('d-spark'), pts, Object.assign({
                 alarmSeq: String(row.CHART_SEQ),
                 alarmDay: endDate
-              });
+              }, sparkOpts));
             })
             .catch(function (err) {
               if (seq !== _detailSeq) return;
               $('d-trend-status').textContent = 'Trend chart 載入失敗：' + err.message;
             });
+
+          if (sibName) {
+            $('d-spark2-title').innerHTML = escapeHtml(sibSide) + '<span class="cn">' + escapeHtml(sibName) + '</span>';
+            $('d-spark2-wrap').hidden = false;
+            $('d-trend2-status').textContent = '載入中…';
+            dFindChartId(sibName)
+              .then(function (cid2) {
+                if (seq !== _detailSeq) return null;
+                if (!cid2) { $('d-trend2-status').textContent = '找不到對應 chart（' + sibName + '）'; $('d-spark2-wrap').hidden = true; return null; }
+                return callApi('chartdata', { cid: cid2, end: endDate, days: TREND_DAYS });
+              })
+              .then(function (data) {
+                if (!data || seq !== _detailSeq) return;
+                var pts = data.series || [];
+                if (!pts.length) { $('d-trend2-status').textContent = '此區間沒有趨勢資料'; $('d-spark2-wrap').hidden = true; return; }
+                $('d-trend2-status').textContent = '';
+                _sparkInstance2 = drawSparkDetail($('d-spark2'), pts, Object.assign({ alarmDay: endDate }, sparkOpts));
+              })
+              .catch(function (err) {
+                if (seq !== _detailSeq) return;
+                $('d-trend2-status').textContent = '對應 chart 載入失敗：' + err.message;
+              });
+          }
         }
 
         // ===== EMST 填寫區塊 =====
@@ -1820,7 +1889,7 @@
           wmResetInline();
           $('detail-modal').hidden = true;
           document.body.style.overflow = '';
-          if (_sparkInstance) { try { _sparkInstance.destroy(); } catch (e) {} _sparkInstance = null; }
+          dDestroySparks();
         }
 
         // ===== Trend chart（Chart.js）：沿用 NPW 網站 drawSpark 的畫法 =====
@@ -2208,8 +2277,13 @@
       <div class="detail-grid" id="d-grid">
         <div class="card">
           <h4>Trend_Chart <small id="d-trend-range"></small></h4>
+          <!-- S1 / S2 同時顯示：本筆 alarm 的 chart 與其 W1<->W2（NON-ADDER：..C1<->..C2）對應 chart -->
+          <div class="spark-title" id="d-spark-title"></div>
           <div class="spark"><canvas id="d-spark"></canvas></div>
           <div class="map-hint" id="d-trend-status"></div>
+          <div class="spark-title" id="d-spark2-title"></div>
+          <div class="spark" id="d-spark2-wrap"><canvas id="d-spark2"></canvas></div>
+          <div class="map-hint" id="d-trend2-status"></div>
         </div>
         <div class="card" id="d-card-premap">
           <h4>PRE_Map</h4>
