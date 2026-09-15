@@ -201,6 +201,9 @@
         .npw-report-card .alarm-over-target{background-color:#ffd1e6!important;}
         .npw-report-card .total-green-over-yellow{background-color:#ffd1e6!important;}
         .npw-report-card #adderChartDetail,.npw-report-card #nonAdderChartDetail{overflow-x:auto;}
+        /* 浮動橫向捲軸：固定在視窗底部，與目前看得到的表格容器同步捲動，不必拉到表格最下面 */
+        #hscrollFloat{position:fixed;bottom:0;height:16px;overflow-x:auto;overflow-y:hidden;background:rgba(255,255,255,.95);border-top:1px solid #bbb;box-shadow:0 -2px 6px rgba(0,0,0,.12);z-index:900;display:none;}
+        #hscrollFloat>div{height:1px;}
         .npw-report-card .chart-detail{width:100%;border-collapse:collapse;background:#fff;border:2px solid #222;margin:-6px 0 18px;}
         /* 表格內文字一律不換行；表格過寬時由外層容器（overflow-x:auto）水平捲動 */
         .npw-report-card .chart-detail th,.npw-report-card .chart-detail td{border:1px solid #222;font-size:12px;padding:4px 6px;line-height:1.2;vertical-align:middle;color:#111;text-align:left;white-space:nowrap;word-break:normal;}
@@ -2165,7 +2168,52 @@
             if(n)n.innerHTML=buildInlineChartDetailHtml(picked,false);
             hydratePreviews(picked);  // Chart.js 趨勢縮圖（chartdata 單次批次查詢）
             setupLazyMaps();          // PRE/ADDER/Profile/MeasurePU：捲到才載入+去重+快取+限流
+            hscrollUpdate();          // 表格重建後重新量測浮動橫向捲軸
         }
+
+        // ===== 浮動橫向捲軸 =====
+        // 表格容器（#adderChartDetail / #nonAdderChartDetail）本身的橫向捲軸在容器最底下，
+        // 表格很長時得拉到最下面才碰得到；這裡在視窗底部放一條固定的捲軸，
+        // 對應「目前在畫面中、且自己的捲軸還在畫面外」的那個容器，兩邊 scrollLeft 互相同步。
+        let _hsBar=null,_hsInner=null,_hsTarget=null,_hsSyncing=false;
+        function hscrollPick(){
+            const vh=window.innerHeight;
+            for(const id of ['adderChartDetail','nonAdderChartDetail']){
+                const c=document.getElementById(id);if(!c)continue;
+                if(c.scrollWidth<=c.clientWidth+1)continue;          // 不需要橫向捲動
+                const r=c.getBoundingClientRect();
+                if(r.top<vh-60&&r.bottom>vh+4)return c;               // 容器在畫面中，但底部（自己的捲軸）還在畫面外
+            }
+            return null;
+        }
+        function hscrollUpdate(){
+            if(!_hsBar)return;
+            const c=(document.body.style.overflow==='hidden')?null:hscrollPick();   // 明細彈窗開啟時不顯示
+            _hsTarget=c;
+            if(!c){_hsBar.style.display='none';return;}
+            const r=c.getBoundingClientRect();
+            _hsBar.style.display='block';
+            _hsBar.style.left=r.left+'px';
+            _hsBar.style.width=c.clientWidth+'px';
+            _hsInner.style.width=c.scrollWidth+'px';
+            if(!_hsSyncing){_hsSyncing=true;_hsBar.scrollLeft=c.scrollLeft;_hsSyncing=false;}
+        }
+        (function hscrollInit(){
+            _hsBar=document.createElement('div');_hsBar.id='hscrollFloat';
+            _hsInner=document.createElement('div');_hsBar.appendChild(_hsInner);
+            document.body.appendChild(_hsBar);
+            _hsBar.addEventListener('scroll',()=>{if(_hsTarget&&!_hsSyncing){_hsSyncing=true;_hsTarget.scrollLeft=_hsBar.scrollLeft;_hsSyncing=false;}});
+            document.addEventListener('scroll',e=>{
+                if(e.target===_hsTarget){if(!_hsSyncing){_hsSyncing=true;_hsBar.scrollLeft=_hsTarget.scrollLeft;_hsSyncing=false;}}
+                else if(e.target===document)hscrollUpdate();
+            },true);
+            window.addEventListener('resize',hscrollUpdate);
+            if('ResizeObserver' in window){
+                const ro=new ResizeObserver(()=>hscrollUpdate());
+                ['adderChartDetail','nonAdderChartDetail'].forEach(id=>{const c=document.getElementById(id);if(c)ro.observe(c);});
+            }
+            setInterval(hscrollUpdate,1000);   // 圖片/縮圖載入後寬度會變，定時補量一次
+        })();
 
         // ===== 初始化 =====
         (function init(){
