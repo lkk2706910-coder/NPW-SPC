@@ -176,6 +176,12 @@
         .npw-report-card #calBtn{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;border:1px solid #999;border-radius:4px;background:#fff;color:#1976d2;cursor:pointer;}
         .npw-report-card #calBtn:hover{background:#eef4ff;border-color:#1976d2;}
         .npw-report-card #reloadBtn{padding:6px 14px;border:0;border-radius:6px;background:#1976d2;color:#fff;cursor:pointer;}
+        /* Entity 篩選（全部 / NISACVD / SACVD） */
+        .npw-report-card .npw-ent-filter{display:inline-flex;border:1px solid #1976d2;border-radius:6px;overflow:hidden;}
+        .npw-report-card .npw-ent-filter button{padding:5px 12px;border:0;background:#fff;color:#1976d2;cursor:pointer;font-weight:700;font-size:13px;}
+        .npw-report-card .npw-ent-filter button+button{border-left:1px solid #1976d2;}
+        .npw-report-card .npw-ent-filter button.on{background:#1976d2;color:#fff;}
+        .npw-report-card .chart-detail tr.ent-empty td{color:#888;text-align:center;padding:10px;}
         .npw-report-card .npw-week-hint{color:#0f4aa8;font-weight:700;}
         .npw-report-card .npw-port-meta{color:#6b7280;font-size:12px;}
         .npw-report-card .npw-status{color:#555;font-size:12px;}
@@ -358,6 +364,11 @@
                     </button>
                 </span>
                 <span class="npw-week-hint" id="weekHint"></span>
+                <span class="npw-ent-filter" id="entFilter" title="只顯示指定 Entity 的 alarm">
+                    <button type="button" data-ent="" class="on">全部</button>
+                    <button type="button" data-ent="NISACVD">NISACVD</button>
+                    <button type="button" data-ent="SACVD">SACVD</button>
+                </span>
                 <button id="reloadBtn" type="button">重新整理</button>
                 <span id="status" class="npw-status">資料載入中...</span>
                 <span id="portMeta" class="npw-port-meta" title="Port 對應結果由伺服器快取，按「重新整理」會強制重新查詢"></span>
@@ -1021,7 +1032,7 @@
                     const col=(up==='PM'||up==='NORMAL')?'#1976d2':'#111';
                     return `<span style="color:${col};font-weight:700;">${escapeHtml(t)}</span>`;
                 }).join(', ');
-                html+=`<tr class="${rowClass}"><td>${escapeHtml(r.entity)}</td><td>${escapeHtml(r.processUnit||'')}</td><td>${cid}</td><td class="cn-col">${nameHtml}</td>
+                html+=`<tr class="${rowClass}" data-entity="${escapeHtml(r.entity)}"><td>${escapeHtml(r.entity)}</td><td>${escapeHtml(r.processUnit||'')}</td><td>${cid}</td><td class="cn-col">${nameHtml}</td>
                     <td style="text-align:center;">${mtHtml}</td>
                     <td style="text-align:center;">${escapeHtml(r.cnt)}</td><td>${escapeHtml(datesText)}</td><td class="port-cell" data-pk="${escapeHtml(r.mkey)}">${escapeHtml(r.ports||(_portsLoading?'...':''))}</td>${extra}</tr>`;
             }
@@ -2168,8 +2179,43 @@
             if(n)n.innerHTML=buildInlineChartDetailHtml(picked,false);
             hydratePreviews(picked);  // Chart.js 趨勢縮圖（chartdata 單次批次查詢）
             setupLazyMaps();          // PRE/ADDER/Profile/MeasurePU：捲到才載入+去重+快取+限流
+            applyEntityFilter();      // 依目前選的 Entity 顯示/隱藏列
             hscrollUpdate();          // 表格重建後重新量測浮動橫向捲軸
         }
+
+        // ===== Entity 篩選（全部 / NISACVD / SACVD）=====
+        // 純前端顯示/隱藏列，不重新查詢；選擇記在 localStorage，下次開頁沿用
+        let _entFilter='';
+        try{_entFilter=localStorage.getItem('npwEntFilter')||'';}catch(e){}
+        function applyEntityFilter(){
+            const ent=_entFilter;
+            document.querySelectorAll('#entFilter button').forEach(b=>b.classList.toggle('on',(b.getAttribute('data-ent')||'')===ent));
+            ['adderChartDetail','nonAdderChartDetail'].forEach(id=>{
+                const c=document.getElementById(id);if(!c)return;
+                const tbody=c.querySelector('table.chart-detail tbody');if(!tbody)return;
+                let visible=0;
+                tbody.querySelectorAll('tr[data-entity]').forEach(tr=>{
+                    const show=!ent||tr.getAttribute('data-entity')===ent;
+                    tr.style.display=show?'':'none';if(show)visible++;
+                });
+                let empty=tbody.querySelector('tr.ent-empty');
+                if(!visible){
+                    if(!empty){empty=document.createElement('tr');empty.className='ent-empty';empty.innerHTML='<td colspan="12"></td>';tbody.appendChild(empty);}
+                    empty.firstChild.textContent=ent+'：本日無 Alarm 記錄';
+                }else if(empty)empty.remove();
+            });
+        }
+        (function entFilterInit(){
+            const box=document.getElementById('entFilter');if(!box)return;
+            box.addEventListener('click',e=>{
+                const b=e.target.closest('button[data-ent]');if(!b)return;
+                _entFilter=b.getAttribute('data-ent')||'';
+                try{localStorage.setItem('npwEntFilter',_entFilter);}catch(err){}
+                applyEntityFilter();
+                hscrollUpdate();
+            });
+            applyEntityFilter();
+        })();
 
         // ===== 浮動橫向捲軸 =====
         // 表格容器（#adderChartDetail / #nonAdderChartDetail）本身的橫向捲軸在容器最底下，
