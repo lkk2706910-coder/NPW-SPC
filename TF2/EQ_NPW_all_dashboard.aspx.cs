@@ -260,7 +260,7 @@ public partial class NPW_Alarm : Page
     //   - week range: Tuesday..Monday (bucketed by UPDATE_TIME)
     //   - ADDER / NON-ADDER: CHART_TYPE 'C-C' / 'XBAR'
     //   - Entity: PROCESSUNIT prefix before '-' (only NISACVD / SACVD shown)
-    //   - exclude Engineering: CHART_DESC <> 'Engineering'
+    //   - CHART_DESC: Engineering charts are included (no CHART_DESC filter)
     //   - MONITOR_TYPE: all types included (shown as a column on the client)
     //   - Alarm: ALARM_COUNT >= 1 (decided on the client)
     // The SQL pre-filters only drop rows the client would discard anyway, so it
@@ -284,7 +284,6 @@ public partial class NPW_Alarm : Page
             "LOT, RECIPE " +
             "FROM " + ChartTable + " WITH (NOLOCK) " +
             "WHERE UPDATE_TIME >= @p0 AND UPDATE_TIME < @p1 " +
-            "AND ISNULL(CHART_DESC,'') <> 'Engineering' " +
             "AND CHART_TYPE IN ('C-C','XBAR') " +
             "AND (PROCESSUNIT LIKE 'NISACVD%' OR PROCESSUNIT LIKE 'SACVD%')";
         var rows = QueryRows(sql, weekStart, weekEndExcl);
@@ -481,7 +480,8 @@ public partial class NPW_Alarm : Page
         DateTime weekEndExcl = weekStart.AddDays(1);
         string table = ChartTable;                       // reads Request; capture for the closure
         string folder = Server.MapPath(CacheFolder);
-        string key = weekStart.ToString("yyyy-MM-dd") + (table.IndexOf("TF1", StringComparison.OrdinalIgnoreCase) >= 0 ? "_TF1" : "");
+        // "_v2": Engineering charts included since this version; older cache files are ignored.
+        string key = weekStart.ToString("yyyy-MM-dd") + (table.IndexOf("TF1", StringComparison.OrdinalIgnoreCase) >= 0 ? "_TF1" : "") + "_v2";
         bool recent = weekStart >= DateTime.Today.AddDays(-7);
         TimeSpan fresh = recent ? TimeSpan.FromMinutes(15) : TimeSpan.FromDays(7);
 
@@ -507,7 +507,6 @@ public partial class NPW_Alarm : Page
             "WHERE c.UPDATE_TIME >= @p0 AND c.UPDATE_TIME < @p1 " +
             "AND (c.ALARM_COUNT >= 1 OR c.MONITOR_TYPE = 'DOWN') AND c.LOT IS NOT NULL AND c.LASTDATATMST IS NOT NULL " +
             "AND (c.CHART_TYPE = 'XBAR' OR c.RECIPE IS NOT NULL) " +
-            "AND ISNULL(c.CHART_DESC,'') <> 'Engineering' " +
             "AND c.CHART_TYPE IN ('C-C','XBAR') " +
             "AND (c.PROCESSUNIT LIKE 'NISACVD%' OR c.PROCESSUNIT LIKE 'SACVD%')";
         var rows = QueryRows(sql, weekStart, weekEndExcl);

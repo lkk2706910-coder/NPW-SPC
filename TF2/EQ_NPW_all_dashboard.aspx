@@ -456,7 +456,7 @@
                 const CT=String(row.CHART_TYPE||'').trim().toUpperCase();
                 const CN=row.CHART_NAME||'';
                 const CID=row.CHART_ID||'';
-                const isEng=String(row.CHART_DESC||'').trim().toUpperCase()==='ENGINEERING';
+                // CHART_DESC = Engineering 的 chart 一律列入（ADDER / NON-ADDER 都不排除）
                 const alarmCnt=Number(row.ALARM_COUNT)||0;
 
                 if(!stats[entity])stats[entity]={daily:{},sum:{alarmAdder:0,alarmNonAdder:0,totalMonAdder:0,totalMonNonAdder:0}};
@@ -466,8 +466,8 @@
 
                 const MON=1; // DB 無 MON_CNT，一列算 1（同原工具預設）
 
-                // Total Monitor Count（MONITOR_TYPE=NORMAL/PM 且非 Engineering）
-                if((MT==='NORMAL'||MT==='PM')&&!isEng){
+                // Total Monitor Count（MONITOR_TYPE=NORMAL/PM）
+                if(MT==='NORMAL'||MT==='PM'){
                     if(CT==='C-C'){ds.totalMonAdder+=MON;es.sum.totalMonAdder+=MON;}
                     else if(CT==='XBAR'){ds.totalMonNonAdder+=MON;es.sum.totalMonNonAdder+=MON;}
                 }
@@ -475,7 +475,6 @@
                 // Alarm 條件（MONITOR_TYPE 改為 all，不再篩選；型別另以欄位顯示）
                 // DOWN 紀錄的 ALARM_COUNT 多為 0，但仍要列出：DOWN 一律視為要顯示的列
                 if(!(alarmCnt>=1)&&MT!=='DOWN')continue;
-                if(isEng)continue;
 
                 let isAdder;
                 if(CT==='C-C'){isAdder=true;ds.alarmAdder+=1;es.sum.alarmAdder+=1;}
@@ -659,7 +658,6 @@
                 if(typeof ut==='string'){ut=ut.substring(0,10);}else{const j=new Date(ut);if(isNaN(j.getTime()))continue;ut=fmtYMDDash(j);}
                 if(!days.includes(ut))continue;
                 if(!(Number(row.ALARM_COUNT)>=1)&&String(row.MONITOR_TYPE||'').toUpperCase()!=='DOWN')continue;
-                if(String(row.CHART_DESC||'').trim().toUpperCase()==='ENGINEERING')continue;
                 const CT=String(row.CHART_TYPE||'').trim().toUpperCase();
                 let isAdder;if(CT==='C-C')isAdder=true;else if(CT==='XBAR')isAdder=false;else continue;
                 const plk=_portLookup[String(row.LOT||'')+'|'+ut+'|'+(isAdder?'A':'N')];
