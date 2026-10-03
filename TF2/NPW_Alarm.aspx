@@ -700,21 +700,25 @@
         const ITEM_ORDER=['HTSIN130_11','PEOX50A','5.5K','USG50','2K','CHC 2K','DAILY2_PA','DAILY4_PA','D2_PA','D4_PA','DAILY_PA','FSPA','XFER','Weekly PA'];
         function itemRank(t){const i=ITEM_ORDER.indexOf(t);return i<0?ITEM_ORDER.length-0.5:i;}
         const SCHEDULE=[
-            { title:'NISACVD', rows:[
+            { title:'NISA_SIN (HTSIN130_11 + PEOX50A)', rows:[
                 { name:'NISACVD-B01', shift:'日', ev:[ {items:'Weekly PA',every:7,from:'2026-06-17'}, {items:'XFER',every:2,from:'2026-06-17'}, {items:'HTSIN130_11+PEOX50A',every:3,from:'2026-06-17'} ] },
                 { name:'NISACVD-B06', shift:'日', ev:[ {items:'HTSIN130_11+PEOX50A+XFER',every:3,from:'2026-06-16'}, {items:'Weekly PA',every:7,from:'2026-06-16'} ] },
                 { name:'NISACVD-B07', shift:'日', ev:[ {items:'HTSIN130_11+PEOX50A+XFER',every:3,from:'2026-06-16'}, {items:'Weekly PA',every:7,from:'2026-06-18'} ] },
-                { name:'NISACVD-B08', shift:'夜', ev:[ {items:'HTSIN130_11+PEOX50A+XFER',every:3,from:'2026-06-17'}, {items:'Weekly PA',every:7,from:'2026-06-21'} ] },
-                { name:'NISACVD-B03', shift:'夜', ev:[ {items:'XFER',every:3,from:'2026-06-16'}, {items:'DAILY_PA',every:3,from:'2026-06-17'} ] },
-                { name:'NISACVD-B12', shift:'日', ev:[ {items:'XFER',every:3,from:'2026-06-17'}, {items:'DAILY_PA',every:3,from:'2026-06-17'} ] },
-                { name:'NISACVD-B13', shift:'夜', ev:[ {items:'XFER',every:3,from:'2026-06-16'}, {items:'DAILY_PA',every:3,from:'2026-06-16'} ] },
-                { name:'NISACVD-B14', shift:'日', ev:[ {items:'XFER',every:3,from:'2026-06-16'}, {items:'DAILY_PA',every:3,from:'2026-06-16'} ] },
+                { name:'NISACVD-B08', shift:'夜', ev:[ {items:'HTSIN130_11+PEOX50A+XFER',every:3,from:'2026-06-17'}, {items:'Weekly PA',every:7,from:'2026-06-21'} ] }
+            ]},
+            { title:'NISA_SIN4D4C (FSPA)', rows:[
                 { name:'NISACVD-B02', shift:'夜', ev:[ {items:'XFER',every:3,from:'2026-08-17'}, {items:'FSPA',every:3,from:'2026-08-18'}, {items:'Weekly PA',every:7,from:'2026-08-14'} ] },
                 { name:'NISACVD-B04', shift:'夜', ev:[ {items:'XFER',every:3,from:'2026-08-15'}, {items:'FSPA',every:3,from:'2026-08-17'}, {items:'Weekly PA',every:7,from:'2026-08-17'} ] },
                 { name:'NISACVD-B05', shift:'日', ev:[ {items:'XFER',every:3,from:'2026-08-18'}, {items:'FSPA',every:3,from:'2026-08-18'}, {items:'Weekly PA',every:7,from:'2026-08-17'} ] },
                 { name:'NISACVD-B09', shift:'夜', ev:[ {items:'XFER',every:3,from:'2026-08-17'}, {items:'FSPA',every:3,from:'2026-08-17'}, {items:'Weekly PA',every:7,from:'2026-08-17'} ] },
                 { name:'NISACVD-B10', shift:'日', ev:[ {items:'XFER',every:3,from:'2026-08-19'}, {items:'FSPA',every:3,from:'2026-08-19'}, {items:'Weekly PA',every:7,from:'2026-08-17'} ] },
                 { name:'NISACVD-B11', shift:'日', ev:[ {items:'XFER',every:3,from:'2026-08-17'}, {items:'FSPA',every:3,from:'2026-08-17'}, {items:'Weekly PA',every:7,from:'2026-08-18'} ] }
+            ]},
+            { title:'NISA_USG (DAILY_PA)', rows:[
+                { name:'NISACVD-B03', shift:'夜', ev:[ {items:'XFER',every:3,from:'2026-06-16'}, {items:'DAILY_PA',every:3,from:'2026-06-17'} ] },
+                { name:'NISACVD-B12', shift:'日', ev:[ {items:'XFER',every:3,from:'2026-06-17'}, {items:'DAILY_PA',every:3,from:'2026-06-17'} ] },
+                { name:'NISACVD-B13', shift:'夜', ev:[ {items:'XFER',every:3,from:'2026-06-16'}, {items:'DAILY_PA',every:3,from:'2026-06-16'} ] },
+                { name:'NISACVD-B14', shift:'日', ev:[ {items:'XFER',every:3,from:'2026-06-16'}, {items:'DAILY_PA',every:3,from:'2026-06-16'} ] }
             ]},
             { title:'SACVD_HARP (5.5K)', rows:[
                 { name:'SACVD-B01', shift:'日', ev:[ {items:'5.5K',every:3,from:'2026-06-17'}, {items:'XFER',every:3,from:'2026-06-17'} ] },
