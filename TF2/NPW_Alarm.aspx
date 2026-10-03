@@ -697,7 +697,7 @@
         // ev: 週期事件 {items:'A+B', every:N天, from:'YYYY-MM-DD' 基準日}；
         //     某天若 (該天-基準日) 為 every 的整數倍即命中，連續跨週推算。
         // cells: 尚未提供週期規則者，暫用固定週樣板(鍵=週內第幾天,0=週二)。
-        const ITEM_ORDER=['HTSIN130_11','PEOX50A','5.5K','USG50','CHC 2K','DAILY2_PA','DAILY4_PA','D2_PA','D4_PA','DAILY_PA','FSPA','XFER','Weekly PA'];
+        const ITEM_ORDER=['HTSIN130_11','PEOX50A','5.5K','USG50','2K','CHC 2K','DAILY2_PA','DAILY4_PA','D2_PA','D4_PA','DAILY_PA','FSPA','XFER','Weekly PA'];
         function itemRank(t){const i=ITEM_ORDER.indexOf(t);return i<0?ITEM_ORDER.length-0.5:i;}
         const SCHEDULE=[
             { title:'NISACVD', rows:[
@@ -722,7 +722,10 @@
                 { name:'SACVD-B06', shift:'夜', ev:[ {items:'5.5K',every:3,from:'2026-06-16'}, {items:'XFER',every:3,from:'2026-06-16'} ] },
                 { name:'SACVD-B08', shift:'日', ev:[ {items:'5.5K',every:3,from:'2026-06-18'}, {items:'XFER',every:3,from:'2026-06-18'} ] },
                 { name:'SACVD-B09', shift:'日', ev:[ {items:'5.5K',every:3,from:'2026-06-16'}, {items:'XFER',every:3,from:'2026-06-16'} ] },
-                { name:'SACVD-B10', shift:'日', ev:[ {items:'5.5K',every:3,from:'2026-06-16'}, {items:'XFER',every:3,from:'2026-06-16'} ] }
+                { name:'SACVD-B10', shift:'日', ev:[ {items:'5.5K',every:3,from:'2026-10-06'}, {items:'XFER',every:3,from:'2026-10-06'} ] }
+            ]},
+            { title:'SACVD (2K)', rows:[
+                { name:'SACVD-B81', shift:'日', ev:[ {items:'XFER',every:3,from:'2026-10-02'}, {items:'2K',every:3,from:'2026-10-02'} ] }
             ]},
             { title:'SACVD (USG50)', rows:[
                 { name:'SACVD-B02', shift:'夜', ev:[ {items:'USG50',every:2,from:'2026-06-17'}, {items:'XFER',every:3,from:'2026-06-18'}, {items:'CHC 2K',every:3,from:'2026-06-18'} ] },
