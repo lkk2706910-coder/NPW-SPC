@@ -716,7 +716,7 @@
                 { name:'NISACVD-B10', shift:'日', ev:[ {items:'XFER',every:3,from:'2026-08-19'}, {items:'FSPA',every:3,from:'2026-08-19'}, {items:'Weekly PA',every:7,from:'2026-08-17'} ] },
                 { name:'NISACVD-B11', shift:'日', ev:[ {items:'XFER',every:3,from:'2026-08-17'}, {items:'FSPA',every:3,from:'2026-08-17'}, {items:'Weekly PA',every:7,from:'2026-08-18'} ] }
             ]},
-            { title:'SACVD (5.5K)', rows:[
+            { title:'SACVD_HARP (5.5K)', rows:[
                 { name:'SACVD-B01', shift:'日', ev:[ {items:'5.5K',every:3,from:'2026-06-17'}, {items:'XFER',every:3,from:'2026-06-17'} ] },
                 { name:'SACVD-B04', shift:'夜', ev:[ {items:'5.5K',every:3,from:'2026-06-18'}, {items:'XFER',every:3,from:'2026-06-18'} ] },
                 { name:'SACVD-B06', shift:'夜', ev:[ {items:'5.5K',every:3,from:'2026-06-16'}, {items:'XFER',every:3,from:'2026-06-16'} ] },
@@ -724,15 +724,13 @@
                 { name:'SACVD-B09', shift:'日', ev:[ {items:'5.5K',every:3,from:'2026-06-16'}, {items:'XFER',every:3,from:'2026-06-16'} ] },
                 { name:'SACVD-B10', shift:'日', ev:[ {items:'5.5K',every:3,from:'2026-10-06'}, {items:'XFER',every:3,from:'2026-10-06'} ] }
             ]},
-            { title:'SACVD (2K)', rows:[
-                { name:'SACVD-B81', shift:'日', ev:[ {items:'XFER',every:3,from:'2026-10-02'}, {items:'2K',every:3,from:'2026-10-02'} ] }
-            ]},
-            { title:'SACVD (USG50)', rows:[
+            { title:'SACVD_SA (USG50 / 2K)', rows:[
                 { name:'SACVD-B02', shift:'夜', ev:[ {items:'USG50',every:2,from:'2026-06-17'}, {items:'XFER',every:3,from:'2026-06-18'}, {items:'CHC 2K',every:3,from:'2026-06-18'} ] },
                 { name:'SACVD-B11', shift:'日', ev:[ {items:'USG50',every:2,from:'2026-06-16'}, {items:'XFER',every:3,from:'2026-06-17'} ] },
-                { name:'SACVD-B12', shift:'夜', ev:[ {items:'USG50',every:2,from:'2026-06-16'}, {items:'XFER',every:3,from:'2026-06-16'} ] }
+                { name:'SACVD-B12', shift:'夜', ev:[ {items:'USG50',every:2,from:'2026-06-16'}, {items:'XFER',every:3,from:'2026-06-16'} ] },
+                { name:'SACVD-B81', shift:'日', ev:[ {items:'XFER',every:3,from:'2026-10-02'}, {items:'2K',every:3,from:'2026-10-02'} ] }
             ]},
-            { title:'SACVD-B03B / B03C / B07A 只測 SABOX110 PA', rows:[
+            { title:'SACVD_SMT（B03B / B03C / B07A 只測 SABOX110 PA）', rows:[
                 { name:'SACVD-B03', shift:'日', ev:[ {items:'XFER',every:3,from:'2026-06-18'}, {items:'DAILY2_PA',every:2,from:'2026-06-16'}, {items:'DAILY4_PA',every:4,from:'2026-06-16'} ] },
                 { name:'SACVD-B05', shift:'夜', ev:[ {items:'XFER',every:3,from:'2026-06-16'}, {items:'D2_PA',every:2,from:'2026-06-17'}, {items:'D4_PA',every:4,from:'2026-06-19'} ] },
                 { name:'SACVD-B07', shift:'夜', ev:[ {items:'XFER',every:3,from:'2026-06-17'}, {items:'D2_PA',every:2,from:'2026-06-16'}, {items:'D4_PA',every:4,from:'2026-06-18'} ] }
