@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>PCRB Table</title>
+<style>
+
+    :root { --bd: 2px solid #000; }
+
+    body { font-family: Arial, "Microsoft JhengHei", sans-serif; }
+
+    .wrap { max-width: 980px; margin: 14px auto; padding: 0 10px; }
+
+    table { border-collapse: collapse; width: 100%; table-layout: auto; }
+
+    th, td { border: var(--bd); padding: 6px 8px; text-align: center; vertical-align: middle; }
+
+    thead th { background: #fff6a5; font-weight: 700; }
+
+    td.item { background: #f3c19b; }
+
+    td.item.green { background: #b9f0b7; }
+
+    td.pu { background: #c9f6c9; text-align: left; }
+
+    td.result { background: #9fc6ff; }
+
+    input.cell { width: 100%; box-sizing: border-box; border: 0; outline: none; background: transparent; font: inherit; text-align: inherit; }
+
+    .num { text-align: right; }
+
+    .muted { color: rgba(0,0,0,.55); }
+
+    .panel { margin-top: 12px; padding: 10px; border: var(--bd); }
+
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+    .btn { border: var(--bd); background: #fff; padding: 5px 10px; font: inherit; cursor: pointer; }
+
+    .small { font-size: 12px; }
+
+    code { background: #f5f5f5; padding: 2px 6px; }
+
+    #results thead th { background: #e9f0ff; }
+
+    #results td.left, #results th.left { text-align: left; }
+
+    /* ====== PU 欄位加寬，其它自動吃剩下寬度 ====== */
+
+    #pcrb col.puCol { width: 30%; }      /* 你可改 40~55% */
+
+    #pcrb col.itemCol { width: 12%; }    /* 可調 */
+
+    #pcrb col { width: auto; }
+</style>
+<!-- 離線版 SheetJS（xlsx.full.min.js 放同資料夾） -->
+<script src="./xlsx.full.min.js"></script>
+</head>
+<body>
+<div class="wrap">
+<table id="pcrb">
+<colgroup>
+<col class="itemCol">
+<col class="puCol">
+<col><col><col><col><col><col>
+</colgroup>
+<thead>
+<tr>
+<th>Item</th>
+<th>PU</th>
+<th><input class="cell" id="adderHeader" value="ADDER" aria-label="ADDER 標題可編輯"></th>
+<th>σ</th>
+<th>/X2-X1//σ1</th>
+<th>≦1</th>
+<th>σ2^2/σ1^2</th>
+<th>(σ2^2/σ1^2)&lt;2</th>
+</tr>
+</thead>
+<tbody id="tbodyPairs">
+<!-- Pair 1 -->
+<tr>
+<td class="item"><input class="cell" value="BSL" aria-label="Item 1-1"></td>
+<td class="pu"><input class="cell" value="SACVD-B10A NOSCRB5.5K PA S1" aria-label="PU 1-1"></td>
+<td><input class="cell num x1" type="number" step="any" placeholder="X1" aria-label="X1 1"></td>
+<td><input class="cell num s1" type="number" step="any" placeholder="σ1" aria-label="σ1 1"></td>
+<td class="muted">—</td><td class="muted">—</td><td class="muted">—</td><td class="muted">—</td>
+</tr>
+<tr>
+<td class="item green"><input class="cell" value="wafer extend" aria-label="Item 1-2"></td>
+<td class="pu"><input class="cell" value="SACVD-B10A NOSCRB5.5K PA S1" aria-label="PU 1-2"></td>
+<td><input class="cell num x2" type="number" step="any" placeholder="X2" aria-label="X2 1"></td>
+<td><input class="cell num s2" type="number" step="any" placeholder="σ2" aria-label="σ2 1"></td>
+<td class="result z">#DIV/0!</td>
+<td class="result zOK">#DIV/0!</td>
+<td class="result r">#DIV/0!</td>
+<td class="result rOK">#DIV/0!</td>
+</tr>
+<!-- Pair 2 -->
+<tr>
+<td class="item"><input class="cell" value="BSL" aria-label="Item 2-1"></td>
+<td class="pu"><input class="cell" value="SACVD-B10A NOSCRB5.5K PA S1" aria-label="PU 2-1"></td>
+<td><input class="cell num x1" type="number" step="any" placeholder="X1" aria-label="X1 2"></td>
+<td><input class="cell num s1" type="number" step="any" placeholder="σ1" aria-label="σ1 2"></td>
+<td class="muted">—</td><td class="muted">—</td><td class="muted">—</td><td class="muted">—</td>
+</tr>
+<tr>
+<td class="item green"><input class="cell" value="wafer extend" aria-label="Item 2-2"></td>
+<td class="pu"><input class="cell" value="SACVD-B10A NOSCRB5.5K PA S1" aria-label="PU 2-2"></td>
+<td><input class="cell num x2" type="number" step="any" placeholder="X2" aria-label="X2 2"></td>
+<td><input class="cell num s2" type="number" step="any" placeholder="σ2" aria-label="σ2 2"></td>
+<td class="result z">#DIV/0!</td>
+<td class="result zOK">#DIV/0!</td>
+<td class="result r">#DIV/0!</td>
+<td class="result rOK">#DIV/0!</td>
+</tr>
+</tbody>
+</table>
+<div class="panel">
+<div class="row">
+<strong>多檔 YValue</strong>
+<input id="excelInputs" type="file" accept=".xlsx,.xlsm,.xlsb" multiple />
+<button class="btn" id="calcBtn" type="button">計算</button>
+<button class="btn" id="clearBtn" type="button">清除</button>
+</div>
+<div class="muted small" style="margin-top:8px">
+
+      掃描所有工作表找 <code>YValue</code> 欄位，計算 AVG / STDEV.S
+</div>
+<table id="results" style="margin-top:10px">
+<thead>
+<tr>
+<th class="left">檔名</th><th>N</th><th>AVG</th><th>STDEV.S</th><th class="left">sheet</th><th class="left">備註</th>
+</tr>
+</thead>
+<tbody id="resultsBody">
+<tr><td class="left muted" colspan="6">尚未計算</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+<script>
+
+  const el = (id) => document.getElementById(id);
+
+  const div0 = () => "#DIV/0!";
+
+  const escapeHtml = (s) => String(s ?? "")
+
+    .replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")
+
+    .replaceAll('"',"&quot;").replaceAll("'","&#39;");
+
+  // 一般格式：預設 5 位（Z、R、AVG、STDEV 全部統一為小數點後 5 位）
+
+  const fmt = (n, dp = 5) => Number.isFinite(n) ? n.toFixed(dp) : "";
+
+  const fmt2 = (n) => fmt(n, 5);
+
+  function recalcAllPairs() {
+
+    const tb = el("tbodyPairs");
+
+    const rows = Array.from(tb.querySelectorAll("tr"));
+
+    for (let i = 0; i < rows.length; i += 2) {
+
+      const r1 = rows[i], r2 = rows[i+1];
+
+      if (!r2) break;
+
+      const X1 = parseFloat(r1.querySelector(".x1")?.value);
+
+      const S1 = parseFloat(r1.querySelector(".s1")?.value);
+
+      const X2 = parseFloat(r2.querySelector(".x2")?.value);
+
+      const S2 = parseFloat(r2.querySelector(".s2")?.value);
+
+      const zCell = r2.querySelector(".z");
+
+      const zOK = r2.querySelector(".zOK");
+
+      const rCell = r2.querySelector(".r");
+
+      const rOK = r2.querySelector(".rOK");
+
+      if (Number.isFinite(X1) && Number.isFinite(X2) && Number.isFinite(S1) && S1 !== 0) {
+
+        const Z = Math.abs(X2 - X1) / S1;
+
+        zCell.textContent = fmt(Z);            // 小數點後 5 位
+
+        zOK.textContent = (Z <= 1) ? "Y" : "N";
+
+      } else {
+
+        zCell.textContent = div0(); zOK.textContent = div0();
+
+      }
+
+      if (Number.isFinite(S2) && Number.isFinite(S1) && S1 !== 0) {
+
+        const R = (S2*S2) / (S1*S1);
+
+        rCell.textContent = fmt(R);            // 小數點後 5 位
+
+        rOK.textContent = (R < 2) ? "Y" : "N";
+
+      } else {
+
+        rCell.textContent = div0(); rOK.textContent = div0();
+
+      }
+
+    }
+
+  }
+
+  el("tbodyPairs").addEventListener("input", (e) => {
+
+    if (e.target && e.target.matches("input")) recalcAllPairs();
+
+  });
+
+  recalcAllPairs();
+
+  // ========= Excel 多檔：YValue AVG / STDEV.S =========
+
+  const stdevS = (a) => {
+
+    const n = a.length; if (n < 2) return NaN;
+
+    const m = a.reduce((s,v)=>s+v,0)/n;
+
+    const ss = a.reduce((s,v)=>s+(v-m)*(v-m),0);
+
+    return Math.sqrt(ss/(n-1));
+
+  };
+
+  const norm = (h) => String(h ?? "").replace(/\s+/g,"").toLowerCase();
+
+  function extractY(ws) {
+
+    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: null });
+
+    let hr=-1, yc=-1;
+
+    for (let r=0; r<Math.min(rows.length, 300); r++) {
+
+      const row = rows[r] || [];
+
+      for (let c=0; c<row.length; c++) {
+
+        if (norm(row[c]) === "yvalue") { hr=r; yc=c; break; }
+
+      }
+
+      if (hr !== -1) break;
+
+    }
+
+    if (hr === -1) return { y: [], found: false };
+
+    const y=[];
+
+    for (let r=hr+1; r<rows.length; r++) {
+
+      const v = (rows[r]||[])[yc];
+
+      const num = (typeof v === "number") ? v : (typeof v === "string" ? parseFloat(v.trim()) : NaN);
+
+      if (Number.isFinite(num)) y.push(num);
+
+    }
+
+    return { y, found: true };
+
+  }
+
+  async function wbFromFile(file) {
+
+    const buf = await file.arrayBuffer();
+
+    return XLSX.read(buf, { type: "array", cellDates: true, raw: true });
+
+  }
+
+  async function calcFiles(files) {
+
+    const tbody = el("resultsBody");
+
+    tbody.innerHTML = "";
+
+    if (!files.length) {
+
+      tbody.innerHTML = `<tr><td class="left muted" colspan="6">請先選擇檔案</td></tr>`;
+
+      return;
+
+    }
+
+    if (typeof window.XLSX === "undefined") {
+
+      tbody.innerHTML = `<tr><td class="left" colspan="6">離線 SheetJS 未載入：請確認 <code>./xlsx.full.min.js</code> 在同資料夾且先於主程式載入</td></tr>`;
+
+      return;
+
+    }
+
+    for (const f of files) {
+
+      let note="", hit=[], yAll=[];
+
+      try{
+
+        const wb = await wbFromFile(f);
+
+        for (const sn of wb.SheetNames) {
+
+          const {y, found} = extractY(wb.Sheets[sn]);
+
+          if (found) { hit.push(`${sn}(${y.length})`); yAll = yAll.concat(y); }
+
+        }
+
+        if (!hit.length) note = "未找到 YValue";
+
+        else if (!yAll.length) note = "YValue 皆非數字/空值";
+
+      } catch(e) { note = `讀檔失敗：${e?.message || e}`; }
+
+      const n=yAll.length;
+
+      const avg = n ? yAll.reduce((s,v)=>s+v,0)/n : NaN;
+
+      const sd = stdevS(yAll);
+
+      const tr=document.createElement("tr");
+
+      tr.innerHTML = `
+<td class="left">${escapeHtml(f.name)}</td>
+<td>${n}</td>
+<td class="num">${Number.isFinite(avg)?fmt2(avg):"—"}</td>
+<td class="num">${Number.isFinite(sd)?fmt2(sd):"—"}</td>
+<td class="left muted">${escapeHtml(hit.join(", ")) || "—"}</td>
+<td class="left">${escapeHtml(note) || "—"}</td>`;
+
+      tbody.appendChild(tr);
+
+    }
+
+  }
+
+  el("calcBtn").addEventListener("click", () => calcFiles(Array.from(el("excelInputs").files || [])));
+
+  el("clearBtn").addEventListener("click", () => {
+
+    el("excelInputs").value = "";
+
+    el("resultsBody").innerHTML = `<tr><td class="left muted" colspan="6">尚未計算</td></tr>`;
+
+  });
+</script>
+</body>
+</html>
+ 
