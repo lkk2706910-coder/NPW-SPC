@@ -63,6 +63,8 @@
         table.pcrb input.cell { width: 100%; border: 0; outline: none; background: transparent; font: inherit; text-align: inherit; }
         table.pcrb input.num { text-align: right; font-variant-numeric: tabular-nums; }
         table.pcrb .meta { display: block; font-size: 11px; color: #555; font-weight: 400; }
+        table.pcrb td.ops { white-space: nowrap; }
+        table.pcrb td.ops .grp { margin-left: 4px; }
         table.pcrb tr.flash td { animation: flash 1.2s ease-out; }
         @keyframes flash { from { background-color: #ffe9a8; } to { } }
         .pcrb-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
@@ -277,7 +279,8 @@
         }else{
             cells += `<td class="muted">—</td><td class="muted">—</td><td class="muted">—</td><td class="muted">—</td><td class="muted">—</td>`;
         }
-        return `<tr data-idx="${idx}" data-side="${key}" data-row="${rowNoOf(idx, key)}"><td class="no">${rowNoOf(idx, key)}</td>${cells}${isExt ? '' : `<td rowspan="2"><button type="button" class="btn small danger" data-del="${idx}" title="刪除這一組（兩列）">刪除</button></td>`}</tr>`;
+        const ops = `<td class="ops"><button type="button" class="btn small danger" data-clear="${rowNoOf(idx, key)}" title="清空此列的 PU / X / σ / N 與註記（編號與配對不變）">刪除</button>${isExt ? '' : `<button type="button" class="btn small ghost grp" data-del="${idx}" title="移除這一組（兩列），後面的組往上移並重新編號">刪整組</button>`}</td>`;
+        return `<tr data-idx="${idx}" data-side="${key}" data-row="${rowNoOf(idx, key)}"><td class="no">${rowNoOf(idx, key)}</td>${cells}${ops}</tr>`;
     }
 
     function renderPairs(){
@@ -319,9 +322,20 @@
         recalcAll(); save();
     });
     $('tbodyPairs').addEventListener('click', e => {
+        // 每列獨立「刪除」：只清空該列內容，編號與 BSL / wafer extend 配對不變
+        const c = e.target.closest('button[data-clear]');
+        if(c){
+            const rowNo = Number(c.getAttribute('data-clear')); const { idx, key } = rowOf(rowNo);
+            if(!pairs[idx]) return;
+            const item = pairs[idx][key].item;
+            pairs[idx][key] = blankSide(); if(item) pairs[idx][key].item = item;
+            renderPairs(); save();
+            setStatus(`已清空編號 ${rowLabel(rowNo)}`);
+            return;
+        }
         const b = e.target.closest('button[data-del]'); if(!b) return;
         const idx = Number(b.getAttribute('data-del'));
-        if(!confirm('刪除編號 ' + rowNoOf(idx, 'bsl') + '、' + rowNoOf(idx, 'ext') + ' 這一組？')) return;
+        if(!confirm('移除編號 ' + rowNoOf(idx, 'bsl') + '、' + rowNoOf(idx, 'ext') + ' 這一組（兩列）？後面的組會往上移並重新編號。')) return;
         pairs.splice(idx, 1); if(!pairs.length) pairs.push(newPair());
         renderPairs(); save();
     });
