@@ -37,15 +37,11 @@
         table.res td.c { text-align: center; }
         table.res tr.vals td { background: #fafafa; white-space: normal; }
         table.res tr.added td { background: #fff8d6; }
-        table.res tr.addpanel td { background: #f0f6ff; white-space: normal; }
-        .addpanel .grp { display: inline-flex; align-items: center; gap: 6px; margin-right: 18px; }
-        .addpanel .grp b { min-width: 90px; display: inline-block; }
-        .addpanel input[type=date] { padding: 3px 6px; border: 1px solid #b8c0cc; border-radius: 6px; font: inherit; font-size: 12px; }
+        table.res td.addcell { white-space: nowrap; }
+        table.res td.addcell select { padding: 3px 4px; border: 1px solid var(--accent); border-radius: 6px; color: var(--accent); font: inherit; font-size: 12px; font-weight: 700; margin-left: 4px; }
         .valbox { max-height: 220px; overflow: auto; font-size: 11px; }
         .valbox table { border-collapse: collapse; }
         .valbox td, .valbox th { border: 1px solid #ccc; padding: 2px 6px; }
-        .target { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; margin-left: auto; }
-        .target select { padding: 4px 6px; border: 1px solid var(--accent); border-radius: 6px; color: var(--accent); font-weight: 700; }
 
         /* 檢定表格（PCRB，沿用檢定機器人） */
         .pcrb-wrap { overflow-x: auto; }
@@ -99,7 +95,7 @@
     <div class="card">
         <div class="toolbar" style="margin-bottom:8px;">
             <h2 style="margin:0;">搜尋結果 <small id="resInfo" class="hint"></small></h2>
-            <span class="target">目前填入列編號 <select id="targetNo"></select><span class="hint">（按列上的「加入檢定」，選列編號與區間後填入；填完自動跳下一列）</span></span>
+            <span class="hint" style="margin-left:auto;">每列右側下拉選「列編號」後按「加入檢定」，即以本次搜尋區間的 N / AVG / STDEVA 填入該列；填完下拉會自動跳到下一列</span>
         </div>
         <div class="res-wrap">
             <table class="res" id="resTable">
@@ -196,7 +192,7 @@
         let html = '';
         _results.forEach((r, i) => {
             html += `<tr data-i="${i}">
-                <td class="c"><button type="button" class="btn small" data-addpanel="${i}" title="同一 chart 指定 BSL 與 wafer extend 兩個區間後填入編號">加入檢定</button></td>
+                <td class="c addcell"><button type="button" class="btn small" data-add="${i}" title="以本次搜尋區間的統計值填入右側選的列編號">加入檢定</button><select class="rowsel" data-i="${i}" title="填入的列編號">${rowOptions(_nextRow)}</select></td>
                 <td>${esc(r.CHART_ID)}</td><td>${esc(r.CHART_NAME)}</td><td>${esc(r.PROCESSUNIT)}</td><td class="c">${esc(r.CHART_TYPE)}</td>
                 <td class="num">${esc(r.N)}</td><td class="num">${fmt(r.AVG)}</td><td class="num">${r.STDEV == null ? '—' : fmt(r.STDEV)}</td>
                 <td class="num">${fmt(r.MIN)}</td><td class="num">${fmt(r.MAX)}</td>
@@ -273,10 +269,7 @@
     function renderPairs(){
         const tb = $('tbodyPairs');
         tb.innerHTML = pairs.map((p, i) => sideRow(i, 'bsl', p.bsl, p.bsl.item || 'BSL') + sideRow(i, 'ext', p.ext, p.ext.item || 'wafer extend')).join('');
-        const sel = $('targetNo'); const cur = sel.value;
-        const total = pairs.length * 2;
-        sel.innerHTML = Array.from({ length: total }, (_, k) => `<option value="${k + 1}">${rowLabel(k + 1)}</option>`).join('');
-        if(cur !== '' && Number(cur) >= 1 && Number(cur) <= total) sel.value = cur;
+        refreshRowSelects();
         recalcAll();
     }
 
@@ -319,67 +312,43 @@
         renderPairs(); save();
     });
     $('adderHeader').addEventListener('input', save);
-    $('btnAddPair').addEventListener('click', () => { pairs.push(newPair()); renderPairs(); save(); $('targetNo').value = String(rowNoOf(pairs.length - 1, 'bsl')); });
+    $('btnAddPair').addEventListener('click', () => { pairs.push(newPair()); _nextRow = rowNoOf(pairs.length - 1, 'bsl'); renderPairs(); save(); });
     $('btnClearAll').addEventListener('click', () => { if(!confirm('清除整張檢定表？')) return; pairs = [newPair(), newPair()]; renderPairs(); save(); });
 
-    // 搜尋結果 → 依列編號填入（4.）：選一列（BSL 或 wafer extend）與一個區間，
-    // 對該 chart 在此區間算 N / AVG / STDEVA 後寫進該列；填完自動把目標移到下一列
-    async function statsFor(cid, start, end){
-        const qs = new URLSearchParams({ op:'search', cid, start, end });
-        const res = await fetch(PAGE + '?' + qs.toString(), { cache:'no-store' });
-        const data = await res.json();
-        if(!data.ok) throw new Error(data.error || ('HTTP ' + res.status));
-        return (data.rows || [])[0] || null;    // 區間內沒資料 → null
-    }
+    // 搜尋結果 → 依列編號填入（4.）：每列右側下拉選列編號（BSL 或 wafer extend），
+    // 按「加入檢定」就把該列搜尋結果（本次搜尋區間的 N / AVG / STDEVA）寫進那一列；
+    // 填完所有下拉自動跳到下一列。要用不同區間時，改上方日期重新搜尋再加入即可。
+    let _nextRow = 1;   // 下拉預設的列編號
     function rowOptions(selected){
         const total = pairs.length * 2;
         return Array.from({ length: total }, (_, k) => `<option value="${k + 1}"${String(k + 1) === String(selected) ? ' selected' : ''}>${rowLabel(k + 1)}</option>`).join('');
     }
-    function toggleAddPanel(i, btn){
-        const tr = btn.closest('tr'); const next = tr.nextElementSibling;
-        if(next && next.classList.contains('addpanel')){ next.remove(); return; }
-        const old = $('resBody').querySelector('tr.addpanel'); if(old) old.remove();
-        const r = _results[i];
-        const pr = document.createElement('tr'); pr.className = 'addpanel';
-        pr.innerHTML = `<td colspan="13">
-            <span class="grp"><b>填入列編號</b><select data-k="no">${rowOptions($('targetNo').value || '1')}</select></span>
-            <span class="grp"><b>區間</b><input type="date" data-k="s" value="${esc(_range.start)}"> ~ <input type="date" data-k="e" value="${esc(_range.end)}"></span>
-            <button type="button" class="btn small" data-fill="${i}">填入</button>
-            <span class="hint" data-k="msg">CHART_ID ${esc(r.CHART_ID)}　${esc(r.CHART_NAME)}（PU 請自行填寫；填完會自動跳到下一列，可改區間再填）</span>
-        </td>`;
-        tr.after(pr);
+    function refreshRowSelects(){
+        const total = pairs.length * 2;
+        if(!(_nextRow >= 1 && _nextRow <= total)) _nextRow = 1;
+        document.querySelectorAll('#resBody select.rowsel').forEach(s => { s.innerHTML = rowOptions(_nextRow); });
     }
-    async function fillRow(i, panel, btn){
+    function fillRow(i){
         const r = _results[i]; if(!r) return;
-        const g = k => panel.querySelector(`[data-k="${k}"]`);
-        const s = g('s').value, e = g('e').value;
-        if(!s || !e){ g('msg').textContent = '區間的開始與結束日期都要填'; return; }
-        let rowNo = Number(g('no').value); const total = pairs.length * 2;
+        const sel = $('resBody').querySelector(`select.rowsel[data-i="${i}"]`);
+        let rowNo = Number(sel && sel.value); const total = pairs.length * 2;
         if(!(rowNo >= 1 && rowNo <= total)) rowNo = 1;
         const { idx, key } = rowOf(rowNo);
-        btn.disabled = true; g('msg').textContent = '計算中…';
-        try{
-            const st = await statsFor(r.CHART_ID, s, e);
-            const side = pairs[idx][key];
-            side.x = st && st.AVG != null ? fmt(st.AVG) : '';
-            side.s = st && st.STDEV != null ? fmt(st.STDEV) : '';
-            side.n = st && st.N != null ? String(st.N) : '0';
-            side.cid = String(r.CHART_ID || '');
-            side.src = `${r.PROCESSUNIT || ''} ${s}~${e}`.trim();
-            renderPairs(); save();
-            const tr = $('tbodyPairs').querySelector(`tr[data-row="${rowNo}"]`);
-            if(tr){ tr.classList.add('flash'); setTimeout(() => tr.classList.remove('flash'), 1300); }
-            const rr = $('resBody').querySelector(`tr[data-i="${i}"]`); if(rr) rr.classList.add('added');
-            const nextNo = rowNo < total ? rowNo + 1 : rowNo;
-            $('targetNo').value = String(nextNo); g('no').value = String(nextNo);
-            g('msg').textContent = `已填入編號 ${rowLabel(rowNo)}：N=${st ? st.N : 0}` + (st ? '' : '（此區間查無資料，X/σ 留空）') + (nextNo !== rowNo ? `；下一列：${rowLabel(nextNo)}` : '');
-            setStatus(`CHART_ID ${r.CHART_ID} 已填入編號 ${rowNo}`);
-        }catch(err){ g('msg').textContent = '計算失敗：' + err.message; }
-        finally{ btn.disabled = false; }
+        const side = pairs[idx][key];
+        side.x = r.AVG == null ? '' : fmt(r.AVG);
+        side.s = r.STDEV == null ? '' : fmt(r.STDEV);
+        side.n = r.N == null ? '0' : String(r.N);
+        side.cid = String(r.CHART_ID || '');
+        side.src = `${r.PROCESSUNIT || ''} ${_range.start}~${_range.end}`.trim();
+        _nextRow = rowNo < total ? rowNo + 1 : rowNo;
+        renderPairs(); save();
+        const tr = $('tbodyPairs').querySelector(`tr[data-row="${rowNo}"]`);
+        if(tr){ tr.classList.add('flash'); setTimeout(() => tr.classList.remove('flash'), 1300); }
+        const rr = $('resBody').querySelector(`tr[data-i="${i}"]`); if(rr) rr.classList.add('added');
+        setStatus(`CHART_ID ${r.CHART_ID}（${_range.start}~${_range.end}，N=${r.N}）已填入編號 ${rowLabel(rowNo)}` + (_nextRow !== rowNo ? `；下一列：${rowLabel(_nextRow)}` : ''));
     }
     $('resBody').addEventListener('click', e => {
-        const a = e.target.closest('button[data-addpanel]'); if(a){ toggleAddPanel(Number(a.getAttribute('data-addpanel')), a); return; }
-        const f = e.target.closest('button[data-fill]'); if(f){ fillRow(Number(f.getAttribute('data-fill')), f.closest('tr'), f); return; }
+        const a = e.target.closest('button[data-add]'); if(a){ fillRow(Number(a.getAttribute('data-add'))); return; }
         const v = e.target.closest('button[data-vals]'); if(v){ toggleValues(Number(v.getAttribute('data-vals')), v); }
     });
 
