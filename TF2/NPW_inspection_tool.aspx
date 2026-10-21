@@ -80,8 +80,8 @@
         <h2>搜尋條件（資料來源：TF2_NPW_CHART）</h2>
         <div class="toolbar">
             <label class="field">Chart_ID<input id="qCid" type="text" placeholder="例 85766（精確）" autocomplete="off" /></label>
-            <label class="field">Chart_name<input id="qName" type="text" placeholder="包含文字，例 5.5K PA" autocomplete="off" /></label>
-            <label class="field">機台（PROCESSUNIT）<input id="qPu" type="text" placeholder="包含文字，例 SACVD-B10" autocomplete="off" /></label>
+            <label class="field">Chart_name<input id="qName" type="text" placeholder="包含文字或用 %，例 %5.5K%PA%" autocomplete="off" /></label>
+            <label class="field">機台（PROCESSUNIT）<input id="qPu" type="text" placeholder="包含文字或用 %，例 SACVD-B1%" autocomplete="off" /></label>
             <label class="field">開始日期<input id="qStart" type="date" /></label>
             <label class="field">結束日期<input id="qEnd" type="date" /></label>
             <span class="quick">
@@ -92,7 +92,7 @@
             <button type="button" class="btn" id="btnSearch">搜尋</button>
             <span class="status" id="qStatus"></span>
         </div>
-        <div class="hint" style="margin-top:6px;">Chart_ID / Chart_name / 機台 至少填一項（可組合）；時間區間依 <b>DataDate</b>（文字欄位，格式 yyyy-mm-dd），結束日含當天，最長 400 天。每張 chart 只顯示一列：N = 筆數、AVG = MEAN_VALUE 平均、STDEVA = 樣本標準差（Excel STDEV.S / STDEVA），區間內所有 MEAN_VALUE 都納入。</div>
+        <div class="hint" style="margin-top:6px;">Chart_ID / Chart_name / 機台 至少填一項（可組合）。Chart_name 與機台：不含 % 時為「包含」比對；可自行加 % 當萬用字元（例 <code>SACVD-B1%</code>、<code>%5.5K%PA%</code>），`_` 視為一般字元。時間區間依 <b>DataDate</b>（文字欄位，格式 yyyy-mm-dd），結束日含當天，最長 400 天。每張 chart 只顯示一列：N = 筆數、AVG = MEAN_VALUE 平均、STDEVA = 樣本標準差（Excel STDEV.S / STDEVA），區間內所有 MEAN_VALUE 都納入。</div>
     </div>
 
     <!-- 2. 搜尋結果 -->

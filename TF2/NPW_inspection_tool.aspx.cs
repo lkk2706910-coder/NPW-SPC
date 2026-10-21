@@ -116,8 +116,8 @@ public partial class NPW_Inspection : Page
         where.Append(" AND " + DateExpr + " < @p" + args.Count); args.Add(endExcl);
         where.Append(" AND MEAN_VALUE IS NOT NULL");
         if (cid.Length > 0) { where.Append(" AND CHART_ID = @p" + args.Count); args.Add(cid); }
-        if (cname.Length > 0) { where.Append(" AND CHART_NAME LIKE @p" + args.Count); args.Add("%" + LikeEscape(cname) + "%"); }
-        if (pu.Length > 0) { where.Append(" AND PROCESSUNIT LIKE @p" + args.Count); args.Add("%" + LikeEscape(pu) + "%"); }
+        if (cname.Length > 0) { where.Append(" AND CHART_NAME LIKE @p" + args.Count); args.Add(LikePattern(cname)); }
+        if (pu.Length > 0) { where.Append(" AND PROCESSUNIT LIKE @p" + args.Count); args.Add(LikePattern(pu)); }
 
         // One row per chart: count / mean / sample stdev of MEAN_VALUE in the range.
         string sql =
@@ -196,10 +196,16 @@ public partial class NPW_Inspection : Page
         Response.Write(ser.Serialize(new Dictionary<string, object> { { "ok", true }, { "rows", outRows } }));
     }
 
-    private static string LikeEscape(string s)
+    // User text -> LIKE pattern. '%' typed by the user is kept as a wildcard
+    // (and the text is then used as-is, e.g. "SACVD-B1%" or "%5.5K%PA%");
+    // without any '%' the text is matched as "contains". '_' and '[' are
+    // always literal because chart names contain them (HTSIN130_11 ...).
+    private static string LikePattern(string s)
     {
-        return s.Replace("[", "[[]").Replace("%", "[%]").Replace("_", "[_]");
+        string esc = s.Replace("[", "[[]").Replace("_", "[_]");
+        return esc.IndexOf('%') >= 0 ? esc : "%" + esc + "%";
     }
+
 
     private static string JsonEscape(string s)
     {
