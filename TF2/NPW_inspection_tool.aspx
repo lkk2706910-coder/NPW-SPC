@@ -19,6 +19,7 @@
         .field input[type=date] { min-width: 150px; }
         .radios { display: inline-flex; gap: 10px; padding: 6px 8px; border: 1px solid #b8c0cc; border-radius: 6px; background: #fff; font-size: 13px; color: #111; }
         .radios label { display: inline-flex; align-items: center; gap: 3px; cursor: pointer; }
+        .field .radios input[type=radio] { min-width: 0; width: auto; padding: 0; margin: 0; }
         button { font: inherit; cursor: pointer; }
         .btn { padding: 6px 14px; border: 0; border-radius: 6px; background: var(--accent); color: #fff; font-weight: 700; }
         .btn.ghost { background: #fff; color: var(--accent); border: 1px solid var(--accent); }
