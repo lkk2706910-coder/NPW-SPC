@@ -19,6 +19,7 @@ using System.Web.UI;
 //   GET  NPW_inspection_tool.aspx?op=search       -> one row per chart in the range:
 //          &start=YYYY-MM-DD &end=YYYY-MM-DD (end inclusive; filters on the DataDate column)
 //          &cid=<CHART_ID exact> &cname=<CHART_NAME contains> &pu=<PROCESSUNIT contains>
+//          &prod=ctrl|ocap   PROD Type: ctrl = all MONITOR_TYPE (default), ocap = NORMAL / PM only
 //          returns { ok, rows:[{CHART_ID, CHART_NAME, PROCESSUNIT, CHART_TYPE, N, AVG, STDEV,
 //                               MIN, MAX, FIRST_TIME, LAST_TIME}], truncated }
 //          N / AVG / STDEV are over MEAN_VALUE of the matching rows; STDEV is the
@@ -79,6 +80,15 @@ public partial class NPW_Inspection : Page
         Response.End();
     }
 
+    // ---- PROD Type: ?prod=ctrl (default, all MONITOR_TYPE) | ocap (NORMAL / PM only) ----
+    private string ProdTypeFilter()
+    {
+        string prod = (Request.QueryString["prod"] ?? "").Trim();
+        if (string.Equals(prod, "ocap", StringComparison.OrdinalIgnoreCase))
+            return " AND UPPER(MONITOR_TYPE) IN ('NORMAL','PM')";
+        return "";
+    }
+
     // ---- date range: start inclusive, end inclusive (converted to < end+1) ----
     private bool ReadRange(out DateTime start, out DateTime endExcl, out string error)
     {
@@ -115,6 +125,7 @@ public partial class NPW_Inspection : Page
         where.Append("WHERE " + DateExpr + " >= @p" + args.Count); args.Add(start);
         where.Append(" AND " + DateExpr + " < @p" + args.Count); args.Add(endExcl);
         where.Append(" AND MEAN_VALUE IS NOT NULL");
+        where.Append(ProdTypeFilter());
         if (cid.Length > 0) { where.Append(" AND CHART_ID = @p" + args.Count); args.Add(cid); }
         if (cname.Length > 0) { where.Append(" AND CHART_NAME LIKE @p" + args.Count); args.Add(LikePattern(cname)); }
         if (pu.Length > 0) { where.Append(" AND PROCESSUNIT LIKE @p" + args.Count); args.Add(LikePattern(pu)); }
@@ -182,6 +193,7 @@ public partial class NPW_Inspection : Page
             "CAST(MEAN_VALUE AS float) AS MEAN_VALUE, LOT, WAFER, PROCESSUNIT " +
             "FROM " + ChartTable + " WITH (NOLOCK) " +
             "WHERE CHART_ID = @p0 AND " + DateExpr + " >= @p1 AND " + DateExpr + " < @p2 AND MEAN_VALUE IS NOT NULL " +
+            ProdTypeFilter() + " " +
             "ORDER BY " + DateExpr + ", CHART_SEQ";
         var rows = QueryRows(sql, cid, start, endExcl);
         var outRows = new List<object>();

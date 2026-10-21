@@ -17,6 +17,8 @@
         .field { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: #555; }
         .field input, .field select { padding: 6px 8px; border: 1px solid #b8c0cc; border-radius: 6px; font: inherit; font-size: 13px; min-width: 150px; }
         .field input[type=date] { min-width: 150px; }
+        .radios { display: inline-flex; gap: 10px; padding: 6px 8px; border: 1px solid #b8c0cc; border-radius: 6px; background: #fff; font-size: 13px; color: #111; }
+        .radios label { display: inline-flex; align-items: center; gap: 3px; cursor: pointer; }
         button { font: inherit; cursor: pointer; }
         .btn { padding: 6px 14px; border: 0; border-radius: 6px; background: var(--accent); color: #fff; font-weight: 700; }
         .btn.ghost { background: #fff; color: var(--accent); border: 1px solid var(--accent); }
@@ -80,6 +82,12 @@
             <label class="field">機台（PROCESSUNIT）<input id="qPu" type="text" placeholder="包含文字或用 %，例 SACVD-B1%" autocomplete="off" /></label>
             <label class="field">開始日期<input id="qStart" type="date" /></label>
             <label class="field">結束日期<input id="qEnd" type="date" /></label>
+            <span class="field">PROD Type
+                <span class="radios" id="qProd">
+                    <label><input type="radio" name="prod" value="ctrl" checked />內控</label>
+                    <label><input type="radio" name="prod" value="ocap" />OCAP</label>
+                </span>
+            </span>
             <span class="quick">
                 <button type="button" class="btn ghost small" data-days="7">近 7 天</button>
                 <button type="button" class="btn ghost small" data-days="30">近 30 天</button>
@@ -156,7 +164,9 @@
 
     // ===== 1. 搜尋 =====
     let _results = [];      // 最近一次搜尋結果（物件陣列）
-    let _range = { start:'', end:'' };
+    let _range = { start:'', end:'', prod:'ctrl' };
+    const prodOf = () => (document.querySelector('#qProd input[name=prod]:checked') || {}).value || 'ctrl';
+    const prodLabel = p => p === 'ocap' ? 'OCAP' : '內控';
     function setQuick(days){
         const end = new Date(); const start = new Date(); start.setDate(end.getDate() - days + 1);
         $('qStart').value = ymd(start); $('qEnd').value = ymd(end);
@@ -168,7 +178,7 @@
         if(!cid && !cname && !pu){ setStatus('請至少填 Chart_ID / Chart_name / 機台 其中一項', true); return; }
         if(!$('qEnd').value) $('qEnd').value = ymd(new Date());
         if(!$('qStart').value){ const d=new Date($('qEnd').value+'T00:00:00'); d.setDate(d.getDate()-29); $('qStart').value=ymd(d); }
-        const qs = new URLSearchParams({ op:'search', start:$('qStart').value, end:$('qEnd').value });
+        const qs = new URLSearchParams({ op:'search', start:$('qStart').value, end:$('qEnd').value, prod:prodOf() });
         if(cid) qs.set('cid', cid); if(cname) qs.set('cname', cname); if(pu) qs.set('pu', pu);
         $('btnSearch').disabled = true; setStatus('查詢中…');
         try{
@@ -176,7 +186,7 @@
             const data = await res.json();
             if(!data.ok) throw new Error(data.error || ('HTTP ' + res.status));
             _results = data.rows || [];
-            _range = { start:data.start, end:data.end };
+            _range = { start:data.start, end:data.end, prod:qs.get('prod') };
             renderResults();
             setStatus('完成：' + _results.length + ' 張 chart' + (data.truncated ? '（已達上限，請縮小條件）' : ''));
         }catch(e){
@@ -187,7 +197,7 @@
 
     function renderResults(){
         const tb = $('resBody');
-        $('resInfo').textContent = _results.length ? `（${_range.start} ~ ${_range.end}，${_results.length} 張 chart）` : '';
+        $('resInfo').textContent = _results.length ? `（${_range.start} ~ ${_range.end}，${prodLabel(_range.prod)}，${_results.length} 張 chart）` : '';
         if(!_results.length){ tb.innerHTML = '<tr><td colspan="13" class="hint">無資料</td></tr>'; return; }
         let html = '';
         _results.forEach((r, i) => {
@@ -209,7 +219,7 @@
         if(next && next.classList.contains('vals')){ next.remove(); btn.textContent='明細'; return; }
         const r = _results[i]; btn.disabled = true;
         try{
-            const qs = new URLSearchParams({ op:'values', cid:r.CHART_ID, start:_range.start, end:_range.end });
+            const qs = new URLSearchParams({ op:'values', cid:r.CHART_ID, start:_range.start, end:_range.end, prod:_range.prod || 'ctrl' });
             const res = await fetch(PAGE + '?' + qs.toString(), { cache:'no-store' });
             const data = await res.json();
             if(!data.ok) throw new Error(data.error || ('HTTP ' + res.status));
@@ -339,13 +349,13 @@
         side.s = r.STDEV == null ? '' : fmt(r.STDEV);
         side.n = r.N == null ? '0' : String(r.N);
         side.cid = String(r.CHART_ID || '');
-        side.src = `${r.PROCESSUNIT || ''} ${_range.start}~${_range.end}`.trim();
+        side.src = `${r.PROCESSUNIT || ''} ${_range.start}~${_range.end} ${prodLabel(_range.prod)}`.trim();
         _nextRow = rowNo < total ? rowNo + 1 : rowNo;
         renderPairs(); save();
         const tr = $('tbodyPairs').querySelector(`tr[data-row="${rowNo}"]`);
         if(tr){ tr.classList.add('flash'); setTimeout(() => tr.classList.remove('flash'), 1300); }
         const rr = $('resBody').querySelector(`tr[data-i="${i}"]`); if(rr) rr.classList.add('added');
-        setStatus(`CHART_ID ${r.CHART_ID}（${_range.start}~${_range.end}，N=${r.N}）已填入編號 ${rowLabel(rowNo)}` + (_nextRow !== rowNo ? `；下一列：${rowLabel(_nextRow)}` : ''));
+        setStatus(`CHART_ID ${r.CHART_ID}（${_range.start}~${_range.end}，${prodLabel(_range.prod)}，N=${r.N}）已填入編號 ${rowLabel(rowNo)}` + (_nextRow !== rowNo ? `；下一列：${rowLabel(_nextRow)}` : ''));
     }
     $('resBody').addEventListener('click', e => {
         const a = e.target.closest('button[data-add]'); if(a){ fillRow(Number(a.getAttribute('data-add'))); return; }
