@@ -28,16 +28,16 @@ using System.Web.UI;
 //   GET  NPW_inspection_tool.aspx?op=values&cid=&start=&end=  -> the individual points
 //          { ok, rows:[{d, seq, mean, lot, wafer}] }
 //
-// DataDate is stored as TEXT like "2026/10/06" (optionally with a time), so it is
-// converted with TRY_CONVERT(datetime, DataDate, 111) before comparing; rows whose
-// text does not parse are ignored.
+// DataDate is stored as TEXT in yyyy-mm-dd form (optionally followed by a time),
+// so it is converted with TRY_CONVERT(datetime, DataDate, 120) before comparing;
+// rows whose text does not parse are ignored.
 //
 // NOTE: keep this file pure ASCII. Some servers compile .cs as Big5/CP950,
 // which can eat the newline after a non-ASCII char and break compilation.
 public partial class NPW_Inspection : Page
 {
-    // Text date column -> datetime (style 111 = yyyy/mm/dd [hh:mi:ss]).
-    private const string DateExpr = "TRY_CONVERT(datetime, DataDate, 111)";
+    // Text date column -> datetime (style 120 = yyyy-mm-dd [hh:mi:ss]).
+    private const string DateExpr = "TRY_CONVERT(datetime, DataDate, 120)";
 
     // TF1 page name -> TF1 table, otherwise TF2 (same rule as the alarm page).
     protected string ChartTable

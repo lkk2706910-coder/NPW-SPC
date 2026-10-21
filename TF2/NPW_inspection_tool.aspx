@@ -92,7 +92,7 @@
             <button type="button" class="btn" id="btnSearch">搜尋</button>
             <span class="status" id="qStatus"></span>
         </div>
-        <div class="hint" style="margin-top:6px;">Chart_ID / Chart_name / 機台 至少填一項（可組合）；時間區間依 <b>DataDate</b>（文字欄位，如 2026/10/06），結束日含當天，最長 400 天。每張 chart 只顯示一列：N = 筆數、AVG = MEAN_VALUE 平均、STDEVA = 樣本標準差（Excel STDEV.S / STDEVA），區間內所有 MEAN_VALUE 都納入。</div>
+        <div class="hint" style="margin-top:6px;">Chart_ID / Chart_name / 機台 至少填一項（可組合）；時間區間依 <b>DataDate</b>（文字欄位，格式 yyyy-mm-dd），結束日含當天，最長 400 天。每張 chart 只顯示一列：N = 筆數、AVG = MEAN_VALUE 平均、STDEVA = 樣本標準差（Excel STDEV.S / STDEVA），區間內所有 MEAN_VALUE 都納入。</div>
     </div>
 
     <!-- 2. 搜尋結果 -->
