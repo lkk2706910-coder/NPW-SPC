@@ -30,5 +30,8 @@ TF2/
 
 ## 部署
 
-把 `TF2/` 三個檔放到 IIS 站台（可與 NPW alarm 頁同站台）；`web.config` 若該站台已有則只需確認 `EMST` 連線字串存在。
+與 NPW alarm 頁**同一個 IIS 站台**：只把 `TF2/NPW_inspection_tool.aspx` 與 `TF2/NPW_inspection_tool.aspx.cs` 放進站台的 `TF2/` 即可，
+**不要覆蓋站台既有的 `web.config`**（alarm 頁的 AI 設定在裡面；這個 repo 的 `TF2/web.config` 只是單獨部署時用的最小版本，僅含 `EMST` 連線字串）。
 `.aspx.cs` 必須維持純 ASCII（伺服器以 Big5 編譯）。
+
+DataDate 為空或不是 `yyyy-mm-dd` 格式的列，查詢時會被略過（不納入 N / AVG / STDEVA）。
