@@ -64,7 +64,6 @@
         table.pcrb input.num { text-align: right; font-variant-numeric: tabular-nums; }
         table.pcrb .meta { display: block; font-size: 11px; color: #555; font-weight: 400; }
         table.pcrb td.ops { white-space: nowrap; }
-        table.pcrb td.ops .grp { margin-left: 4px; }
         table.pcrb tr.flash td { animation: flash 1.2s ease-out; }
         @keyframes flash { from { background-color: #ffe9a8; } to { } }
         .pcrb-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
@@ -279,7 +278,7 @@
         }else{
             cells += `<td class="muted">—</td><td class="muted">—</td><td class="muted">—</td><td class="muted">—</td><td class="muted">—</td>`;
         }
-        const ops = `<td class="ops"><button type="button" class="btn small danger" data-clear="${rowNoOf(idx, key)}" title="清空此列的 PU / X / σ / N 與註記（編號與配對不變）">刪除</button>${isExt ? '' : `<button type="button" class="btn small ghost grp" data-del="${idx}" title="移除這一組（兩列），後面的組往上移並重新編號">刪整組</button>`}</td>`;
+        const ops = `<td class="ops"><button type="button" class="btn small danger" data-clear="${rowNoOf(idx, key)}" title="清空此列的 PU / X / σ / N 與註記（編號與配對不變）">刪除</button></td>`;
         return `<tr data-idx="${idx}" data-side="${key}" data-row="${rowNoOf(idx, key)}"><td class="no">${rowNoOf(idx, key)}</td>${cells}${ops}</tr>`;
     }
 
@@ -333,11 +332,6 @@
             setStatus(`已清空編號 ${rowLabel(rowNo)}`);
             return;
         }
-        const b = e.target.closest('button[data-del]'); if(!b) return;
-        const idx = Number(b.getAttribute('data-del'));
-        if(!confirm('移除編號 ' + rowNoOf(idx, 'bsl') + '、' + rowNoOf(idx, 'ext') + ' 這一組（兩列）？後面的組會往上移並重新編號。')) return;
-        pairs.splice(idx, 1); if(!pairs.length) pairs.push(newPair());
-        renderPairs(); save();
     });
     $('adderHeader').addEventListener('input', save);
     $('btnAddPair').addEventListener('click', () => { pairs.push(newPair()); _nextRow = rowNoOf(pairs.length - 1, 'bsl'); renderPairs(); save(); });
