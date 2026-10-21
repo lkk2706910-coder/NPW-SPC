@@ -99,7 +99,7 @@
     <div class="card">
         <div class="toolbar" style="margin-bottom:8px;">
             <h2 style="margin:0;">搜尋結果 <small id="resInfo" class="hint"></small></h2>
-            <span class="target">加入到編號 <select id="targetNo"></select><span class="hint">（按列上的「加入檢定」，同一 chart 指定 BSL 與 wafer extend 兩個區間）</span></span>
+            <span class="target">目前填入列編號 <select id="targetNo"></select><span class="hint">（按列上的「加入檢定」，選列編號與區間後填入；填完自動跳下一列）</span></span>
         </div>
         <div class="res-wrap">
             <table class="res" id="resTable">
@@ -139,10 +139,10 @@
             </table>
         </div>
         <div class="pcrb-actions">
-            <button type="button" class="btn ghost" id="btnAddPair">＋ 新增編號</button>
+            <button type="button" class="btn ghost" id="btnAddPair">＋ 新增一組（兩列）</button>
             <button type="button" class="btn ghost" id="btnCopy">複製檢定表</button>
             <button type="button" class="btn danger" id="btnClearAll">全部清除</button>
-            <span class="hint">PU 自行填寫；X / σ 由區間統計帶入後仍可手動修改；/X2-X1//σ1 ≦ 1 且 σ2²/σ1² &lt; 2 才算 PASS。內容會自動保存在此瀏覽器。</span>
+            <span class="hint">每列一個編號：奇數列 BSL、偶數列 wafer extend，1-2、3-4… 兩列一組檢定。PU 自行填寫；X / σ 由區間統計帶入後仍可手動修改；/X2-X1//σ1 ≦ 1 且 σ2²/σ1² &lt; 2 才算 PASS。內容會自動保存在此瀏覽器。</span>
             <span class="summary" id="summary"></span>
         </div>
     </div>
@@ -232,10 +232,15 @@
     }
 
     // ===== 3/4/5. 檢定表（PCRB）=====
-    // 每個編號兩列：BSL（X1、σ1）與 wafer extend（X2、σ2）；公式沿用檢定機器人：
+    // 每一列一個編號：奇數列 = BSL（X1、σ1）、偶數列 = wafer extend（X2、σ2），
+    // 相鄰兩列（1-2、3-4…）為一組做檢定；公式沿用檢定機器人：
     //   Z = |X2-X1| / σ1（≦1 為 Y）、R = σ2^2 / σ1^2（<2 為 Y）；兩者皆 Y 才 PASS
     const STORE_KEY = 'npwInspect.pairs.v1';
-    let pairs = [];   // {no, bsl:{pu,x,s,n,cid,src}, ext:{pu,x,s,n,cid,src}}
+    let pairs = [];   // [{bsl:{pu,x,s,n,cid,src}, ext:{...}}]；列編號 r（1 起）→ pairs[floor((r-1)/2)][r 奇數 ? bsl : ext]
+
+    const rowNoOf = (idx, key) => idx * 2 + (key === 'ext' ? 2 : 1);
+    const rowOf = r => ({ idx: Math.floor((r - 1) / 2), key: (r % 2 === 1) ? 'bsl' : 'ext' });
+    const rowLabel = r => `${r}（${r % 2 === 1 ? 'BSL' : 'wafer extend'}）`;
 
     function blankSide(){ return { pu:'', x:'', s:'', n:'', cid:'', src:'' }; }
     function newPair(){ return { bsl: blankSide(), ext: blankSide() }; }
@@ -262,15 +267,16 @@
         }else{
             cells += `<td class="muted">—</td><td class="muted">—</td><td class="muted">—</td><td class="muted">—</td><td class="muted">—</td>`;
         }
-        return `<tr data-idx="${idx}" data-side="${key}">${isExt ? '' : `<td class="no" rowspan="2">${idx + 1}</td>`}${cells}${isExt ? '' : `<td rowspan="2"><button type="button" class="btn small danger" data-del="${idx}">刪除</button></td>`}</tr>`;
+        return `<tr data-idx="${idx}" data-side="${key}" data-row="${rowNoOf(idx, key)}"><td class="no">${rowNoOf(idx, key)}</td>${cells}${isExt ? '' : `<td rowspan="2"><button type="button" class="btn small danger" data-del="${idx}" title="刪除這一組（兩列）">刪除</button></td>`}</tr>`;
     }
 
     function renderPairs(){
         const tb = $('tbodyPairs');
         tb.innerHTML = pairs.map((p, i) => sideRow(i, 'bsl', p.bsl, p.bsl.item || 'BSL') + sideRow(i, 'ext', p.ext, p.ext.item || 'wafer extend')).join('');
         const sel = $('targetNo'); const cur = sel.value;
-        sel.innerHTML = pairs.map((p, i) => `<option value="${i}">${i + 1}</option>`).join('');
-        if(cur !== '' && Number(cur) < pairs.length) sel.value = cur;
+        const total = pairs.length * 2;
+        sel.innerHTML = Array.from({ length: total }, (_, k) => `<option value="${k + 1}">${rowLabel(k + 1)}</option>`).join('');
+        if(cur !== '' && Number(cur) >= 1 && Number(cur) <= total) sel.value = cur;
         recalcAll();
     }
 
@@ -308,21 +314,26 @@
     $('tbodyPairs').addEventListener('click', e => {
         const b = e.target.closest('button[data-del]'); if(!b) return;
         const idx = Number(b.getAttribute('data-del'));
-        if(!confirm('刪除編號 ' + (idx + 1) + '？')) return;
+        if(!confirm('刪除編號 ' + rowNoOf(idx, 'bsl') + '、' + rowNoOf(idx, 'ext') + ' 這一組？')) return;
         pairs.splice(idx, 1); if(!pairs.length) pairs.push(newPair());
         renderPairs(); save();
     });
     $('adderHeader').addEventListener('input', save);
-    $('btnAddPair').addEventListener('click', () => { pairs.push(newPair()); renderPairs(); save(); $('targetNo').value = String(pairs.length - 1); });
+    $('btnAddPair').addEventListener('click', () => { pairs.push(newPair()); renderPairs(); save(); $('targetNo').value = String(rowNoOf(pairs.length - 1, 'bsl')); });
     $('btnClearAll').addEventListener('click', () => { if(!confirm('清除整張檢定表？')) return; pairs = [newPair(), newPair()]; renderPairs(); save(); });
 
-    // 搜尋結果 → 填入編號（4.）：同一 chart 的兩個區間（BSL / wafer extend）各算一次 N / AVG / STDEVA
+    // 搜尋結果 → 依列編號填入（4.）：選一列（BSL 或 wafer extend）與一個區間，
+    // 對該 chart 在此區間算 N / AVG / STDEVA 後寫進該列；填完自動把目標移到下一列
     async function statsFor(cid, start, end){
         const qs = new URLSearchParams({ op:'search', cid, start, end });
         const res = await fetch(PAGE + '?' + qs.toString(), { cache:'no-store' });
         const data = await res.json();
         if(!data.ok) throw new Error(data.error || ('HTTP ' + res.status));
         return (data.rows || [])[0] || null;    // 區間內沒資料 → null
+    }
+    function rowOptions(selected){
+        const total = pairs.length * 2;
+        return Array.from({ length: total }, (_, k) => `<option value="${k + 1}"${String(k + 1) === String(selected) ? ' selected' : ''}>${rowLabel(k + 1)}</option>`).join('');
     }
     function toggleAddPanel(i, btn){
         const tr = btn.closest('tr'); const next = tr.nextElementSibling;
@@ -331,43 +342,44 @@
         const r = _results[i];
         const pr = document.createElement('tr'); pr.className = 'addpanel';
         pr.innerHTML = `<td colspan="13">
-            <span class="grp"><b>BSL 區間</b><input type="date" data-k="bs" value="${esc(_range.start)}"> ~ <input type="date" data-k="be" value="${esc(_range.end)}"></span>
-            <span class="grp"><b>wafer extend 區間</b><input type="date" data-k="es" value="${esc(_range.start)}"> ~ <input type="date" data-k="ee" value="${esc(_range.end)}"></span>
-            <span class="grp"><b>填入編號</b><select data-k="no">${pairs.map((p, k) => `<option value="${k}"${String(k) === $('targetNo').value ? ' selected' : ''}>${k + 1}</option>`).join('')}</select></span>
+            <span class="grp"><b>填入列編號</b><select data-k="no">${rowOptions($('targetNo').value || '1')}</select></span>
+            <span class="grp"><b>區間</b><input type="date" data-k="s" value="${esc(_range.start)}"> ~ <input type="date" data-k="e" value="${esc(_range.end)}"></span>
             <button type="button" class="btn small" data-fill="${i}">填入</button>
-            <span class="hint" data-k="msg">CHART_ID ${esc(r.CHART_ID)}　${esc(r.CHART_NAME)}（PU 請自行填寫）</span>
+            <span class="hint" data-k="msg">CHART_ID ${esc(r.CHART_ID)}　${esc(r.CHART_NAME)}（PU 請自行填寫；填完會自動跳到下一列，可改區間再填）</span>
         </td>`;
         tr.after(pr);
     }
-    async function fillPair(i, panel, btn){
+    async function fillRow(i, panel, btn){
         const r = _results[i]; if(!r) return;
         const g = k => panel.querySelector(`[data-k="${k}"]`);
-        const bs = g('bs').value, be = g('be').value, es = g('es').value, ee = g('ee').value;
-        if(!bs || !be || !es || !ee){ g('msg').textContent = '兩個區間的開始與結束日期都要填'; return; }
-        let idx = Number(g('no').value); if(!(idx >= 0 && idx < pairs.length)) idx = 0;
+        const s = g('s').value, e = g('e').value;
+        if(!s || !e){ g('msg').textContent = '區間的開始與結束日期都要填'; return; }
+        let rowNo = Number(g('no').value); const total = pairs.length * 2;
+        if(!(rowNo >= 1 && rowNo <= total)) rowNo = 1;
+        const { idx, key } = rowOf(rowNo);
         btn.disabled = true; g('msg').textContent = '計算中…';
         try{
-            const [b, e] = await Promise.all([statsFor(r.CHART_ID, bs, be), statsFor(r.CHART_ID, es, ee)]);
-            const put = (side, st, s1, s2) => {
-                side.x = st && st.AVG != null ? fmt(st.AVG) : '';
-                side.s = st && st.STDEV != null ? fmt(st.STDEV) : '';
-                side.n = st && st.N != null ? String(st.N) : '0';
-                side.cid = String(r.CHART_ID || '');
-                side.src = `${r.PROCESSUNIT || ''} ${s1}~${s2}`.trim();
-            };
-            put(pairs[idx].bsl, b, bs, be); put(pairs[idx].ext, e, es, ee);
+            const st = await statsFor(r.CHART_ID, s, e);
+            const side = pairs[idx][key];
+            side.x = st && st.AVG != null ? fmt(st.AVG) : '';
+            side.s = st && st.STDEV != null ? fmt(st.STDEV) : '';
+            side.n = st && st.N != null ? String(st.N) : '0';
+            side.cid = String(r.CHART_ID || '');
+            side.src = `${r.PROCESSUNIT || ''} ${s}~${e}`.trim();
             renderPairs(); save();
-            ['bsl','ext'].forEach(w => { const tr = $('tbodyPairs').querySelector(`tr[data-idx="${idx}"][data-side="${w}"]`); if(tr){ tr.classList.add('flash'); setTimeout(() => tr.classList.remove('flash'), 1300); } });
+            const tr = $('tbodyPairs').querySelector(`tr[data-row="${rowNo}"]`);
+            if(tr){ tr.classList.add('flash'); setTimeout(() => tr.classList.remove('flash'), 1300); }
             const rr = $('resBody').querySelector(`tr[data-i="${i}"]`); if(rr) rr.classList.add('added');
-            $('targetNo').value = String(idx);
-            g('msg').textContent = `已填入編號 ${idx + 1}：BSL N=${b ? b.N : 0}、wafer extend N=${e ? e.N : 0}` + ((!b || !e) ? '（有區間查無資料，X/σ 留空）' : '');
-            setStatus(`CHART_ID ${r.CHART_ID} 已填入編號 ${idx + 1}`);
+            const nextNo = rowNo < total ? rowNo + 1 : rowNo;
+            $('targetNo').value = String(nextNo); g('no').value = String(nextNo);
+            g('msg').textContent = `已填入編號 ${rowLabel(rowNo)}：N=${st ? st.N : 0}` + (st ? '' : '（此區間查無資料，X/σ 留空）') + (nextNo !== rowNo ? `；下一列：${rowLabel(nextNo)}` : '');
+            setStatus(`CHART_ID ${r.CHART_ID} 已填入編號 ${rowNo}`);
         }catch(err){ g('msg').textContent = '計算失敗：' + err.message; }
         finally{ btn.disabled = false; }
     }
     $('resBody').addEventListener('click', e => {
         const a = e.target.closest('button[data-addpanel]'); if(a){ toggleAddPanel(Number(a.getAttribute('data-addpanel')), a); return; }
-        const f = e.target.closest('button[data-fill]'); if(f){ fillPair(Number(f.getAttribute('data-fill')), f.closest('tr'), f); return; }
+        const f = e.target.closest('button[data-fill]'); if(f){ fillRow(Number(f.getAttribute('data-fill')), f.closest('tr'), f); return; }
         const v = e.target.closest('button[data-vals]'); if(v){ toggleValues(Number(v.getAttribute('data-vals')), v); }
     });
 
@@ -378,8 +390,8 @@
         pairs.forEach((p, i) => {
             const ext = $('tbodyPairs').querySelector(`tr[data-idx="${i}"][data-side="ext"]`);
             const g = c => ext ? ext.querySelector(c).textContent : '';
-            lines.push([i+1, p.bsl.item || 'BSL', p.bsl.pu, p.bsl.cid, p.bsl.x, p.bsl.s, p.bsl.n, '', '', '', '', ''].join('\t'));
-            lines.push([i+1, p.ext.item || 'wafer extend', p.ext.pu, p.ext.cid, p.ext.x, p.ext.s, p.ext.n, g('.z'), g('.zOK'), g('.r'), g('.rOK'), g('.verdict')].join('\t'));
+            lines.push([rowNoOf(i, 'bsl'), p.bsl.item || 'BSL', p.bsl.pu, p.bsl.cid, p.bsl.x, p.bsl.s, p.bsl.n, '', '', '', '', ''].join('\t'));
+            lines.push([rowNoOf(i, 'ext'), p.ext.item || 'wafer extend', p.ext.pu, p.ext.cid, p.ext.x, p.ext.s, p.ext.n, g('.z'), g('.zOK'), g('.r'), g('.rOK'), g('.verdict')].join('\t'));
         });
         const text = lines.join('\n');
         const done = () => setStatus('檢定表已複製到剪貼簿');
