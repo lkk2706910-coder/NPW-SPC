@@ -37,6 +37,10 @@
         table.res td.c { text-align: center; }
         table.res tr.vals td { background: #fafafa; white-space: normal; }
         table.res tr.added td { background: #fff8d6; }
+        table.res tr.addpanel td { background: #f0f6ff; white-space: normal; }
+        .addpanel .grp { display: inline-flex; align-items: center; gap: 6px; margin-right: 18px; }
+        .addpanel .grp b { min-width: 90px; display: inline-block; }
+        .addpanel input[type=date] { padding: 3px 6px; border: 1px solid #b8c0cc; border-radius: 6px; font: inherit; font-size: 12px; }
         .valbox { max-height: 220px; overflow: auto; font-size: 11px; }
         .valbox table { border-collapse: collapse; }
         .valbox td, .valbox th { border: 1px solid #ccc; padding: 2px 6px; }
@@ -88,14 +92,14 @@
             <button type="button" class="btn" id="btnSearch">搜尋</button>
             <span class="status" id="qStatus"></span>
         </div>
-        <div class="hint" style="margin-top:6px;">Chart_ID / Chart_name / 機台 至少填一項（可組合）；時間區間依 UPDATE_TIME，結束日含當天，最長 400 天。每張 chart 只顯示一列：N = 筆數、AVG = MEAN_VALUE 平均、STDEVA = 樣本標準差（Excel STDEV.S / STDEVA）。</div>
+        <div class="hint" style="margin-top:6px;">Chart_ID / Chart_name / 機台 至少填一項（可組合）；時間區間依 <b>DataDate</b>（文字欄位，如 2026/10/06），結束日含當天，最長 400 天。每張 chart 只顯示一列：N = 筆數、AVG = MEAN_VALUE 平均、STDEVA = 樣本標準差（Excel STDEV.S / STDEVA），區間內所有 MEAN_VALUE 都納入。</div>
     </div>
 
     <!-- 2. 搜尋結果 -->
     <div class="card">
         <div class="toolbar" style="margin-bottom:8px;">
             <h2 style="margin:0;">搜尋結果 <small id="resInfo" class="hint"></small></h2>
-            <span class="target">加入到編號 <select id="targetNo"></select><span class="hint">（按列上的「BSL」或「wafer extend」填入該編號）</span></span>
+            <span class="target">加入到編號 <select id="targetNo"></select><span class="hint">（按列上的「加入檢定」，同一 chart 指定 BSL 與 wafer extend 兩個區間）</span></span>
         </div>
         <div class="res-wrap">
             <table class="res" id="resTable">
@@ -138,7 +142,7 @@
             <button type="button" class="btn ghost" id="btnAddPair">＋ 新增編號</button>
             <button type="button" class="btn ghost" id="btnCopy">複製檢定表</button>
             <button type="button" class="btn danger" id="btnClearAll">全部清除</button>
-            <span class="hint">X / σ 可手動修改；/X2-X1//σ1 ≦ 1 且 σ2²/σ1² &lt; 2 才算 PASS。內容會自動保存在此瀏覽器。</span>
+            <span class="hint">PU 自行填寫；X / σ 由區間統計帶入後仍可手動修改；/X2-X1//σ1 ≦ 1 且 σ2²/σ1² &lt; 2 才算 PASS。內容會自動保存在此瀏覽器。</span>
             <span class="summary" id="summary"></span>
         </div>
     </div>
@@ -192,8 +196,7 @@
         let html = '';
         _results.forEach((r, i) => {
             html += `<tr data-i="${i}">
-                <td class="c"><button type="button" class="btn small" data-add="bsl" data-i="${i}" title="填入目前編號的 BSL（X1、σ1）">BSL</button>
-                    <button type="button" class="btn small ghost" data-add="ext" data-i="${i}" title="填入目前編號的 wafer extend（X2、σ2）">wafer extend</button></td>
+                <td class="c"><button type="button" class="btn small" data-addpanel="${i}" title="同一 chart 指定 BSL 與 wafer extend 兩個區間後填入編號">加入檢定</button></td>
                 <td>${esc(r.CHART_ID)}</td><td>${esc(r.CHART_NAME)}</td><td>${esc(r.PROCESSUNIT)}</td><td class="c">${esc(r.CHART_TYPE)}</td>
                 <td class="num">${esc(r.N)}</td><td class="num">${fmt(r.AVG)}</td><td class="num">${r.STDEV == null ? '—' : fmt(r.STDEV)}</td>
                 <td class="num">${fmt(r.MIN)}</td><td class="num">${fmt(r.MAX)}</td>
@@ -250,7 +253,7 @@
         const metaHtml = side.cid ? `<span class="meta">CHART_ID ${esc(side.cid)}${side.src ? '　' + esc(side.src) : ''}</span>` : '';
         let cells = `
             <td class="item${isExt ? ' green' : ''}"><input class="cell" data-f="item" value="${esc(label)}" aria-label="Item"></td>
-            <td class="pu"><input class="cell" data-f="pu" value="${esc(side.pu)}" placeholder="PU / Chart name" aria-label="PU">${metaHtml}</td>
+            <td class="pu"><input class="cell" data-f="pu" value="${esc(side.pu)}" placeholder="PU（自行填寫）" aria-label="PU">${metaHtml}</td>
             <td><input class="cell num" data-f="x" type="number" step="any" value="${esc(side.x)}" placeholder="${isExt ? 'X2' : 'X1'}" aria-label="X"></td>
             <td><input class="cell num" data-f="s" type="number" step="any" value="${esc(side.s)}" placeholder="${isExt ? 'σ2' : 'σ1'}" aria-label="σ"></td>
             <td class="muted">${esc(side.n)}</td>`;
@@ -313,25 +316,58 @@
     $('btnAddPair').addEventListener('click', () => { pairs.push(newPair()); renderPairs(); save(); $('targetNo').value = String(pairs.length - 1); });
     $('btnClearAll').addEventListener('click', () => { if(!confirm('清除整張檢定表？')) return; pairs = [newPair(), newPair()]; renderPairs(); save(); });
 
-    // 搜尋結果 → 填入編號（4.）
-    function addToPair(i, which){
+    // 搜尋結果 → 填入編號（4.）：同一 chart 的兩個區間（BSL / wafer extend）各算一次 N / AVG / STDEVA
+    async function statsFor(cid, start, end){
+        const qs = new URLSearchParams({ op:'search', cid, start, end });
+        const res = await fetch(PAGE + '?' + qs.toString(), { cache:'no-store' });
+        const data = await res.json();
+        if(!data.ok) throw new Error(data.error || ('HTTP ' + res.status));
+        return (data.rows || [])[0] || null;    // 區間內沒資料 → null
+    }
+    function toggleAddPanel(i, btn){
+        const tr = btn.closest('tr'); const next = tr.nextElementSibling;
+        if(next && next.classList.contains('addpanel')){ next.remove(); return; }
+        const old = $('resBody').querySelector('tr.addpanel'); if(old) old.remove();
+        const r = _results[i];
+        const pr = document.createElement('tr'); pr.className = 'addpanel';
+        pr.innerHTML = `<td colspan="13">
+            <span class="grp"><b>BSL 區間</b><input type="date" data-k="bs" value="${esc(_range.start)}"> ~ <input type="date" data-k="be" value="${esc(_range.end)}"></span>
+            <span class="grp"><b>wafer extend 區間</b><input type="date" data-k="es" value="${esc(_range.start)}"> ~ <input type="date" data-k="ee" value="${esc(_range.end)}"></span>
+            <span class="grp"><b>填入編號</b><select data-k="no">${pairs.map((p, k) => `<option value="${k}"${String(k) === $('targetNo').value ? ' selected' : ''}>${k + 1}</option>`).join('')}</select></span>
+            <button type="button" class="btn small" data-fill="${i}">填入</button>
+            <span class="hint" data-k="msg">CHART_ID ${esc(r.CHART_ID)}　${esc(r.CHART_NAME)}（PU 請自行填寫）</span>
+        </td>`;
+        tr.after(pr);
+    }
+    async function fillPair(i, panel, btn){
         const r = _results[i]; if(!r) return;
-        let idx = Number($('targetNo').value); if(!(idx >= 0 && idx < pairs.length)) idx = 0;
-        const side = pairs[idx][which];
-        side.pu = String(r.CHART_NAME || '');
-        side.x = r.AVG == null ? '' : fmt(r.AVG);
-        side.s = r.STDEV == null ? '' : fmt(r.STDEV);
-        side.n = r.N == null ? '' : String(r.N);
-        side.cid = String(r.CHART_ID || '');
-        side.src = `${r.PROCESSUNIT || ''} ${_range.start}~${_range.end}`.trim();
-        renderPairs(); save();
-        const tr = $('tbodyPairs').querySelector(`tr[data-idx="${idx}"][data-side="${which}"]`);
-        if(tr){ tr.classList.add('flash'); setTimeout(() => tr.classList.remove('flash'), 1300); }
-        const rr = $('resBody').querySelector(`tr[data-i="${i}"]`); if(rr) rr.classList.add('added');
-        setStatus(`已將 CHART_ID ${r.CHART_ID} 填入編號 ${idx + 1} 的 ${which === 'bsl' ? 'BSL' : 'wafer extend'}`);
+        const g = k => panel.querySelector(`[data-k="${k}"]`);
+        const bs = g('bs').value, be = g('be').value, es = g('es').value, ee = g('ee').value;
+        if(!bs || !be || !es || !ee){ g('msg').textContent = '兩個區間的開始與結束日期都要填'; return; }
+        let idx = Number(g('no').value); if(!(idx >= 0 && idx < pairs.length)) idx = 0;
+        btn.disabled = true; g('msg').textContent = '計算中…';
+        try{
+            const [b, e] = await Promise.all([statsFor(r.CHART_ID, bs, be), statsFor(r.CHART_ID, es, ee)]);
+            const put = (side, st, s1, s2) => {
+                side.x = st && st.AVG != null ? fmt(st.AVG) : '';
+                side.s = st && st.STDEV != null ? fmt(st.STDEV) : '';
+                side.n = st && st.N != null ? String(st.N) : '0';
+                side.cid = String(r.CHART_ID || '');
+                side.src = `${r.PROCESSUNIT || ''} ${s1}~${s2}`.trim();
+            };
+            put(pairs[idx].bsl, b, bs, be); put(pairs[idx].ext, e, es, ee);
+            renderPairs(); save();
+            ['bsl','ext'].forEach(w => { const tr = $('tbodyPairs').querySelector(`tr[data-idx="${idx}"][data-side="${w}"]`); if(tr){ tr.classList.add('flash'); setTimeout(() => tr.classList.remove('flash'), 1300); } });
+            const rr = $('resBody').querySelector(`tr[data-i="${i}"]`); if(rr) rr.classList.add('added');
+            $('targetNo').value = String(idx);
+            g('msg').textContent = `已填入編號 ${idx + 1}：BSL N=${b ? b.N : 0}、wafer extend N=${e ? e.N : 0}` + ((!b || !e) ? '（有區間查無資料，X/σ 留空）' : '');
+            setStatus(`CHART_ID ${r.CHART_ID} 已填入編號 ${idx + 1}`);
+        }catch(err){ g('msg').textContent = '計算失敗：' + err.message; }
+        finally{ btn.disabled = false; }
     }
     $('resBody').addEventListener('click', e => {
-        const a = e.target.closest('button[data-add]'); if(a){ addToPair(Number(a.getAttribute('data-i')), a.getAttribute('data-add')); return; }
+        const a = e.target.closest('button[data-addpanel]'); if(a){ toggleAddPanel(Number(a.getAttribute('data-addpanel')), a); return; }
+        const f = e.target.closest('button[data-fill]'); if(f){ fillPair(Number(f.getAttribute('data-fill')), f.closest('tr'), f); return; }
         const v = e.target.closest('button[data-vals]'); if(v){ toggleValues(Number(v.getAttribute('data-vals')), v); }
     });
 

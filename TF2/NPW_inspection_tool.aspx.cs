@@ -17,19 +17,28 @@ using System.Web.UI;
 // Routes:
 //   GET  NPW_inspection_tool.aspx                 -> renders the page
 //   GET  NPW_inspection_tool.aspx?op=search       -> one row per chart in the range:
-//          &start=YYYY-MM-DD &end=YYYY-MM-DD (end inclusive)
+//          &start=YYYY-MM-DD &end=YYYY-MM-DD (end inclusive; filters on the DataDate column)
 //          &cid=<CHART_ID exact> &cname=<CHART_NAME contains> &pu=<PROCESSUNIT contains>
 //          returns { ok, rows:[{CHART_ID, CHART_NAME, PROCESSUNIT, CHART_TYPE, N, AVG, STDEV,
 //                               MIN, MAX, FIRST_TIME, LAST_TIME}], truncated }
 //          N / AVG / STDEV are over MEAN_VALUE of the matching rows; STDEV is the
 //          sample standard deviation (same as Excel STDEV.S / STDEVA on numbers).
+//          With &cid= only, this is also the per-chart stats call used to fill
+//          the BSL / wafer extend rows of the check table for two ranges.
 //   GET  NPW_inspection_tool.aspx?op=values&cid=&start=&end=  -> the individual points
 //          { ok, rows:[{d, seq, mean, lot, wafer}] }
+//
+// DataDate is stored as TEXT like "2026/10/06" (optionally with a time), so it is
+// converted with TRY_CONVERT(datetime, DataDate, 111) before comparing; rows whose
+// text does not parse are ignored.
 //
 // NOTE: keep this file pure ASCII. Some servers compile .cs as Big5/CP950,
 // which can eat the newline after a non-ASCII char and break compilation.
 public partial class NPW_Inspection : Page
 {
+    // Text date column -> datetime (style 111 = yyyy/mm/dd [hh:mi:ss]).
+    private const string DateExpr = "TRY_CONVERT(datetime, DataDate, 111)";
+
     // TF1 page name -> TF1 table, otherwise TF2 (same rule as the alarm page).
     protected string ChartTable
     {
@@ -103,8 +112,8 @@ public partial class NPW_Inspection : Page
 
         var args = new List<object>();
         var where = new StringBuilder();
-        where.Append("WHERE UPDATE_TIME >= @p" + args.Count); args.Add(start);
-        where.Append(" AND UPDATE_TIME < @p" + args.Count); args.Add(endExcl);
+        where.Append("WHERE " + DateExpr + " >= @p" + args.Count); args.Add(start);
+        where.Append(" AND " + DateExpr + " < @p" + args.Count); args.Add(endExcl);
         where.Append(" AND MEAN_VALUE IS NOT NULL");
         if (cid.Length > 0) { where.Append(" AND CHART_ID = @p" + args.Count); args.Add(cid); }
         if (cname.Length > 0) { where.Append(" AND CHART_NAME LIKE @p" + args.Count); args.Add("%" + LikeEscape(cname) + "%"); }
@@ -117,8 +126,8 @@ public partial class NPW_Inspection : Page
             "AVG(CAST(MEAN_VALUE AS float)) AS AVG_VAL, " +
             "STDEV(CAST(MEAN_VALUE AS float)) AS SD_VAL, " +
             "MIN(CAST(MEAN_VALUE AS float)) AS MIN_VAL, MAX(CAST(MEAN_VALUE AS float)) AS MAX_VAL, " +
-            "CONVERT(varchar(19), MIN(UPDATE_TIME), 120) AS FIRST_TIME, " +
-            "CONVERT(varchar(19), MAX(UPDATE_TIME), 120) AS LAST_TIME " +
+            "CONVERT(varchar(19), MIN(" + DateExpr + "), 120) AS FIRST_TIME, " +
+            "CONVERT(varchar(19), MAX(" + DateExpr + "), 120) AS LAST_TIME " +
             "FROM " + ChartTable + " WITH (NOLOCK) " +
             where.ToString() + " " +
             "GROUP BY CHART_ID, CHART_NAME, PROCESSUNIT " +
@@ -169,11 +178,11 @@ public partial class NPW_Inspection : Page
             return;
         }
         string sql =
-            "SELECT TOP " + MaxPoints + " CHART_SEQ, CONVERT(varchar(19), UPDATE_TIME, 120) AS D, " +
+            "SELECT TOP " + MaxPoints + " CHART_SEQ, DataDate AS D, " +
             "CAST(MEAN_VALUE AS float) AS MEAN_VALUE, LOT, WAFER, PROCESSUNIT " +
             "FROM " + ChartTable + " WITH (NOLOCK) " +
-            "WHERE CHART_ID = @p0 AND UPDATE_TIME >= @p1 AND UPDATE_TIME < @p2 AND MEAN_VALUE IS NOT NULL " +
-            "ORDER BY UPDATE_TIME, CHART_SEQ";
+            "WHERE CHART_ID = @p0 AND " + DateExpr + " >= @p1 AND " + DateExpr + " < @p2 AND MEAN_VALUE IS NOT NULL " +
+            "ORDER BY " + DateExpr + ", CHART_SEQ";
         var rows = QueryRows(sql, cid, start, endExcl);
         var outRows = new List<object>();
         foreach (var r in rows)
