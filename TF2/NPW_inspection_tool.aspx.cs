@@ -17,7 +17,8 @@ using System.Web.UI;
 // Routes:
 //   GET  NPW_inspection_tool.aspx                 -> renders the page
 //   GET  NPW_inspection_tool.aspx?op=search       -> one row per chart in the range:
-//          &start=YYYY-MM-DD &end=YYYY-MM-DD (end inclusive; filters on the DataDate column)
+//          &start=YYYY-MM-DDTHH:mm &end=YYYY-MM-DDTHH:mm (UPDATE_TIME; end inclusive to the minute;
+//          a date-only value means 00:00 for start / 23:59 for end)
 //          &cid=<CHART_ID exact> &cname=<CHART_NAME contains> &pu=<PROCESSUNIT contains>
 //          &prod=ctrl|ocap   PROD Type: ctrl = all MONITOR_TYPE (default), ocap = NORMAL / PM only
 //          returns { ok, rows:[{CHART_ID, CHART_NAME, PROCESSUNIT, CHART_TYPE, N, AVG, STDEV,
@@ -29,16 +30,13 @@ using System.Web.UI;
 //   GET  NPW_inspection_tool.aspx?op=values&cid=&start=&end=  -> the individual points
 //          { ok, rows:[{d, seq, mean, lot, wafer}] }
 //
-// DataDate is stored as TEXT in yyyy-mm-dd form (optionally followed by a time),
-// so it is converted with TRY_CONVERT(datetime, DataDate, 120) before comparing;
-// rows whose text does not parse are ignored.
+// The range filters on UPDATE_TIME (datetime); start/end are sent to the minute.
 //
 // NOTE: keep this file pure ASCII. Some servers compile .cs as Big5/CP950,
 // which can eat the newline after a non-ASCII char and break compilation.
 public partial class NPW_Inspection : Page
 {
-    // Text date column -> datetime (style 120 = yyyy-mm-dd [hh:mi:ss]).
-    private const string DateExpr = "TRY_CONVERT(datetime, DataDate, 120)";
+    private const string DateExpr = "UPDATE_TIME";
 
     // TF1 page name -> TF1 table, otherwise TF2 (same rule as the alarm page).
     protected string ChartTable
@@ -89,19 +87,36 @@ public partial class NPW_Inspection : Page
         return "";
     }
 
-    // ---- date range: start inclusive, end inclusive (converted to < end+1) ----
+    // ---- time range to the minute: start inclusive, end inclusive (converted to < end+1min) ----
+    // Accepts "yyyy-MM-ddTHH:mm", "yyyy-MM-dd HH:mm", "yyyy-MM-ddTHH:mm:ss" or a bare date
+    // (start -> 00:00, end -> 23:59).
+    private static readonly string[] RangeFormats = { "yyyy-MM-ddTHH:mm", "yyyy-MM-dd HH:mm", "yyyy-MM-ddTHH:mm:ss", "yyyy-MM-dd HH:mm:ss" };
+    private static bool TryParseStamp(string v, bool isEnd, out DateTime d)
+    {
+        v = (v ?? "").Trim();
+        if (DateTime.TryParseExact(v, RangeFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out d)) return true;
+        if (DateTime.TryParseExact(v, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out d))
+        {
+            if (isEnd) d = d.Date.AddDays(1).AddMinutes(-1);
+            return true;
+        }
+        return false;
+    }
+
     private bool ReadRange(out DateTime start, out DateTime endExcl, out string error)
     {
         error = null;
         DateTime s, e;
-        bool okS = DateTime.TryParseExact((Request.QueryString["start"] ?? "").Trim(), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out s);
-        bool okE = DateTime.TryParseExact((Request.QueryString["end"] ?? "").Trim(), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out e);
-        if (!okE) e = DateTime.Today;
-        if (!okS) s = e.AddDays(-30);
+        bool okS = TryParseStamp(Request.QueryString["start"], false, out s);
+        bool okE = TryParseStamp(Request.QueryString["end"], true, out e);
+        if (!okE) e = DateTime.Now;
+        if (!okS) s = e.Date.AddDays(-30);
+        s = new DateTime(s.Year, s.Month, s.Day, s.Hour, s.Minute, 0);
+        e = new DateTime(e.Year, e.Month, e.Day, e.Hour, e.Minute, 0);
         if (s > e) { DateTime t = s; s = e; e = t; }
         if ((e - s).TotalDays > 400) { error = "time range too long (max 400 days)"; start = s; endExcl = e; return false; }
-        start = s.Date;
-        endExcl = e.Date.AddDays(1);
+        start = s;
+        endExcl = e.AddMinutes(1);
         return true;
     }
 
@@ -168,7 +183,7 @@ public partial class NPW_Inspection : Page
         var ser = new JavaScriptSerializer { MaxJsonLength = int.MaxValue };
         Response.Write(ser.Serialize(new Dictionary<string, object> {
             { "ok", true }, { "rows", outRows }, { "truncated", truncated },
-            { "start", start.ToString("yyyy-MM-dd") }, { "end", endExcl.AddDays(-1).ToString("yyyy-MM-dd") }
+            { "start", start.ToString("yyyy-MM-dd HH:mm") }, { "end", endExcl.AddMinutes(-1).ToString("yyyy-MM-dd HH:mm") }
         }));
     }
 
@@ -189,7 +204,7 @@ public partial class NPW_Inspection : Page
             return;
         }
         string sql =
-            "SELECT TOP " + MaxPoints + " CHART_SEQ, DataDate AS D, " +
+            "SELECT TOP " + MaxPoints + " CHART_SEQ, CONVERT(varchar(19), UPDATE_TIME, 120) AS D, " +
             "CAST(MEAN_VALUE AS float) AS MEAN_VALUE, LOT, WAFER, PROCESSUNIT " +
             "FROM " + ChartTable + " WITH (NOLOCK) " +
             "WHERE CHART_ID = @p0 AND " + DateExpr + " >= @p1 AND " + DateExpr + " < @p2 AND MEAN_VALUE IS NOT NULL " +

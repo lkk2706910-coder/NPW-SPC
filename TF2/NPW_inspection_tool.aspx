@@ -81,8 +81,8 @@
             <label class="field">Chart_ID<input id="qCid" type="text" placeholder="例 85766（精確）" autocomplete="off" /></label>
             <label class="field">Chart_name<input id="qName" type="text" placeholder="包含文字或用 %，例 %5.5K%PA%" autocomplete="off" /></label>
             <label class="field">機台（PROCESSUNIT）<input id="qPu" type="text" placeholder="包含文字或用 %，例 SACVD-B1%" autocomplete="off" /></label>
-            <label class="field">開始日期<input id="qStart" type="date" /></label>
-            <label class="field">結束日期<input id="qEnd" type="date" /></label>
+            <label class="field">開始時間<input id="qStart" type="datetime-local" step="60" /></label>
+            <label class="field">結束時間<input id="qEnd" type="datetime-local" step="60" /></label>
             <span class="field">PROD Type
                 <span class="radios" id="qProd">
                     <label><input type="radio" name="prod" value="ctrl" checked />內控</label>
@@ -97,7 +97,7 @@
             <button type="button" class="btn" id="btnSearch">搜尋</button>
             <span class="status" id="qStatus"></span>
         </div>
-        <div class="hint" style="margin-top:6px;">Chart_ID / Chart_name / 機台 至少填一項（可組合）。Chart_name 與機台：不含 % 時為「包含」比對；可自行加 % 當萬用字元（例 <code>SACVD-B1%</code>、<code>%5.5K%PA%</code>），`_` 視為一般字元。時間區間依 <b>DataDate</b>（文字欄位，格式 yyyy-mm-dd），結束日含當天，最長 400 天。每張 chart 只顯示一列：N = 筆數、AVG = MEAN_VALUE 平均、STDEVA = 樣本標準差（Excel STDEV.S / STDEVA），區間內所有 MEAN_VALUE 都納入。</div>
+        <div class="hint" style="margin-top:6px;">Chart_ID / Chart_name / 機台 至少填一項（可組合）。Chart_name 與機台：不含 % 時為「包含」比對；可自行加 % 當萬用字元（例 <code>SACVD-B1%</code>、<code>%5.5K%PA%</code>），`_` 視為一般字元。時間區間依 <b>UPDATE_TIME</b>，可選到幾點幾分（結束時間含該分鐘），最長 400 天。每張 chart 只顯示一列：N = 筆數、AVG = MEAN_VALUE 平均、STDEVA = 樣本標準差（Excel STDEV.S / STDEVA），區間內所有 MEAN_VALUE 都納入。</div>
     </div>
 
     <!-- 2. 搜尋結果 -->
@@ -168,17 +168,20 @@
     let _range = { start:'', end:'', prod:'ctrl' };
     const prodOf = () => (document.querySelector('#qProd input[name=prod]:checked') || {}).value || 'ctrl';
     const prodLabel = p => p === 'ocap' ? 'OCAP' : '內控';
+    // datetime-local 的值：yyyy-MM-ddTHH:mm
+    const ymdhm = d => `${ymd(d)}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
     function setQuick(days){
-        const end = new Date(); const start = new Date(); start.setDate(end.getDate() - days + 1);
-        $('qStart').value = ymd(start); $('qEnd').value = ymd(end);
+        const end = new Date(); end.setSeconds(0, 0);
+        const start = new Date(end); start.setDate(end.getDate() - days + 1); start.setHours(0, 0, 0, 0);
+        $('qStart').value = ymdhm(start); $('qEnd').value = ymdhm(end);
     }
     function setStatus(t, err){ const s=$('qStatus'); s.textContent=t||''; s.className='status'+(err?' err':''); }
 
     async function doSearch(){
         const cid = $('qCid').value.trim(), cname = $('qName').value.trim(), pu = $('qPu').value.trim();
         if(!cid && !cname && !pu){ setStatus('請至少填 Chart_ID / Chart_name / 機台 其中一項', true); return; }
-        if(!$('qEnd').value) $('qEnd').value = ymd(new Date());
-        if(!$('qStart').value){ const d=new Date($('qEnd').value+'T00:00:00'); d.setDate(d.getDate()-29); $('qStart').value=ymd(d); }
+        if(!$('qEnd').value){ const n=new Date(); n.setSeconds(0,0); $('qEnd').value = ymdhm(n); }
+        if(!$('qStart').value){ const d=new Date($('qEnd').value); d.setDate(d.getDate()-29); d.setHours(0,0,0,0); $('qStart').value=ymdhm(d); }
         const qs = new URLSearchParams({ op:'search', start:$('qStart').value, end:$('qEnd').value, prod:prodOf() });
         if(cid) qs.set('cid', cid); if(cname) qs.set('cname', cname); if(pu) qs.set('pu', pu);
         $('btnSearch').disabled = true; setStatus('查詢中…');
