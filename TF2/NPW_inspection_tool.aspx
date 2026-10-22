@@ -77,6 +77,7 @@
         .rpanel .tag.test { background: rgba(220,0,0,.18); border: 1px solid #c00; color: #800; }
         .rpanel select { padding: 2px 4px; border: 1px solid var(--accent); border-radius: 6px; color: var(--accent); font: inherit; font-size: 12px; font-weight: 700; }
         #btnRegion.on { background: var(--accent); color: #fff; }
+        table.res button[data-match].on { background: #2e7d32; border-color: #2e7d32; color: #fff; }
         #matchCanvas.grab { cursor: grab; } #matchCanvas.resize { cursor: col-resize; } #matchCanvas.move { cursor: move; }
 
         /* 檢定表格（PCRB，沿用檢定機器人） */
@@ -139,7 +140,8 @@
     <div class="card">
         <div class="toolbar" style="margin-bottom:8px;">
             <h2 style="margin:0;">搜尋結果 <small id="resInfo" class="hint"></small></h2>
-            <span class="hint" style="margin-left:auto;">每列右側下拉選「列編號」後按「加入檢定」，即以本次搜尋區間的 N / AVG / STDEVA 填入該列；填完下拉會自動跳到下一列</span>
+            <span class="hint">每列右側下拉選「列編號」後按「加入檢定」，即以本次搜尋區間的 N / AVG / STDEVA 填入該列；填完下拉會自動跳到下一列</span>
+            <button type="button" class="btn small" id="btnMatchAll" style="margin-left:auto;" title="把本次搜尋結果全部加入 Matching chart">全部加入 matching</button>
         </div>
         <div class="res-wrap">
             <table class="res" id="resTable">
@@ -162,10 +164,10 @@
                 <label><input type="radio" name="mx" value="idx" checked />依序排列（左右分開）</label>
                 <label><input type="radio" name="mx" value="time" />時間（疊圖）</label>
             </span>
+            <span class="hint">Spec 來源：<select id="specSrc" title="UCL / CL / LCL 取哪一條序列"></select></span>
             <button type="button" class="btn ghost small" id="btnRegion" style="margin-left:auto;">檢定區間：關</button>
             <button type="button" class="btn ghost small" id="btnMatchClear">清空 matching</button>
         </div>
-        <div class="mchips" id="matchChips"></div>
         <div class="mbox"><canvas id="matchCanvas"></canvas></div>
         <!-- 檢定區間：每條序列可加 BSL（綠）與檢定（紅）區間，直接在圖上拖拉邊界或整塊移動，完成後帶入檢定表 -->
         <div id="regionPanel" class="rpanel" hidden>
@@ -421,14 +423,56 @@
         }catch(e){ alert('加入 matching 失敗：' + e.message); btn.disabled = false; }
     }
     function removeMatch(k){ _match.splice(k, 1); renderMatch(); }
+    function matchKeyOf(r){ return `${r.CHART_ID}|${_range.start}|${_range.end}|${_range.prod}`; }
+    // ＋matching 再按一次 = 移除該序列
+    function toggleMatch(i, btn){
+        const r = _results[i]; if(!r) return;
+        const k = _match.findIndex(m => m.key === matchKeyOf(r));
+        if(k >= 0){ removeMatch(k); setStatus(`已從 matching 移除 CHART_ID ${r.CHART_ID}（剩 ${_match.length} 條）`); }
+        else addToMatch(i, btn);
+    }
+    // 一鍵把本次搜尋結果全部加入（已加入的略過）
+    async function addAllToMatch(btn){
+        if(!_results.length){ setStatus('沒有搜尋結果可加入', true); return; }
+        btn.disabled = true; setStatus('加入中…');
+        try{
+            let added = 0;
+            for(let i = 0; i < _results.length; i++){
+                const r = _results[i]; if(_match.some(m => m.key === matchKeyOf(r))) continue;
+                const v = await ensureVals(i);
+                _match.push({ key: matchKeyOf(r), cid: String(r.CHART_ID), name: r.CHART_NAME || '', pu: r.PROCESSUNIT || '', start: _range.start, end: _range.end, prod: _range.prod,
+                    label: `${r.PROCESSUNIT || ''} ${r.CHART_NAME || ''}（${_range.start}~${_range.end}）`, rows: v.rows.slice(), excluded: new Set(v.excluded) });
+                added++;
+            }
+            renderMatch();
+            setStatus(`已加入 ${added} 條到 matching（共 ${_match.length} 條）`);
+        }catch(e){ alert('加入 matching 失敗：' + e.message); }
+        finally{ btn.disabled = false; }
+    }
+    $('btnMatchAll').addEventListener('click', e => addAllToMatch(e.currentTarget));
+    // Spec 來源：預設第一條；下拉可改；找不到有 UCL/LCL 的點就往後找其他序列
+    let _specKey = null;
+    function specFrom(series){
+        const pick = s => { for(let j = s.kept.length - 1; j >= 0; j--){ const x = s.kept[j]; if(numOrNull(x.ucl) != null || numOrNull(x.lcl) != null || numOrNull(x.xbar) != null) return { ucl: numOrNull(x.ucl), cl: numOrNull(x.xbar), lcl: numOrNull(x.lcl), name: s.m.name, key: s.m.key }; } return null; };
+        const ordered = series.slice(); const si = series.findIndex(s => s.m.key === _specKey);
+        if(si > 0){ ordered.splice(si, 1); ordered.unshift(series[si]); }
+        for(const s of ordered){ const sp = pick(s); if(sp) return sp; }
+        return null;
+    }
+    function renderSpecSelect(){
+        const sel = $('specSrc'); if(!sel) return;
+        sel.innerHTML = _match.map(m => `<option value="${esc(m.key)}"${m.key === _specKey ? ' selected' : ''}>${esc(m.pu)} ${esc(m.name)}</option>`).join('');
+        if(!_match.some(m => m.key === _specKey)) { _specKey = _match.length ? _match[0].key : null; if(sel.options.length) sel.value = _specKey; }
+    }
+    $('specSrc').addEventListener('change', e => { _specKey = e.target.value; renderMatch(); });
     // 已加入 matching 的搜尋結果列：＋matching 按鈕反灰並顯示「已加入」；移除或清空後恢復
     function syncMatchButtons(){
         document.querySelectorAll('#resBody button[data-match]').forEach(b => {
             const r = _results[Number(b.getAttribute('data-match'))]; if(!r) return;
             const key = `${r.CHART_ID}|${_range.start}|${_range.end}|${_range.prod}`;
             const on = _match.some(m => m.key === key);
-            b.disabled = on; b.textContent = on ? '已加入 matching' : '＋matching';
-            b.classList.toggle('ghost', on);
+            b.textContent = on ? '已加入（再按移除）' : '＋matching';
+            b.classList.toggle('on', on); b.title = on ? '已在 Matching chart；再按一次會把這條序列移除' : '加入下方 Matching chart 一起比較（可跨 tool / 區間）';
         });
     }
     function renderMatch(){
@@ -436,8 +480,7 @@
         const card = $('matchCard');
         if(!_match.length){ if(_matchChart){ try{ _matchChart.destroy(); }catch(e){} _matchChart = null; } card.hidden = true; $('regionPanel').hidden = true; return; }
         card.hidden = false;
-        $('matchInfo').textContent = `（${_match.length} 條序列；排除的點不列入；Spec（UCL / CL / LCL）以第一條「${_match[0].name}」為主）`;
-        $('matchChips').innerHTML = _match.map((m, k) => `<span class="mchip"><span class="sw" style="background:${MCOLORS[k % MCOLORS.length]}"></span>${esc(m.label)}${m.excluded.size ? `<span class="hint">排除 ${m.excluded.size}</span>` : ''}<button type="button" data-mrm="${k}" title="移除">×</button></span>`).join('');
+        renderSpecSelect();
         // 統計表：每條序列 N / AVG / STDEVA / Min / Max
         let st = '<tr><th></th><th>CHART_ID</th><th>CHART_NAME</th><th>機台</th><th>區間</th><th>N</th><th>AVG</th><th>STDEVA</th><th>Min</th><th>Max</th></tr>';
         const series = _match.map((m, k) => {
@@ -456,10 +499,10 @@
         const byTime = (document.querySelector('input[name=mx]:checked') || {}).value === 'time';
         const toT = d => { const t = new Date(String(d || '').replace(' ', 'T')); return isNaN(t) ? null : t.getTime(); };
         const fmtT = v => { const d = new Date(v); return isNaN(d) ? '' : `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; };
-        // Spec 以「第一張點選加入」的 chart 為主：取其最後一個採用點的 UCL / CL(XBAR) / LCL，整張圖共用
-        const first = series[0];
-        const lastPt = first && first.kept.length ? first.kept[first.kept.length - 1] : null;
-        const spec = lastPt ? { ucl: numOrNull(lastPt.ucl), cl: numOrNull(lastPt.xbar), lcl: numOrNull(lastPt.lcl), name: first.m.name } : null;
+        // Spec 預設以「第一張點選加入」的 chart 為主（可用下拉改選）：取其最後一個有 UCL / LCL 的採用點
+        const spec = specFrom(series);
+        { const sel = _match.find(m => m.key === _specKey) || _match[0];
+          $('matchInfo').textContent = `（${_match.length} 條序列；排除的點不列入；Spec 取「${spec ? spec.name : '—'}」` + (spec && sel && spec.key !== sel.key ? `，因「${sel.name}」沒有 UCL / LCL 而改用` : '') + '）'; }
         const specDs = (label, val, color, dash, len, xs) => ({ label, _spec: true, data: xs ? xs.map(x => ({ x, y: val })) : new Array(len).fill(val), borderColor: color, borderDash: dash, borderWidth: 1.3, pointRadius: 0, fill: false, spanGaps: true });
         const specSets = (len, xs) => !spec ? [] : [
             spec.ucl != null ? specDs(`UCL ${fmt(spec.ucl)}（${spec.name}）`, spec.ucl, 'red', [4, 2], len, xs) : null,
@@ -475,15 +518,22 @@
             const seg = u.split('-').find(x => /^[ABC]{1,3}[12]$/.test(x)); return seg ? 'S' + seg.slice(-1) : '';
         };
         const segLabel = m => { const side = sideOfName(m.name); return ((m.pu || m.name) + (side ? ' ' + side : '')).trim(); };
+        // chamber 標籤畫在繪圖區上方獨立的一條帶（layout.padding.top 預留，與圖例分開），
+        // 相鄰段落交錯上下兩列、段太窄時縮小字體，避免互相重疊
+        const CHAMBER_BAND = 30;
         const chamberPlugin = { id: 'npwChambers', afterDraw(chart){
             const segs = _matchMeta.segments || []; if(segs.length < 2) return;
             const { ctx, chartArea, scales } = chart; const x = scales.x; if(!x) return;
-            ctx.save(); ctx.font = 'bold 12px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-            segs.forEach(sg => {
+            ctx.save(); ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+            segs.forEach((sg, k) => {
                 if(!sg.n) return;
                 const left = x.getPixelForValue(sg.off), right = x.getPixelForValue(sg.off + sg.n - 1);
-                const cx = Math.min(Math.max((left + right) / 2, chartArea.left + 30), chartArea.right - 30);
-                ctx.fillStyle = sg.color; ctx.fillText(sg.label, cx, chartArea.top - 3);
+                const segW = Math.max(right - left, 12) + 12;
+                let size = 12; ctx.font = `bold ${size}px Arial`;
+                while(size > 8 && ctx.measureText(sg.label).width > segW * 2){ size--; ctx.font = `bold ${size}px Arial`; }
+                const cx = Math.min(Math.max((left + right) / 2, chartArea.left + 10), chartArea.right - 10);
+                const y = chartArea.top - 2 - (k % 2 ? 0 : 14);   // 偶數段上列、奇數段下列
+                ctx.fillStyle = sg.color; ctx.fillText(sg.label, cx, y);
             });
             ctx.restore();
         } };
@@ -509,7 +559,7 @@
                     const idx = off + j; labels[idx] = String(x.d || '').substring(5, 16); pts[idx] = x;
                     mean[idx] = Number(x.mean);
                 });
-                datasets.push({ label: `${s.m.pu} ${s.m.name}`.trim(), data: mean, borderColor: s.color, backgroundColor: s.color, fill: false, tension: .15, borderWidth: 1.5, pointRadius: 3, pointHoverRadius: 6, spanGaps: false });
+                datasets.push({ label: segLabel(s.m), _full: `${s.m.pu} ${s.m.name}`.trim(), data: mean, borderColor: s.color, backgroundColor: s.color, fill: false, tension: .15, borderWidth: 1.5, pointRadius: 3, pointHoverRadius: 6, spanGaps: false });
                 off += s.kept.length;
                 if(k < series.length - 1 && s.kept.length) boundaries.push(off);
             });
@@ -518,17 +568,17 @@
               series.forEach((x, k) => { if(seen[segments[k].label] > 1) segments[k].label = segLabel(x.m) + '（' + x.m.name + '）'; }); }
             _matchMeta = { boundaries, segments, sideBySide: true };
             cfg = { type: 'line', data: { labels, datasets }, plugins: [chamberPlugin, separatorPlugin, regionPlugin],
-                options: { animation: false, responsive: true, maintainAspectRatio: false, layout: { padding: { top: series.length > 1 ? 18 : 4 } },
+                options: { animation: false, responsive: true, maintainAspectRatio: false, layout: { padding: { top: series.length > 1 ? CHAMBER_BAND : 4 } },
                     plugins: { legend: { position: 'top', align: 'start', labels: { usePointStyle: true, boxWidth: 10, font: { size: 11 } } },
                         tooltip: { filter: it => !it.dataset._spec, callbacks: { title: items => items.length ? ((pts[items[0].dataIndex] || {}).d || '') : '',
-                            label: c => { const p = pts[c.dataIndex] || {}; return `${c.dataset.label}: ${p.mean}` + (p.lot ? '  LOT ' + p.lot : '') + (p.wafer ? '  W' + p.wafer : '') + (p.seq != null ? '  SEQ ' + p.seq : ''); } } } },
+                            label: c => { const p = pts[c.dataIndex] || {}; return `${c.dataset._full || c.dataset.label}: ${p.mean}` + (p.lot ? '  LOT ' + p.lot : '') + (p.wafer ? '  W' + p.wafer : '') + (p.seq != null ? '  SEQ ' + p.seq : ''); } } } },
                     scales: { x: { title: { display: true, text: '依序排列（各 chart 左右分開，虛線為分隔）' }, ticks: { font: { size: 9 }, maxRotation: 90, minRotation: 90, autoSkip: true, maxTicksLimit: 40 } },
                               y: { title: { display: true, text: 'MEAN_VALUE' }, ticks: { font: { size: 10 } } } } } };
         }else{
             _matchMeta = { boundaries: [], segments: [], sideBySide: false };
             series.forEach(s => { s.m._kept = s.kept; clampRegions(s.m); });
             const datasets = series.map(s => ({
-                label: `${s.m.pu} ${s.m.name}`.trim(), borderColor: s.color, backgroundColor: s.color, fill: false, tension: .15, borderWidth: 1.5, pointRadius: 3, pointHoverRadius: 6, spanGaps: true, showLine: true,
+                label: segLabel(s.m), _full: `${s.m.pu} ${s.m.name}`.trim(), borderColor: s.color, backgroundColor: s.color, fill: false, tension: .15, borderWidth: 1.5, pointRadius: 3, pointHoverRadius: 6, spanGaps: true, showLine: true,
                 data: s.kept.map(x => ({ x: toT(x.d), y: Number(x.mean), _p: x })).filter(p => p.x != null)
             }));
             const allX = datasets.flatMap(d => d.data.map(p => p.x));
@@ -537,7 +587,7 @@
                 options: { animation: false, responsive: true, maintainAspectRatio: false, parsing: false,
                     plugins: { legend: { position: 'top', align: 'start', labels: { usePointStyle: true, boxWidth: 10, font: { size: 11 } } },
                         tooltip: { filter: it => !it.dataset._spec, callbacks: { title: items => items.length ? fmtT(items[0].parsed.x) : '',
-                            label: c => { const p = c.raw && c.raw._p || {}; return `${c.dataset.label}: ${p.mean}` + (p.d ? '  ' + p.d : '') + (p.lot ? '  LOT ' + p.lot : '') + (p.wafer ? '  W' + p.wafer : ''); } } } },
+                            label: c => { const p = c.raw && c.raw._p || {}; return `${c.dataset._full || c.dataset.label}: ${p.mean}` + (p.d ? '  ' + p.d : '') + (p.lot ? '  LOT ' + p.lot : '') + (p.wafer ? '  W' + p.wafer : ''); } } } },
                     scales: { x: { type: 'linear', title: { display: true, text: '時間（同一時間軸疊圖）' }, ticks: { font: { size: 10 }, maxRotation: 60, autoSkip: true, maxTicksLimit: 16, callback: v => fmtT(v) } },
                               y: { title: { display: true, text: 'MEAN_VALUE' }, ticks: { font: { size: 10 } } } } } };
         }
@@ -546,7 +596,6 @@
     }
     document.querySelectorAll('input[name=mx]').forEach(r => r.addEventListener('change', () => renderMatch()));
     $('btnMatchClear').addEventListener('click', () => { _match.length = 0; renderMatch(); });
-    $('matchChips').addEventListener('click', e => { const b = e.target.closest('button[data-mrm]'); if(b) removeMatch(Number(b.getAttribute('data-mrm'))); });
 
     // ===== 檢定區間：在 matching chart 上拖拉 BSL（綠）/ 檢定（紅）方框，完成後帶入檢定表 =====
     // 區間存在序列快照上：m.regions = { bsl:{a,b}, test:{a,b} }，a/b 為該序列「採用點」的 0 起索引（含）
@@ -845,7 +894,7 @@
         const x = e.target.closest('button[data-ex]'); if(x){ togglePoint(Number(x.closest('tr.vals').getAttribute('data-vi')), Number(x.getAttribute('data-ex'))); return; }
         const rs = e.target.closest('button[data-restore]'); if(rs){ restorePoints(Number(rs.getAttribute('data-restore'))); return; }
         const t = e.target.closest('button[data-trend]'); if(t){ toggleTrend(Number(t.getAttribute('data-trend')), t); return; }
-        const mm = e.target.closest('button[data-match]'); if(mm){ addToMatch(Number(mm.getAttribute('data-match')), mm); return; }
+        const mm = e.target.closest('button[data-match]'); if(mm){ toggleMatch(Number(mm.getAttribute('data-match')), mm); return; }
         const v = e.target.closest('button[data-vals]'); if(v){ toggleValues(Number(v.getAttribute('data-vals')), v); }
     });
 
