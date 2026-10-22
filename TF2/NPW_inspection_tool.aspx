@@ -402,7 +402,7 @@
         const card = $('matchCard');
         if(!_match.length){ if(_matchChart){ try{ _matchChart.destroy(); }catch(e){} _matchChart = null; } card.hidden = true; return; }
         card.hidden = false;
-        $('matchInfo').textContent = `（${_match.length} 條序列；排除的點不列入）`;
+        $('matchInfo').textContent = `（${_match.length} 條序列；排除的點不列入；Spec（UCL / CL / LCL）以第一條「${_match[0].name}」為主）`;
         $('matchChips').innerHTML = _match.map((m, k) => `<span class="mchip"><span class="sw" style="background:${MCOLORS[k % MCOLORS.length]}"></span>${esc(m.label)}${m.excluded.size ? `<span class="hint">排除 ${m.excluded.size}</span>` : ''}<button type="button" data-mrm="${k}" title="移除">×</button></span>`).join('');
         // 統計表：每條序列 N / AVG / STDEVA / Min / Max
         let st = '<tr><th></th><th>CHART_ID</th><th>CHART_NAME</th><th>機台</th><th>區間</th><th>Type</th><th>N</th><th>AVG</th><th>STDEVA</th><th>Min</th><th>Max</th></tr>';
@@ -422,39 +422,59 @@
         const byTime = (document.querySelector('input[name=mx]:checked') || {}).value === 'time';
         const toT = d => { const t = new Date(String(d || '').replace(' ', 'T')); return isNaN(t) ? null : t.getTime(); };
         const fmtT = v => { const d = new Date(v); return isNaN(d) ? '' : `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; };
-        const aux = (s, key, dash, arr) => ({ label: `${s.m.name} ${key.toUpperCase()}`, _aux: true, data: arr, borderColor: s.color, borderDash: dash, borderWidth: 1, pointRadius: 0, fill: false, spanGaps: false });
+        // Spec 以「第一張點選加入」的 chart 為主：取其最後一個採用點的 UCL / CL(XBAR) / LCL，整張圖共用
+        const first = series[0];
+        const lastPt = first && first.kept.length ? first.kept[first.kept.length - 1] : null;
+        const spec = lastPt ? { ucl: numOrNull(lastPt.ucl), cl: numOrNull(lastPt.xbar), lcl: numOrNull(lastPt.lcl), name: first.m.name } : null;
+        const specDs = (label, val, color, dash, len, xs) => ({ label, _spec: true, data: xs ? xs.map(x => ({ x, y: val })) : new Array(len).fill(val), borderColor: color, borderDash: dash, borderWidth: 1.3, pointRadius: 0, fill: false, spanGaps: true });
+        const specSets = (len, xs) => !spec ? [] : [
+            spec.ucl != null ? specDs(`UCL ${fmt(spec.ucl)}（${spec.name}）`, spec.ucl, 'red', [4, 2], len, xs) : null,
+            spec.cl != null ? specDs(`CL ${fmt(spec.cl)}（${spec.name}）`, spec.cl, '#0f766e', [0, 0], len, xs) : null,
+            spec.lcl != null ? specDs(`LCL ${fmt(spec.lcl)}（${spec.name}）`, spec.lcl, 'red', [4, 2], len, xs) : null
+        ].filter(Boolean);
+        // 序列之間的分隔線（只在依序排列模式）：在相鄰兩段的邊界畫一條垂直虛線
+        const separatorPlugin = { id: 'npwSeparators', afterDraw(chart){
+            const b = chart.config._boundaries || []; if(!b.length) return;
+            const { ctx, chartArea, scales } = chart; const x = scales.x; if(!x) return;
+            ctx.save(); ctx.strokeStyle = '#555'; ctx.setLineDash([5, 4]); ctx.lineWidth = 1.2;
+            b.forEach(idx => { const px = (x.getPixelForValue(idx - 1) + x.getPixelForValue(idx)) / 2; ctx.beginPath(); ctx.moveTo(px, chartArea.top); ctx.lineTo(px, chartArea.bottom); ctx.stroke(); });
+            ctx.restore();
+        } };
         let cfg;
         if(!byTime){
-            // 左右分開（依序排列）：像 SPC 多 chart 檢視，序列一條接一條排在 X 軸上，各自帶 UCL / CL / LCL 虛線
+            // 左右分開（依序排列）：像 SPC 多 chart 檢視，序列一條接一條排在 X 軸上，中間以分隔線隔開
             const total = series.reduce((s, x) => s + x.kept.length, 0);
-            const labels = []; const pts = new Array(total).fill(null); const owner = new Array(total).fill(-1);
-            const datasets = []; let off = 0;
+            const labels = []; const pts = new Array(total).fill(null);
+            const datasets = []; const boundaries = []; let off = 0;
             series.forEach((s, k) => {
-                const mean = new Array(total).fill(null), ucl = new Array(total).fill(null), lcl = new Array(total).fill(null), cl = new Array(total).fill(null);
+                const mean = new Array(total).fill(null);
                 s.kept.forEach((x, j) => {
-                    const idx = off + j; labels[idx] = String(x.d || '').substring(5, 16); pts[idx] = x; owner[idx] = k;
-                    mean[idx] = Number(x.mean); ucl[idx] = numOrNull(x.ucl); lcl[idx] = numOrNull(x.lcl); cl[idx] = numOrNull(x.xbar);
+                    const idx = off + j; labels[idx] = String(x.d || '').substring(5, 16); pts[idx] = x;
+                    mean[idx] = Number(x.mean);
                 });
                 datasets.push({ label: `${s.m.pu} ${s.m.name}`.trim(), data: mean, borderColor: s.color, backgroundColor: s.color, fill: false, tension: .15, borderWidth: 1.5, pointRadius: 3, pointHoverRadius: 6, spanGaps: false });
-                datasets.push(aux(s, 'ucl', [4, 2], ucl), aux(s, 'cl', [1, 2], cl), aux(s, 'lcl', [4, 2], lcl));
                 off += s.kept.length;
+                if(k < series.length - 1 && s.kept.length) boundaries.push(off);
             });
-            cfg = { type: 'line', data: { labels, datasets },
+            datasets.push(...specSets(total, null));
+            cfg = { type: 'line', data: { labels, datasets }, plugins: [separatorPlugin], _boundaries: boundaries,
                 options: { animation: false, responsive: true, maintainAspectRatio: false,
-                    plugins: { legend: { position: 'top', align: 'start', labels: { usePointStyle: true, boxWidth: 10, font: { size: 11 }, filter: it => !(datasets[it.datasetIndex] && datasets[it.datasetIndex]._aux) } },
-                        tooltip: { filter: it => !it.dataset._aux, callbacks: { title: items => items.length ? ((pts[items[0].dataIndex] || {}).d || '') : '',
+                    plugins: { legend: { position: 'top', align: 'start', labels: { usePointStyle: true, boxWidth: 10, font: { size: 11 } } },
+                        tooltip: { filter: it => !it.dataset._spec, callbacks: { title: items => items.length ? ((pts[items[0].dataIndex] || {}).d || '') : '',
                             label: c => { const p = pts[c.dataIndex] || {}; return `${c.dataset.label}: ${p.mean}` + (p.lot ? '  LOT ' + p.lot : '') + (p.wafer ? '  W' + p.wafer : '') + (p.seq != null ? '  SEQ ' + p.seq : ''); } } } },
-                    scales: { x: { title: { display: true, text: '依序排列（各 chart 左右分開）' }, ticks: { font: { size: 9 }, maxRotation: 90, minRotation: 90, autoSkip: true, maxTicksLimit: 40 } },
+                    scales: { x: { title: { display: true, text: '依序排列（各 chart 左右分開，虛線為分隔）' }, ticks: { font: { size: 9 }, maxRotation: 90, minRotation: 90, autoSkip: true, maxTicksLimit: 40 } },
                               y: { title: { display: true, text: 'MEAN_VALUE' }, ticks: { font: { size: 10 } } } } } };
         }else{
             const datasets = series.map(s => ({
                 label: `${s.m.pu} ${s.m.name}`.trim(), borderColor: s.color, backgroundColor: s.color, fill: false, tension: .15, borderWidth: 1.5, pointRadius: 3, pointHoverRadius: 6, spanGaps: true, showLine: true,
                 data: s.kept.map(x => ({ x: toT(x.d), y: Number(x.mean), _p: x })).filter(p => p.x != null)
             }));
+            const allX = datasets.flatMap(d => d.data.map(p => p.x));
+            if(allX.length) datasets.push(...specSets(0, [Math.min(...allX), Math.max(...allX)]));
             cfg = { type: 'line', data: { datasets },
                 options: { animation: false, responsive: true, maintainAspectRatio: false, parsing: false,
                     plugins: { legend: { position: 'top', align: 'start', labels: { usePointStyle: true, boxWidth: 10, font: { size: 11 } } },
-                        tooltip: { callbacks: { title: items => items.length ? fmtT(items[0].parsed.x) : '',
+                        tooltip: { filter: it => !it.dataset._spec, callbacks: { title: items => items.length ? fmtT(items[0].parsed.x) : '',
                             label: c => { const p = c.raw && c.raw._p || {}; return `${c.dataset.label}: ${p.mean}` + (p.d ? '  ' + p.d : '') + (p.lot ? '  LOT ' + p.lot : '') + (p.wafer ? '  W' + p.wafer : ''); } } } },
                     scales: { x: { type: 'linear', title: { display: true, text: '時間（同一時間軸疊圖）' }, ticks: { font: { size: 10 }, maxRotation: 60, autoSkip: true, maxTicksLimit: 16, callback: v => fmtT(v) } },
                               y: { title: { display: true, text: 'MEAN_VALUE' }, ticks: { font: { size: 10 } } } } } };
