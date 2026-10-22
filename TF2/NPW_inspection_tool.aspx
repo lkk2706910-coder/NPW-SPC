@@ -704,10 +704,9 @@
             <td class="pu"><input class="cell" data-f="pu" value="${esc(side.pu)}" placeholder="PU（自行填寫）" aria-label="PU" title="${esc(side.cid ? 'CHART_ID ' + side.cid + (side.src ? '　' + side.src : '') : '')}"></td>
             <td><input class="cell num" data-f="x" type="number" step="any" value="${esc(side.x)}" placeholder="${isExt ? 'X2' : 'X1'}" aria-label="X"></td>
             <td><input class="cell num" data-f="s" type="number" step="any" value="${esc(side.s)}" placeholder="${isExt ? 'σ2' : 'σ1'}" aria-label="σ"></td>`;
-        if(isExt){
-            cells += `<td class="result z">—</td><td class="result zOK">—</td><td class="result r">—</td><td class="result rOK">—</td><td class="verdict">—</td>`;
-        }else{
-            cells += `<td class="muted">—</td><td class="muted">—</td><td class="muted">—</td><td class="muted">—</td><td class="muted">—</td>`;
+        // 檢定結果五格屬於整組（兩列），放在 BSL 列並以 rowspan=2 跨到 wafer extend 列
+        if(!isExt){
+            cells += `<td class="result z" rowspan="2">—</td><td class="result zOK" rowspan="2">—</td><td class="result r" rowspan="2">—</td><td class="result rOK" rowspan="2">—</td><td class="verdict" rowspan="2">—</td>`;
         }
         const ops = `<td class="ops"><button type="button" class="btn small danger" data-clear="${rowNoOf(idx, key)}" title="清空此列的 PU / X / σ / N 與註記（編號與配對不變）">刪除</button></td>`;
         return `<tr data-idx="${idx}" data-side="${key}" data-row="${rowNoOf(idx, key)}"><td class="no">${rowNoOf(idx, key)}</td>${cells}${ops}</tr>`;
@@ -730,7 +729,7 @@
         let pass = 0, fail = 0;
         pairs.forEach((p, i) => {
             const X1 = parseFloat(p.bsl.x), S1 = parseFloat(p.bsl.s), X2 = parseFloat(p.ext.x), S2 = parseFloat(p.ext.s);
-            const row = $('tbodyPairs').querySelector(`tr[data-idx="${i}"][data-side="ext"]`);
+            const row = $('tbodyPairs').querySelector(`tr[data-idx="${i}"][data-side="bsl"]`);   // 結果格在 BSL 列（rowspan 2）
             if(!row) return;
             const zCell=row.querySelector('.z'), zOK=row.querySelector('.zOK'), rCell=row.querySelector('.r'), rOK=row.querySelector('.rOK'), v=row.querySelector('.verdict');
             let zok = null, rok = null;
@@ -822,7 +821,7 @@
         const head = ['編號','Item','PU','CHART_ID', $('adderHeader').value || 'ADDER','σ','/X2-X1//σ1','≦1','σ2^2/σ1^2','(σ2^2/σ1^2)<2','檢定結果'];
         const lines = [head.join('\t')];
         pairs.forEach((p, i) => {
-            const ext = $('tbodyPairs').querySelector(`tr[data-idx="${i}"][data-side="ext"]`);
+            const ext = $('tbodyPairs').querySelector(`tr[data-idx="${i}"][data-side="bsl"]`);   // 結果格在 BSL 列
             const g = c => ext ? ext.querySelector(c).textContent : '';
             lines.push([rowNoOf(i, 'bsl'), p.bsl.item || 'BSL', p.bsl.pu, p.bsl.cid, p.bsl.x, p.bsl.s, '', '', '', '', ''].join('\t'));
             lines.push([rowNoOf(i, 'ext'), p.ext.item || 'wafer extend', p.ext.pu, p.ext.cid, p.ext.x, p.ext.s, g('.z'), g('.zOK'), g('.r'), g('.rOK'), g('.verdict')].join('\t'));
