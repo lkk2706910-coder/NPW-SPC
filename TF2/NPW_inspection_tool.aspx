@@ -369,7 +369,7 @@
         const holder = $('resBody').querySelector(`tr.trend[data-ti="${i}"]`); const v = _vals[i], r = _results[i];
         if(!holder || !v || !r) return;
         const rows = v.rows;
-        holder.querySelector('.trendsum').textContent = `CHART_ID ${r.CHART_ID}　${r.CHART_NAME || ''}　${r.PROCESSUNIT || ''}　${_range.start}~${_range.end}　${prodLabel(_range.prod)}　共 ${rows.length} 點` + (v.excluded.size ? `（排除 ${v.excluded.size} 點，灰色空心）` : '');
+        holder.querySelector('.trendsum').textContent = `CHART_ID ${r.CHART_ID}　${r.CHART_NAME || ''}　${r.PROCESSUNIT || ''}　${_range.start}~${_range.end}　共 ${rows.length} 點` + (v.excluded.size ? `（排除 ${v.excluded.size} 點，灰色空心）` : '');
         if(!window.Chart){ holder.querySelector('.trendsum').textContent += '　（Chart.js 未載入，無法繪圖）'; return; }
         if(_trendCharts[i]){ try{ _trendCharts[i].destroy(); }catch(e){} }
         const labels = rows.map(x => String(x.d || '').substring(5, 16));
@@ -409,7 +409,7 @@
             const key = `${r.CHART_ID}|${_range.start}|${_range.end}|${_range.prod}`;
             const dup = _match.findIndex(m => m.key === key);
             const entry = { key, cid: String(r.CHART_ID), name: r.CHART_NAME || '', pu: r.PROCESSUNIT || '', start: _range.start, end: _range.end, prod: _range.prod,
-                label: `${r.PROCESSUNIT || ''} ${r.CHART_NAME || ''}（${_range.start}~${_range.end}，${prodLabel(_range.prod)}）`,
+                label: `${r.PROCESSUNIT || ''} ${r.CHART_NAME || ''}（${_range.start}~${_range.end}）`,
                 rows: v.rows.slice(), excluded: new Set(v.excluded) };
             if(dup >= 0){ entry.regions = _match[dup].regions || null; _match[dup] = entry; } else _match.push(entry);
             renderMatch();
@@ -426,12 +426,12 @@
         $('matchInfo').textContent = `（${_match.length} 條序列；排除的點不列入；Spec（UCL / CL / LCL）以第一條「${_match[0].name}」為主）`;
         $('matchChips').innerHTML = _match.map((m, k) => `<span class="mchip"><span class="sw" style="background:${MCOLORS[k % MCOLORS.length]}"></span>${esc(m.label)}${m.excluded.size ? `<span class="hint">排除 ${m.excluded.size}</span>` : ''}<button type="button" data-mrm="${k}" title="移除">×</button></span>`).join('');
         // 統計表：每條序列 N / AVG / STDEVA / Min / Max
-        let st = '<tr><th></th><th>CHART_ID</th><th>CHART_NAME</th><th>機台</th><th>區間</th><th>Type</th><th>N</th><th>AVG</th><th>STDEVA</th><th>Min</th><th>Max</th></tr>';
+        let st = '<tr><th></th><th>CHART_ID</th><th>CHART_NAME</th><th>機台</th><th>區間</th><th>N</th><th>AVG</th><th>STDEVA</th><th>Min</th><th>Max</th></tr>';
         const series = _match.map((m, k) => {
             const kept = m.rows.filter((x, j) => !m.excluded.has(j)).filter(x => numOrNull(x.mean) != null);
             const vals = kept.map(x => Number(x.mean));
             const n = vals.length, avg = n ? vals.reduce((s, x) => s + x, 0) / n : NaN, sd = stdevS(vals);
-            st += `<tr><td><span class="sw" style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${MCOLORS[k % MCOLORS.length]}"></span></td><td>${esc(m.cid)}</td><td>${esc(m.name)}</td><td>${esc(m.pu)}</td><td>${esc(m.start)}~${esc(m.end)}</td><td>${prodLabel(m.prod)}</td><td class="num">${n}</td><td class="num">${Number.isFinite(avg)?fmt(avg):'—'}</td><td class="num">${Number.isFinite(sd)?fmt(sd):'—'}</td><td class="num">${n?fmt(Math.min(...vals)):'—'}</td><td class="num">${n?fmt(Math.max(...vals)):'—'}</td></tr>`;
+            st += `<tr><td><span class="sw" style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${MCOLORS[k % MCOLORS.length]}"></span></td><td>${esc(m.cid)}</td><td>${esc(m.name)}</td><td>${esc(m.pu)}</td><td>${esc(m.start)}~${esc(m.end)}</td><td class="num">${n}</td><td class="num">${Number.isFinite(avg)?fmt(avg):'—'}</td><td class="num">${Number.isFinite(sd)?fmt(sd):'—'}</td><td class="num">${n?fmt(Math.min(...vals)):'—'}</td><td class="num">${n?fmt(Math.max(...vals)):'—'}</td></tr>`;
             return { m, kept, color: MCOLORS[k % MCOLORS.length] };
         });
         $('matchStat').innerHTML = st;
@@ -631,7 +631,7 @@
         _match.forEach((m, k) => {
             const r = m.regions || {};
             html += `<tr data-rk="${k}"><td><span class="sw" style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${MCOLORS[k % MCOLORS.length]}"></span></td>
-                <td>${esc(m.pu)} ${esc(m.name)}<br><span class="hint">${esc(m.start)}~${esc(m.end)}，${prodLabel(m.prod)}，${(m._kept || []).length} 點</span></td>
+                <td>${esc(m.pu)} ${esc(m.name)}<br><span class="hint">${esc(m.start)}~${esc(m.end)}，${(m._kept || []).length} 點</span></td>
                 <td><button type="button" class="btn small ${r.bsl ? 'danger' : 'ghost'}" data-rtoggle="bsl" data-k="${k}">${r.bsl ? '移除 BSL' : '＋BSL 區間'}</button> <span class="rtext" data-kind="bsl"></span></td>
                 <td><button type="button" class="btn small ${r.test ? 'danger' : 'ghost'}" data-rtoggle="test" data-k="${k}">${r.test ? '移除檢定' : '＋檢定區間'}</button> <span class="rtext" data-kind="test"></span></td>
                 <td><select class="rgroup" data-k="${k}">${groupOptions(nextEmptyGroup())}</select> <button type="button" class="btn small" data-rfill="${k}" ${(r.bsl || r.test) ? '' : 'disabled'}>帶入</button></td></tr>`;
