@@ -272,6 +272,7 @@
             </tr>`;
         });
         tb.innerHTML = html;
+        syncMatchButtons();
     }
 
     // 明細：列出區間內每一筆 MEAN_VALUE；每一點可「刪除」（排除）後前端重算 N / AVG / STDEVA，
@@ -418,11 +419,21 @@
             renderMatch();
             $('matchCard').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             setStatus(`已${dup >= 0 ? '更新' : '加入'} matching：CHART_ID ${r.CHART_ID}（${_match.length} 條序列）`);
-        }catch(e){ alert('加入 matching 失敗：' + e.message); }
-        finally{ btn.disabled = false; }
+        }catch(e){ alert('加入 matching 失敗：' + e.message); btn.disabled = false; }
     }
     function removeMatch(k){ _match.splice(k, 1); renderMatch(); }
+    // 已加入 matching 的搜尋結果列：＋matching 按鈕反灰並顯示「已加入」；移除或清空後恢復
+    function syncMatchButtons(){
+        document.querySelectorAll('#resBody button[data-match]').forEach(b => {
+            const r = _results[Number(b.getAttribute('data-match'))]; if(!r) return;
+            const key = `${r.CHART_ID}|${_range.start}|${_range.end}|${_range.prod}`;
+            const on = _match.some(m => m.key === key);
+            b.disabled = on; b.textContent = on ? '已加入 matching' : '＋matching';
+            b.classList.toggle('ghost', on);
+        });
+    }
     function renderMatch(){
+        syncMatchButtons();
         const card = $('matchCard');
         if(!_match.length){ if(_matchChart){ try{ _matchChart.destroy(); }catch(e){} _matchChart = null; } card.hidden = true; $('regionPanel').hidden = true; return; }
         card.hidden = false;
