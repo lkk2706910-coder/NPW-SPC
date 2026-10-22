@@ -305,6 +305,11 @@
             const b = ptr.querySelector('button[data-ex]'); if(b) b.textContent = on ? '還原' : '刪除';
         });
         if($('resBody').querySelector(`tr.trend[data-ti="${i}"]`)) drawTrend(i);   // 趨勢圖同步更新排除點
+        // Matching chart 若已加入同一張 chart（同區間、同 PROD Type），排除狀態也同步過去並重畫
+        const mkey = `${r.CHART_ID}|${_range.start}|${_range.end}|${_range.prod}`;
+        let touched = false;
+        _match.forEach(m => { if(m.key === mkey){ m.excluded = new Set(v.excluded); touched = true; } });
+        if(touched) renderMatch();
     }
     // 取得（必要時載入）某列的明細點
     async function ensureVals(i){
@@ -465,6 +470,7 @@
             series.forEach((s, k) => {
                 const mean = new Array(total).fill(null);
                 s.m._off = off; s.m._kept = s.kept;   // 檢定區間需要知道每條序列在 X 軸上的起點與採用點
+                clampRegions(s.m);
                 s.kept.forEach((x, j) => {
                     const idx = off + j; labels[idx] = String(x.d || '').substring(5, 16); pts[idx] = x;
                     mean[idx] = Number(x.mean);
@@ -484,7 +490,7 @@
                               y: { title: { display: true, text: 'MEAN_VALUE' }, ticks: { font: { size: 10 } } } } } };
         }else{
             _matchMeta = { boundaries: [], sideBySide: false };
-            series.forEach(s => { s.m._kept = s.kept; });
+            series.forEach(s => { s.m._kept = s.kept; clampRegions(s.m); });
             const datasets = series.map(s => ({
                 label: `${s.m.pu} ${s.m.name}`.trim(), borderColor: s.color, backgroundColor: s.color, fill: false, tension: .15, borderWidth: 1.5, pointRadius: 3, pointHoverRadius: 6, spanGaps: true, showLine: true,
                 data: s.kept.map(x => ({ x: toT(x.d), y: Number(x.mean), _p: x })).filter(p => p.x != null)
@@ -509,6 +515,13 @@
     // ===== 檢定區間：在 matching chart 上拖拉 BSL（綠）/ 檢定（紅）方框，完成後帶入檢定表 =====
     // 區間存在序列快照上：m.regions = { bsl:{a,b}, test:{a,b} }，a/b 為該序列「採用點」的 0 起索引（含）
     let _regionMode = false;
+    // 採用點數變了（例如明細又排除了點）時，把區間索引夾回合法範圍
+    function clampRegions(m){
+        if(!m.regions) return; const n = (m._kept || []).length;
+        ['bsl', 'test'].forEach(kind => { const rg = m.regions[kind]; if(!rg) return;
+            if(!n){ m.regions[kind] = null; return; }
+            rg.a = Math.max(0, Math.min(n - 1, rg.a)); rg.b = Math.max(rg.a, Math.min(n - 1, rg.b)); });
+    }
     const REGION_STYLE = { bsl: { fill: 'rgba(0,160,0,.18)', line: '#0a0', text: '#064', name: 'BSL' }, test: { fill: 'rgba(220,0,0,.18)', line: '#c00', text: '#800', name: '檢定' } };
     function regionStats(m, kind){
         const rg = m.regions && m.regions[kind]; const kept = m._kept || []; if(!rg || !kept.length) return null;
