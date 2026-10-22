@@ -417,7 +417,6 @@
                 rows: v.rows.slice(), excluded: new Set(v.excluded) };
             if(dup >= 0){ entry.regions = _match[dup].regions || null; _match[dup] = entry; } else _match.push(entry);
             renderMatch();
-            $('matchCard').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             setStatus(`已${dup >= 0 ? '更新' : '加入'} matching：CHART_ID ${r.CHART_ID}（${_match.length} 條序列）`);
         }catch(e){ alert('加入 matching 失敗：' + e.message); btn.disabled = false; }
     }
