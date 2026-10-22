@@ -65,6 +65,8 @@
         .mchip .sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
         .mchip button { border: 0; background: transparent; color: #c00; cursor: pointer; font-weight: 700; padding: 0 2px; }
         .mbox { position: relative; width: 100%; height: 380px; }
+        .yscale { position: absolute; top: 2px; right: 8px; z-index: 2; font-size: 12px; color: #333; background: rgba(255,255,255,.9); border: 1px solid #d6dbe3; border-radius: 6px; padding: 3px 8px; }
+        .yscale input { width: 80px; padding: 2px 4px; border: 1px solid #b8c0cc; border-radius: 4px; font: inherit; font-size: 12px; margin: 0 4px; }
         .mbox canvas { display: block; width: 100% !important; height: 100% !important; }
         table.mstat { border-collapse: collapse; margin-top: 8px; }
         table.mstat th, table.mstat td { border: 1px solid #222; padding: 3px 8px; font-size: 12px; white-space: nowrap; }
@@ -167,7 +169,14 @@
             <button type="button" class="btn ghost small" id="btnRegion" style="margin-left:auto;">檢定區間：關</button>
             <button type="button" class="btn ghost small" id="btnMatchClear">清空 matching</button>
         </div>
-        <div class="mbox"><canvas id="matchCanvas"></canvas></div>
+        <div class="mbox">
+            <!-- Y 軸手動範圍：留空 = 自動（依 Spec） -->
+            <div class="yscale" title="Y 軸上下限；留空則自動依 Spec">
+                Y 軸 下限 <input id="yMin" type="number" step="any" placeholder="自動" /> 上限 <input id="yMax" type="number" step="any" placeholder="自動" />
+                <button type="button" class="btn small ghost" id="yReset" title="清除，改回自動">自動</button>
+            </div>
+            <canvas id="matchCanvas"></canvas>
+        </div>
         <!-- 檢定區間：每條序列可加 BSL（綠）與檢定（紅）區間，直接在圖上拖拉邊界或整塊移動，完成後帶入檢定表 -->
         <div id="regionPanel" class="rpanel" hidden>
             <div class="hint">在圖上<b>拖拉方框左右邊界</b>調整區間、<b>拖拉方框中間</b>整段平移（只在「依序排列」模式）。帶入時 BSL 區間 → 該組奇數列（X1、σ1），檢定區間 → 偶數列（X2、σ2）。</div>
@@ -508,9 +517,17 @@
             if(hi.length && lo.length && Math.max(...hi) > Math.min(...lo)){ const top = Math.max(...hi), bot = Math.min(...lo), pad = (top - bot) * 0.15; yRange = { min: bot - pad, max: top + pad }; }
             else if(spec.cl != null && spec.ucl != null){ const pad = Math.abs(spec.ucl - spec.cl) * 1.3 || 1; yRange = { min: spec.cl - pad, max: spec.cl + pad }; }
         }
-        const hasY = 'min' in yRange;
+        // 使用者在圖右上角填的上下限優先；留空的那一端沿用自動值
+        { const vMin = parseFloat(($('yMin') || {}).value), vMax = parseFloat(($('yMax') || {}).value);
+          const manual = Object.assign({}, yRange);
+          if(Number.isFinite(vMin)) manual.min = vMin; if(Number.isFinite(vMax)) manual.max = vMax;
+          // 下限 >= 上限 視為無效輸入，忽略手動值（維持自動）
+          if(!(('min' in manual) && ('max' in manual) && manual.min >= manual.max)) yRange = manual; }
+        const hasY = ('min' in yRange) || ('max' in yRange);
+        if(hasY){ if(!('min' in yRange)) yRange.min = -Infinity; if(!('max' in yRange)) yRange.max = Infinity; }
         const clipY = v => { if(v == null || !isFinite(v)) return { y: null, clip: 0 }; if(hasY && v > yRange.max) return { y: yRange.max, clip: 1 }; if(hasY && v < yRange.min) return { y: yRange.min, clip: -1 }; return { y: v, clip: 0 }; };
         const clipColor = (base, clip) => clip ? '#ff0000' : base;
+        const yScaleOpts = {}; if(Number.isFinite(yRange.min)) yScaleOpts.min = yRange.min; if(Number.isFinite(yRange.max)) yScaleOpts.max = yRange.max;
         // 圖例一多會把繪圖區擠扁：依序列數把容器加高（每 6 個圖例項約一列 22px），繪圖區維持約 320px
         { const items = series.length; const box = document.querySelector('#matchCard .mbox'); if(box) box.style.height = (380 + Math.ceil(items / 6) * 22) + 'px'; }
         { const sel = _match.find(m => m.key === _specKey) || _match[0];
@@ -613,7 +630,7 @@
                         tooltip: { filter: it => !it.dataset._spec, callbacks: { title: items => items.length ? ((pts[items[0].dataIndex] || {}).d || '') : '',
                             label: c => { const p = pts[c.dataIndex] || {}; const cl = (c.dataset._clip || [])[c.dataIndex]; return `${c.dataset._full || c.dataset.label}: ${p.mean}` + (cl > 0 ? '（超出 Y 軸上限，顯示在上限）' : cl < 0 ? '（低於 Y 軸下限，顯示在下限）' : '') + (p.lot ? '  LOT ' + p.lot : '') + (p.wafer ? '  W' + p.wafer : '') + (p.seq != null ? '  SEQ ' + p.seq : ''); } } } },
                     scales: { x: { title: { display: true, text: '依序排列（各 chart 左右分開，虛線為分隔）' }, ticks: { font: { size: 9 }, maxRotation: 90, minRotation: 90, autoSkip: true, maxTicksLimit: 40 } },
-                              y: Object.assign({ title: { display: true, text: 'MEAN_VALUE' }, ticks: { font: { size: 10 } } }, yRange) } } };
+                              y: Object.assign({ title: { display: true, text: 'MEAN_VALUE' }, ticks: { font: { size: 10 } } }, yScaleOpts) } } };
         }else{
             _matchMeta = { boundaries: [], segments: [], sideBySide: false };
             series.forEach(s => { s.m._kept = s.kept; clampRegions(s.m); });
@@ -631,12 +648,14 @@
                         tooltip: { filter: it => !it.dataset._spec, callbacks: { title: items => items.length ? fmtT(items[0].parsed.x) : '',
                             label: c => { const p = c.raw && c.raw._p || {}; const cl = c.raw && c.raw._clip; return `${c.dataset._full || c.dataset.label}: ${p.mean}` + (cl > 0 ? '（超出 Y 軸上限，顯示在上限）' : cl < 0 ? '（低於 Y 軸下限，顯示在下限）' : '') + (p.d ? '  ' + p.d : '') + (p.lot ? '  LOT ' + p.lot : '') + (p.wafer ? '  W' + p.wafer : ''); } } } },
                     scales: { x: { type: 'linear', title: { display: true, text: '時間（同一時間軸疊圖）' }, ticks: { font: { size: 10 }, maxRotation: 60, autoSkip: true, maxTicksLimit: 16, callback: v => fmtT(v) } },
-                              y: Object.assign({ title: { display: true, text: 'MEAN_VALUE' }, ticks: { font: { size: 10 } } }, yRange) } } };
+                              y: Object.assign({ title: { display: true, text: 'MEAN_VALUE' }, ticks: { font: { size: 10 } } }, yScaleOpts) } } };
         }
         _matchChart = new Chart($('matchCanvas').getContext('2d'), cfg);
         renderRegionPanel();
     }
     document.querySelectorAll('input[name=mx]').forEach(r => r.addEventListener('change', () => renderMatch()));
+    ['yMin', 'yMax'].forEach(id => { $(id).addEventListener('change', () => renderMatch()); $(id).addEventListener('keydown', e => { if(e.key === 'Enter') renderMatch(); }); });
+    $('yReset').addEventListener('click', () => { $('yMin').value = ''; $('yMax').value = ''; renderMatch(); });
     $('btnMatchClear').addEventListener('click', () => { _match.length = 0; renderMatch(); });
 
     // ===== 檢定區間：在 matching chart 上拖拉 BSL（綠）/ 檢定（紅）方框，完成後帶入檢定表 =====
