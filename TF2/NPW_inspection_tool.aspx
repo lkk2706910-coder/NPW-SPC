@@ -38,7 +38,7 @@
         .res-wrap { overflow: visible; }
         table.res { border-collapse: collapse; width: 100%; background: #fff; }
         table.res th, table.res td { border: 1px solid #222; padding: 4px 6px; font-size: 12px; white-space: normal; word-break: break-word; }
-        table.res td.num, table.res td.c, table.res td.addcell, table.res td.tools { white-space: nowrap; }
+        table.res th, table.res td.num, table.res td.c, table.res td.addcell, table.res td.tools { white-space: nowrap; }
         table.res th { background: #e9f0ff; font-weight: 700; position: sticky; top: 0; }
         table.res td.num { text-align: right; font-variant-numeric: tabular-nums; }
         table.res td.c { text-align: center; }
