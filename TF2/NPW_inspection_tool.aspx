@@ -67,6 +67,14 @@
         table.mstat th, table.mstat td { border: 1px solid #222; padding: 3px 8px; font-size: 12px; white-space: nowrap; }
         table.mstat th { background: #e9f0ff; }
         table.mstat td.num { text-align: right; font-variant-numeric: tabular-nums; }
+        .rpanel { margin: 8px 0; padding: 8px 10px; border: 1px dashed #1976d2; border-radius: 8px; background: #f6faff; }
+        .rpanel table { margin-top: 6px; }
+        .rpanel .tag { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 11px; font-weight: 700; }
+        .rpanel .tag.bsl { background: rgba(0,160,0,.18); border: 1px solid #0a0; color: #064; }
+        .rpanel .tag.test { background: rgba(220,0,0,.18); border: 1px solid #c00; color: #800; }
+        .rpanel select { padding: 2px 4px; border: 1px solid var(--accent); border-radius: 6px; color: var(--accent); font: inherit; font-size: 12px; font-weight: 700; }
+        #btnRegion.on { background: var(--accent); color: #fff; }
+        #matchCanvas.grab { cursor: grab; } #matchCanvas.resize { cursor: col-resize; } #matchCanvas.move { cursor: move; }
 
         /* 檢定表格（PCRB，沿用檢定機器人） */
         .pcrb-wrap { overflow-x: auto; }
@@ -151,10 +159,16 @@
                 <label><input type="radio" name="mx" value="idx" checked />依序排列（左右分開）</label>
                 <label><input type="radio" name="mx" value="time" />時間（疊圖）</label>
             </span>
-            <button type="button" class="btn ghost small" id="btnMatchClear" style="margin-left:auto;">清空 matching</button>
+            <button type="button" class="btn ghost small" id="btnRegion" style="margin-left:auto;">檢定區間：關</button>
+            <button type="button" class="btn ghost small" id="btnMatchClear">清空 matching</button>
         </div>
         <div class="mchips" id="matchChips"></div>
         <div class="mbox"><canvas id="matchCanvas"></canvas></div>
+        <!-- 檢定區間：每條序列可加 BSL（綠）與檢定（紅）區間，直接在圖上拖拉邊界或整塊移動，完成後帶入檢定表 -->
+        <div id="regionPanel" class="rpanel" hidden>
+            <div class="hint">在圖上<b>拖拉方框左右邊界</b>調整區間、<b>拖拉方框中間</b>整段平移（只在「依序排列」模式）。帶入時 BSL 區間 → 該組奇數列（X1、σ1），檢定區間 → 偶數列（X2、σ2）。</div>
+            <table class="mstat" id="regionTable"></table>
+        </div>
         <div style="overflow-x:auto;"><table class="mstat" id="matchStat"></table></div>
     </div>
 
@@ -390,7 +404,7 @@
             const entry = { key, cid: String(r.CHART_ID), name: r.CHART_NAME || '', pu: r.PROCESSUNIT || '', start: _range.start, end: _range.end, prod: _range.prod,
                 label: `${r.PROCESSUNIT || ''} ${r.CHART_NAME || ''}（${_range.start}~${_range.end}，${prodLabel(_range.prod)}）`,
                 rows: v.rows.slice(), excluded: new Set(v.excluded) };
-            if(dup >= 0) _match[dup] = entry; else _match.push(entry);
+            if(dup >= 0){ entry.regions = _match[dup].regions || null; _match[dup] = entry; } else _match.push(entry);
             renderMatch();
             $('matchCard').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             setStatus(`已${dup >= 0 ? '更新' : '加入'} matching：CHART_ID ${r.CHART_ID}（${_match.length} 條序列）`);
@@ -400,7 +414,7 @@
     function removeMatch(k){ _match.splice(k, 1); renderMatch(); }
     function renderMatch(){
         const card = $('matchCard');
-        if(!_match.length){ if(_matchChart){ try{ _matchChart.destroy(); }catch(e){} _matchChart = null; } card.hidden = true; return; }
+        if(!_match.length){ if(_matchChart){ try{ _matchChart.destroy(); }catch(e){} _matchChart = null; } card.hidden = true; $('regionPanel').hidden = true; return; }
         card.hidden = false;
         $('matchInfo').textContent = `（${_match.length} 條序列；排除的點不列入；Spec（UCL / CL / LCL）以第一條「${_match[0].name}」為主）`;
         $('matchChips').innerHTML = _match.map((m, k) => `<span class="mchip"><span class="sw" style="background:${MCOLORS[k % MCOLORS.length]}"></span>${esc(m.label)}${m.excluded.size ? `<span class="hint">排除 ${m.excluded.size}</span>` : ''}<button type="button" data-mrm="${k}" title="移除">×</button></span>`).join('');
@@ -448,6 +462,7 @@
             const datasets = []; const boundaries = []; let off = 0;
             series.forEach((s, k) => {
                 const mean = new Array(total).fill(null);
+                s.m._off = off; s.m._kept = s.kept;   // 檢定區間需要知道每條序列在 X 軸上的起點與採用點
                 s.kept.forEach((x, j) => {
                     const idx = off + j; labels[idx] = String(x.d || '').substring(5, 16); pts[idx] = x;
                     mean[idx] = Number(x.mean);
@@ -457,7 +472,7 @@
                 if(k < series.length - 1 && s.kept.length) boundaries.push(off);
             });
             datasets.push(...specSets(total, null));
-            cfg = { type: 'line', data: { labels, datasets }, plugins: [separatorPlugin], _boundaries: boundaries,
+            cfg = { type: 'line', data: { labels, datasets }, plugins: [separatorPlugin, regionPlugin], _boundaries: boundaries, _sideBySide: true,
                 options: { animation: false, responsive: true, maintainAspectRatio: false,
                     plugins: { legend: { position: 'top', align: 'start', labels: { usePointStyle: true, boxWidth: 10, font: { size: 11 } } },
                         tooltip: { filter: it => !it.dataset._spec, callbacks: { title: items => items.length ? ((pts[items[0].dataIndex] || {}).d || '') : '',
@@ -465,6 +480,7 @@
                     scales: { x: { title: { display: true, text: '依序排列（各 chart 左右分開，虛線為分隔）' }, ticks: { font: { size: 9 }, maxRotation: 90, minRotation: 90, autoSkip: true, maxTicksLimit: 40 } },
                               y: { title: { display: true, text: 'MEAN_VALUE' }, ticks: { font: { size: 10 } } } } } };
         }else{
+            series.forEach(s => { s.m._kept = s.kept; });
             const datasets = series.map(s => ({
                 label: `${s.m.pu} ${s.m.name}`.trim(), borderColor: s.color, backgroundColor: s.color, fill: false, tension: .15, borderWidth: 1.5, pointRadius: 3, pointHoverRadius: 6, spanGaps: true, showLine: true,
                 data: s.kept.map(x => ({ x: toT(x.d), y: Number(x.mean), _p: x })).filter(p => p.x != null)
@@ -480,10 +496,164 @@
                               y: { title: { display: true, text: 'MEAN_VALUE' }, ticks: { font: { size: 10 } } } } } };
         }
         _matchChart = new Chart($('matchCanvas').getContext('2d'), cfg);
+        renderRegionPanel();
     }
     document.querySelectorAll('input[name=mx]').forEach(r => r.addEventListener('change', () => renderMatch()));
     $('btnMatchClear').addEventListener('click', () => { _match.length = 0; renderMatch(); });
     $('matchChips').addEventListener('click', e => { const b = e.target.closest('button[data-mrm]'); if(b) removeMatch(Number(b.getAttribute('data-mrm'))); });
+
+    // ===== 檢定區間：在 matching chart 上拖拉 BSL（綠）/ 檢定（紅）方框，完成後帶入檢定表 =====
+    // 區間存在序列快照上：m.regions = { bsl:{a,b}, test:{a,b} }，a/b 為該序列「採用點」的 0 起索引（含）
+    let _regionMode = false;
+    const REGION_STYLE = { bsl: { fill: 'rgba(0,160,0,.18)', line: '#0a0', text: '#064', name: 'BSL' }, test: { fill: 'rgba(220,0,0,.18)', line: '#c00', text: '#800', name: '檢定' } };
+    function regionStats(m, kind){
+        const rg = m.regions && m.regions[kind]; const kept = m._kept || []; if(!rg || !kept.length) return null;
+        const vals = kept.slice(rg.a, rg.b + 1).map(x => Number(x.mean)).filter(Number.isFinite);
+        const n = vals.length, avg = n ? vals.reduce((s, x) => s + x, 0) / n : NaN, sd = stdevS(vals);
+        return { n, avg, sd, a: rg.a, b: rg.b, from: (kept[rg.a] || {}).d || '', to: (kept[rg.b] || {}).d || '' };
+    }
+    // 圖上方框的左右像素邊界（半格外擴，讓方框包住整個點）
+    function regionPixels(chart, m, rg){
+        const x = chart.scales.x; const total = chart.data.labels.length;
+        const px = i => x.getPixelForValue(i);
+        const step = total > 1 ? Math.abs(px(1) - px(0)) : 20;
+        const gi0 = m._off + rg.a, gi1 = m._off + rg.b;
+        return { left: px(gi0) - step / 2, right: px(gi1) + step / 2 };
+    }
+    const regionPlugin = { id: 'npwRegions', afterDatasetsDraw(chart){
+        if(!_regionMode || !chart.config._sideBySide) return;
+        const { ctx, chartArea } = chart;
+        _match.forEach(m => { if(!m.regions || !m._kept) return; ['bsl', 'test'].forEach(kind => {
+            const rg = m.regions[kind]; if(!rg) return;
+            const { left, right } = regionPixels(chart, m, rg); const st = REGION_STYLE[kind]; const s = regionStats(m, kind);
+            ctx.save(); ctx.beginPath(); ctx.rect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, chartArea.bottom - chartArea.top); ctx.clip();
+            ctx.fillStyle = st.fill; ctx.fillRect(left, chartArea.top, right - left, chartArea.bottom - chartArea.top);
+            ctx.strokeStyle = st.line; ctx.lineWidth = 1.5; ctx.setLineDash([]); ctx.strokeRect(left, chartArea.top, right - left, chartArea.bottom - chartArea.top);
+            // 邊界把手
+            ctx.fillStyle = st.line; ctx.fillRect(left - 2, chartArea.top, 4, 14); ctx.fillRect(right - 2, chartArea.top, 4, 14);
+            ctx.fillStyle = st.text; ctx.font = 'bold 11px Arial'; ctx.textBaseline = 'top';
+            ctx.fillText(`${st.name} ${m.name}  N=${s ? s.n : 0}  AVG=${s && Number.isFinite(s.avg) ? fmt(s.avg) : '—'}  σ=${s && Number.isFinite(s.sd) ? fmt(s.sd) : '—'}`, Math.max(left, chartArea.left) + 4, chartArea.top + (kind === 'test' ? 16 : 2));
+            ctx.restore();
+        }); });
+    } };
+    // 滑鼠位置 → 命中的方框（優先邊界）
+    function regionHit(chart, mx, my){
+        if(!_regionMode || !chart || !chart.config._sideBySide) return null;
+        const ca = chart.chartArea; if(my < ca.top || my > ca.bottom) return null;
+        let best = null;
+        _match.forEach((m, k) => { if(!m.regions) return; ['bsl', 'test'].forEach(kind => {
+            const rg = m.regions[kind]; if(!rg) return;
+            const { left, right } = regionPixels(chart, m, rg);
+            const dl = Math.abs(mx - left), dr = Math.abs(mx - right);
+            if(dl <= 6 && (!best || dl < best.d)) best = { m, k, kind, mode: 'left', d: dl };
+            if(dr <= 6 && (!best || dr < best.d)) best = { m, k, kind, mode: 'right', d: dr };
+            if(mx > left + 6 && mx < right - 6 && !best) best = { m, k, kind, mode: 'move', d: 999 };
+        }); });
+        return best;
+    }
+    // 像素 → 該序列內最接近的採用點索引（夾在 0..n-1）
+    function pixelToLocalIndex(chart, m, px){
+        const x = chart.scales.x; const n = (m._kept || []).length; let bi = 0, bd = Infinity;
+        for(let j = 0; j < n; j++){ const d = Math.abs(x.getPixelForValue(m._off + j) - px); if(d < bd){ bd = d; bi = j; } }
+        return bi;
+    }
+    let _drag = null;
+    (function regionMouseInit(){
+        const cv = $('matchCanvas');
+        const pos = e => { const r = cv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+        cv.addEventListener('mousedown', e => {
+            const p = pos(e); const h = regionHit(_matchChart, p.x, p.y); if(!h) return;
+            const rg = h.m.regions[h.kind];
+            _drag = { h, startX: p.x, a0: rg.a, b0: rg.b, startIdx: pixelToLocalIndex(_matchChart, h.m, p.x) };
+            e.preventDefault();
+        });
+        window.addEventListener('mousemove', e => {
+            if(!_matchChart) return;
+            const p = pos(e);
+            if(!_drag){
+                const h = regionHit(_matchChart, p.x, p.y);
+                cv.className = h ? (h.mode === 'move' ? 'move' : 'resize') : '';
+                return;
+            }
+            const { h, a0, b0, startIdx } = _drag; const m = h.m; const n = (m._kept || []).length; const rg = m.regions[h.kind];
+            const idx = pixelToLocalIndex(_matchChart, m, p.x);
+            const clamp = v => Math.max(0, Math.min(n - 1, v));
+            if(h.mode === 'left'){ rg.a = clamp(Math.min(idx, b0)); rg.b = b0; }
+            else if(h.mode === 'right'){ rg.b = clamp(Math.max(idx, a0)); rg.a = a0; }
+            else { const len = b0 - a0; let na = a0 + (idx - startIdx); na = Math.max(0, Math.min(n - 1 - len, na)); rg.a = na; rg.b = na + len; }
+            _matchChart.update('none'); updateRegionTexts();
+        });
+        window.addEventListener('mouseup', () => { if(_drag){ _drag = null; updateRegionTexts(); } });
+    })();
+    function defaultRegions(m){
+        const n = (m._kept || []).length; if(!n) return null;
+        const half = Math.max(1, Math.floor(n / 2));
+        return { bsl: { a: 0, b: Math.max(0, half - 1) }, test: { a: Math.min(n - 1, half), b: n - 1 } };
+    }
+    function toggleRegion(k, kind){
+        const m = _match[k]; if(!m) return;
+        if(!m.regions) m.regions = { bsl: null, test: null };
+        if(m.regions[kind]) m.regions[kind] = null;
+        else { const d = defaultRegions(m); if(!d){ alert('此序列沒有可用的點'); return; } m.regions[kind] = d[kind]; }
+        if(_matchChart) _matchChart.update('none');
+        renderRegionPanel();
+    }
+    function groupOptions(selected){
+        const opts = pairs.map((p, g) => `<option value="${g}"${g === selected ? ' selected' : ''}>第 ${g + 1} 組（列 ${g * 2 + 1}、${g * 2 + 2}）</option>`);
+        opts.push(`<option value="new"${selected === 'new' ? ' selected' : ''}>＋新增一組</option>`);
+        return opts.join('');
+    }
+    function nextEmptyGroup(){ const g = pairs.findIndex(p => !p.bsl.x && !p.ext.x); return g >= 0 ? g : 'new'; }
+    function renderRegionPanel(){
+        const panel = $('regionPanel'); const btn = $('btnRegion');
+        btn.textContent = '檢定區間：' + (_regionMode ? '開' : '關'); btn.classList.toggle('on', _regionMode);
+        if(!_regionMode || !_match.length){ panel.hidden = true; return; }
+        panel.hidden = false;
+        const sideBySide = !!(_matchChart && _matchChart.config && _matchChart.config._sideBySide);
+        let html = '<tr><th></th><th>序列</th><th>BSL 區間（綠）</th><th>檢定區間（紅）</th><th>帶入檢定表</th></tr>';
+        _match.forEach((m, k) => {
+            const r = m.regions || {};
+            html += `<tr data-rk="${k}"><td><span class="sw" style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${MCOLORS[k % MCOLORS.length]}"></span></td>
+                <td>${esc(m.pu)} ${esc(m.name)}<br><span class="hint">${esc(m.start)}~${esc(m.end)}，${prodLabel(m.prod)}，${(m._kept || []).length} 點</span></td>
+                <td><button type="button" class="btn small ${r.bsl ? 'danger' : 'ghost'}" data-rtoggle="bsl" data-k="${k}">${r.bsl ? '移除 BSL' : '＋BSL 區間'}</button> <span class="rtext" data-kind="bsl"></span></td>
+                <td><button type="button" class="btn small ${r.test ? 'danger' : 'ghost'}" data-rtoggle="test" data-k="${k}">${r.test ? '移除檢定' : '＋檢定區間'}</button> <span class="rtext" data-kind="test"></span></td>
+                <td><select class="rgroup" data-k="${k}">${groupOptions(nextEmptyGroup())}</select> <button type="button" class="btn small" data-rfill="${k}" ${(r.bsl || r.test) ? '' : 'disabled'}>帶入</button></td></tr>`;
+        });
+        $('regionTable').innerHTML = html + (sideBySide ? '' : '<tr><td colspan="5" class="hint">目前是「時間」模式，方框不顯示；請切回「依序排列（左右分開）」再拖拉區間。</td></tr>');
+        updateRegionTexts();
+    }
+    function updateRegionTexts(){
+        document.querySelectorAll('#regionTable tr[data-rk]').forEach(tr => {
+            const m = _match[Number(tr.getAttribute('data-rk'))]; if(!m) return;
+            tr.querySelectorAll('.rtext').forEach(sp => {
+                const kind = sp.getAttribute('data-kind'); const s = regionStats(m, kind);
+                sp.innerHTML = s ? `<span class="tag ${kind}">點 ${s.a + 1}~${s.b + 1}</span> N=<b>${s.n}</b> AVG=<b>${Number.isFinite(s.avg) ? fmt(s.avg) : '—'}</b> σ=<b>${Number.isFinite(s.sd) ? fmt(s.sd) : '—'}</b><br><span class="hint">${esc(s.from)} ~ ${esc(s.to)}</span>` : '';
+            });
+        });
+    }
+    function fillFromRegions(k){
+        const m = _match[k]; if(!m || !m.regions) return;
+        const sel = document.querySelector(`#regionTable select.rgroup[data-k="${k}"]`); let g = sel ? sel.value : 'new';
+        if(g === 'new'){ pairs.push(newPair()); g = pairs.length - 1; } else g = Number(g);
+        if(!pairs[g]) return;
+        const put = (side, kind) => {
+            const s = regionStats(m, kind); if(!s) return false;
+            side.x = Number.isFinite(s.avg) ? fmt(s.avg) : ''; side.s = Number.isFinite(s.sd) ? fmt(s.sd) : ''; side.n = String(s.n);
+            side.cid = m.cid; side.src = `${m.pu} ${REGION_STYLE[kind].name}區間 點${s.a + 1}~${s.b + 1}（${s.from}~${s.to}）${prodLabel(m.prod)}`.trim();
+            return true;
+        };
+        const okB = put(pairs[g].bsl, 'bsl'), okT = put(pairs[g].ext, 'test');
+        _nextRow = Math.min(pairs.length * 2, g * 2 + 3);
+        renderPairs(); save(); renderRegionPanel();
+        [okB ? g * 2 + 1 : 0, okT ? g * 2 + 2 : 0].filter(Boolean).forEach(rn => { const tr = $('tbodyPairs').querySelector(`tr[data-row="${rn}"]`); if(tr){ tr.classList.add('flash'); setTimeout(() => tr.classList.remove('flash'), 1300); } });
+        setStatus(`已將 ${m.name} 的${okB ? ' BSL 區間→列 ' + (g * 2 + 1) : ''}${okB && okT ? '、' : ''}${okT ? '檢定區間→列 ' + (g * 2 + 2) : ''} 帶入第 ${g + 1} 組`);
+        $('pcrb').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+    $('btnRegion').addEventListener('click', () => { _regionMode = !_regionMode; if(_matchChart) _matchChart.update('none'); renderRegionPanel(); });
+    $('regionTable').addEventListener('click', e => {
+        const t = e.target.closest('button[data-rtoggle]'); if(t){ toggleRegion(Number(t.getAttribute('data-k')), t.getAttribute('data-rtoggle')); return; }
+        const f = e.target.closest('button[data-rfill]'); if(f){ fillFromRegions(Number(f.getAttribute('data-rfill'))); }
+    });
 
     // ===== 3/4/5. 檢定表（PCRB）=====
     // 每一列一個編號：奇數列 = BSL（X1、σ1）、偶數列 = wafer extend（X2、σ2），
