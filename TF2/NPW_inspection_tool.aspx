@@ -164,10 +164,6 @@
                 <label><input type="radio" name="mx" value="idx" checked />依序排列（左右分開）</label>
                 <label><input type="radio" name="mx" value="time" />時間（疊圖）</label>
             </span>
-            <span class="hint">Y 軸：
-                <label><input type="radio" name="my" value="auto" checked />自動</label>
-                <label><input type="radio" name="my" value="spec" title="以 Spec 的 LCL~UCL 再各留 15% 為範圍，避免某條序列的極端值把其他序列和 Spec 線壓扁" />依 Spec</label>
-            </span>
             <button type="button" class="btn ghost small" id="btnRegion" style="margin-left:auto;">檢定區間：關</button>
             <button type="button" class="btn ghost small" id="btnMatchClear">清空 matching</button>
         </div>
@@ -504,17 +500,19 @@
         const fmtT = v => { const d = new Date(v); return isNaN(d) ? '' : `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; };
         // Spec 預設以「第一張點選加入」的 chart 為主（可用下拉改選）：取其最後一個有 UCL / LCL 的採用點
         const spec = specFrom(series);
-        // Y 軸：自動，或依 Spec（LCL~UCL 各留 15%），避免極端值把 Spec 線和其他序列壓成一條
-        const bySpec = (document.querySelector('input[name=my]:checked') || {}).value === 'spec';
+        // Y 軸一律依 Spec：UCL / SPEC_HIGH 的較大者 ~ LCL / SPEC_LOW 的較小者，各留 15%；
+        // 沒有任何 Spec 時才自動。超出上下限的點會「貼在界線上」畫成紅色菱形，tooltip 仍顯示真值。
         let yRange = {};
-        if(bySpec && spec){
+        if(spec){
             const hi = [spec.ucl, spec.spech].filter(v => v != null), lo = [spec.lcl, spec.specl].filter(v => v != null);
             if(hi.length && lo.length && Math.max(...hi) > Math.min(...lo)){ const top = Math.max(...hi), bot = Math.min(...lo), pad = (top - bot) * 0.15; yRange = { min: bot - pad, max: top + pad }; }
+            else if(spec.cl != null && spec.ucl != null){ const pad = Math.abs(spec.ucl - spec.cl) * 1.3 || 1; yRange = { min: spec.cl - pad, max: spec.cl + pad }; }
         }
-        if(!('min' in yRange) && bySpec && spec && spec.ucl != null && spec.lcl != null && spec.ucl > spec.lcl){ const pad = (spec.ucl - spec.lcl) * 0.15; yRange = { min: spec.lcl - pad, max: spec.ucl + pad }; }
-        if(!('min' in yRange) && bySpec && spec && spec.cl != null && spec.ucl != null){ const pad = Math.abs(spec.ucl - spec.cl) * 1.3 || 1; yRange = { min: spec.cl - pad, max: spec.cl + pad }; }
+        const hasY = 'min' in yRange;
+        const clipY = v => { if(v == null || !isFinite(v)) return { y: null, clip: 0 }; if(hasY && v > yRange.max) return { y: yRange.max, clip: 1 }; if(hasY && v < yRange.min) return { y: yRange.min, clip: -1 }; return { y: v, clip: 0 }; };
+        const clipColor = (base, clip) => clip ? '#ff0000' : base;
         // 圖例一多會把繪圖區擠扁：依序列數把容器加高（每 6 個圖例項約一列 22px），繪圖區維持約 320px
-        { const items = series.length; const box = document.querySelector('#matchCard .mbox'); if(box) box.style.height = (380 + Math.ceil(items / 6) * 22 + (series.length > 1 ? (series.length > 8 ? 84 : 32) : 0)) + 'px'; }
+        { const items = series.length; const box = document.querySelector('#matchCard .mbox'); if(box) box.style.height = (380 + Math.ceil(items / 6) * 22) + 'px'; }
         { const sel = _match.find(m => m.key === _specKey) || _match[0];
           $('matchInfo').textContent = `（${_match.length} 條序列；排除的點不列入；Spec 取「${spec ? spec.name : '—'}」` + (spec && sel && spec.key !== sel.key ? `，因「${sel.name}」沒有 UCL / LCL 而改用` : '') + '）'; }
         const specDs = (label, val, color, dash, len, xs) => ({ label, _spec: true, data: xs ? xs.map(x => ({ x, y: val })) : new Array(len).fill(val), borderColor: color, borderDash: dash, borderWidth: 1.8, pointRadius: 0, fill: false, spanGaps: true });
@@ -534,53 +532,43 @@
             const seg = u.split('-').find(x => /^[ABC]{1,3}[12]$/.test(x)); return seg ? 'S' + seg.slice(-1) : '';
         };
         const segLabel = m => { const side = sideOfName(m.name); return ((m.pu || m.name) + (side ? ' ' + side : '')).trim(); };
-        // chamber 標籤畫在繪圖區上方獨立的一條帶（layout.padding.top 預留，與圖例分開）。
-        // 字型依每段可用的寬度決定：交錯上下兩列，先試完整標籤 12→7px，不行就改短標籤（去掉機台前綴，
-        // 如 NISACVD-B01A S1 → B01A S1），還是放不下就整排改成直式（旋轉 90°），帶高也跟著加大。
+        // 序列標示畫在繪圖區「內部最下方」一排，所有標籤同一個字型大小、同一個高度：
+        // 先以完整標籤找一個讓每一段都放得下的字級（12→7px），不行就全部改短標籤（去掉機台前綴），
+        // 再不行就全部改直式（旋轉 90°，由底往上寫，截斷加「…」）。
         function planChamberLabels(segments, total){
             const cv = $('matchCanvas'); const canvasW = (cv && cv.clientWidth) || 1200;
             const plotW = Math.max(200, canvasW - 110), ppp = plotW / Math.max(total, 1);
             const mctx = document.createElement('canvas').getContext('2d');
-            const centers = segments.map(sg => (sg.off + Math.max(sg.n - 1, 0) / 2) * ppp);
-            let rotate = false;
-            segments.forEach((sg, k) => {
-                // 同一列的鄰居是 k±2（交錯兩列），可用寬度 = 到同列鄰居中心的距離
-                let avail = plotW;
-                if(k >= 2) avail = Math.min(avail, centers[k] - centers[k - 2]);
-                if(k + 2 < segments.length) avail = Math.min(avail, centers[k + 2] - centers[k]);
-                avail = Math.max(avail - 6, 10);
-                const shortLabel = sg.label.replace(/^[A-Z0-9]+-/i, '');
-                const fits = (text, size) => { mctx.font = `bold ${size}px Arial`; return mctx.measureText(text).width <= avail; };
-                let done = false;
-                for(const text of [sg.label, shortLabel]){
-                    for(let size = 12; size >= 7; size--){ if(fits(text, size)){ sg.text = text; sg.size = size; done = true; break; } }
-                    if(done) break;
-                }
-                if(!done){ sg.text = shortLabel; sg.size = 9; sg.rotate = true; rotate = true; }
-            });
-            if(rotate){ segments.forEach(sg => { sg.rotate = true; sg.size = 9; sg.text = sg.text || sg.label; }); }
-            return { rotate, band: rotate ? 84 : 32 };
+            const widths = segments.map(sg => Math.max(sg.n, 1) * ppp - 6);
+            const allFit = (texts, size) => { mctx.font = `bold ${size}px Arial`; return texts.every((t, k) => mctx.measureText(t).width <= widths[k]); };
+            const full = segments.map(sg => sg.label), short = segments.map(sg => sg.label.replace(/^[A-Z0-9]+-/i, ''));
+            for(const texts of [full, short]){
+                for(let size = 12; size >= 7; size--){ if(allFit(texts, size)){ segments.forEach((sg, k) => { sg.text = texts[k]; sg.size = size; sg.rotate = false; }); return { rotate: false, size }; } }
+            }
+            segments.forEach((sg, k) => { sg.text = short[k]; sg.size = 9; sg.rotate = true; });
+            return { rotate: true, size: 9 };
         }
         const chamberPlugin = { id: 'npwChambers', afterDraw(chart){
             const segs = _matchMeta.segments || []; if(segs.length < 2) return;
             const { ctx, chartArea, scales } = chart; const x = scales.x; if(!x) return;
-            const band = _matchMeta.band || 32;
-            ctx.save();
-            segs.forEach((sg, k) => {
+            ctx.save(); ctx.beginPath(); ctx.rect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, chartArea.bottom - chartArea.top); ctx.clip();
+            const baseY = chartArea.bottom - 3;
+            segs.forEach(sg => {
                 if(!sg.n) return;
                 const left = x.getPixelForValue(sg.off), right = x.getPixelForValue(sg.off + sg.n - 1);
-                const cx = Math.min(Math.max((left + right) / 2, chartArea.left + 4), chartArea.right - 4);
-                ctx.fillStyle = sg.color; ctx.font = `bold ${sg.size || 11}px Arial`;
+                const cx = (left + right) / 2;
+                ctx.font = `bold ${sg.size || 10}px Arial`;
                 if(sg.rotate){
-                    // 直式：從帶底往上寫，太長就截斷加「…」
-                    let text = sg.text || sg.label; const maxLen = band - 8;
+                    let text = sg.text || sg.label; const maxLen = Math.min(90, chartArea.bottom - chartArea.top - 10);
                     while(text.length > 2 && ctx.measureText(text).width > maxLen) text = text.slice(0, -2) + '…';
-                    ctx.save(); ctx.translate(cx, chartArea.top - 4); ctx.rotate(-Math.PI / 2);
+                    const w = ctx.measureText(text).width, h = (sg.size || 9) + 4;
+                    ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.fillRect(cx - h / 2, baseY - w - 2, h, w + 4);
+                    ctx.fillStyle = sg.color; ctx.save(); ctx.translate(cx, baseY); ctx.rotate(-Math.PI / 2);
                     ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(text, 0, 0); ctx.restore();
                 }else{
-                    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-                    const y = chartArea.top - 2 - (k % 2 ? 0 : 15);   // 偶數段上列、奇數段下列
-                    ctx.fillText(sg.text || sg.label, cx, y);
+                    const text = sg.text || sg.label; const w = ctx.measureText(text).width, h = (sg.size || 10) + 2;
+                    ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.fillRect(cx - w / 2 - 2, baseY - h, w + 4, h + 1);
+                    ctx.fillStyle = sg.color; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillText(text, cx, baseY);
                 }
             });
             ctx.restore();
@@ -603,32 +591,37 @@
                 s.m._off = off; s.m._kept = s.kept;   // 檢定區間需要知道每條序列在 X 軸上的起點與採用點
                 segments.push({ off, n: s.kept.length, label: segLabel(s.m), color: s.color });
                 clampRegions(s.m);
+                const clip = new Array(total).fill(0);
                 s.kept.forEach((x, j) => {
                     const idx = off + j; labels[idx] = String(x.d || '').substring(5, 16); pts[idx] = x;
-                    mean[idx] = Number(x.mean);
+                    const c = clipY(Number(x.mean)); mean[idx] = c.y; clip[idx] = c.clip;
                 });
-                datasets.push({ label: segLabel(s.m), _full: `${s.m.pu} ${s.m.name}`.trim(), data: mean, borderColor: s.color, backgroundColor: s.color, fill: false, tension: .15, borderWidth: 1.5, pointRadius: 3, pointHoverRadius: 6, spanGaps: false });
+                datasets.push({ label: segLabel(s.m), _full: `${s.m.pu} ${s.m.name}`.trim(), data: mean, _clip: clip, borderColor: s.color, backgroundColor: s.color, fill: false, tension: .15, borderWidth: 1.5, spanGaps: false,
+                    pointRadius: clip.map(c => c ? 5 : 3), pointHoverRadius: 6, pointStyle: clip.map(c => c ? 'rectRot' : 'circle'),
+                    pointBackgroundColor: clip.map(c => clipColor(s.color, c)), pointBorderColor: clip.map(c => clipColor(s.color, c)) });
                 off += s.kept.length;
                 if(k < series.length - 1 && s.kept.length) boundaries.push(off);
             });
             datasets.push(...specSets(total, null));
             { const seen = {}; segments.forEach(sg => { seen[sg.label] = (seen[sg.label] || 0) + 1; });
               series.forEach((x, k) => { if(seen[segments[k].label] > 1) segments[k].label = segLabel(x.m) + '（' + x.m.name + '）'; }); }
-            const plan = series.length > 1 ? planChamberLabels(segments, total) : { band: 4 };
-            _matchMeta = { boundaries, segments, sideBySide: true, band: plan.band };
+            if(series.length > 1) planChamberLabels(segments, total);
+            _matchMeta = { boundaries, segments, sideBySide: true };
             cfg = { type: 'line', data: { labels, datasets }, plugins: [chamberPlugin, separatorPlugin, regionPlugin],
-                options: { animation: false, responsive: true, maintainAspectRatio: false, layout: { padding: { top: plan.band } },
+                options: { animation: false, responsive: true, maintainAspectRatio: false, layout: { padding: { top: 6 } },
                     plugins: { legend: { position: 'top', align: 'start', labels: { usePointStyle: true, boxWidth: 10, font: { size: 11 }, filter: it => !(it.datasetIndex != null && datasets[it.datasetIndex] && datasets[it.datasetIndex]._spec) } },
                         tooltip: { filter: it => !it.dataset._spec, callbacks: { title: items => items.length ? ((pts[items[0].dataIndex] || {}).d || '') : '',
-                            label: c => { const p = pts[c.dataIndex] || {}; return `${c.dataset._full || c.dataset.label}: ${p.mean}` + (p.lot ? '  LOT ' + p.lot : '') + (p.wafer ? '  W' + p.wafer : '') + (p.seq != null ? '  SEQ ' + p.seq : ''); } } } },
+                            label: c => { const p = pts[c.dataIndex] || {}; const cl = (c.dataset._clip || [])[c.dataIndex]; return `${c.dataset._full || c.dataset.label}: ${p.mean}` + (cl > 0 ? '（超出 Y 軸上限，顯示在上限）' : cl < 0 ? '（低於 Y 軸下限，顯示在下限）' : '') + (p.lot ? '  LOT ' + p.lot : '') + (p.wafer ? '  W' + p.wafer : '') + (p.seq != null ? '  SEQ ' + p.seq : ''); } } } },
                     scales: { x: { title: { display: true, text: '依序排列（各 chart 左右分開，虛線為分隔）' }, ticks: { font: { size: 9 }, maxRotation: 90, minRotation: 90, autoSkip: true, maxTicksLimit: 40 } },
                               y: Object.assign({ title: { display: true, text: 'MEAN_VALUE' }, ticks: { font: { size: 10 } } }, yRange) } } };
         }else{
             _matchMeta = { boundaries: [], segments: [], sideBySide: false };
             series.forEach(s => { s.m._kept = s.kept; clampRegions(s.m); });
             const datasets = series.map(s => ({
-                label: segLabel(s.m), _full: `${s.m.pu} ${s.m.name}`.trim(), borderColor: s.color, backgroundColor: s.color, fill: false, tension: .15, borderWidth: 1.5, pointRadius: 3, pointHoverRadius: 6, spanGaps: true, showLine: true,
-                data: s.kept.map(x => ({ x: toT(x.d), y: Number(x.mean), _p: x })).filter(p => p.x != null)
+                label: segLabel(s.m), _full: `${s.m.pu} ${s.m.name}`.trim(), borderColor: s.color, backgroundColor: s.color, fill: false, tension: .15, borderWidth: 1.5, pointHoverRadius: 6, spanGaps: true, showLine: true,
+                pointRadius: c => (c.raw && c.raw._clip) ? 5 : 3, pointStyle: c => (c.raw && c.raw._clip) ? 'rectRot' : 'circle',
+                pointBackgroundColor: c => clipColor(s.color, c.raw && c.raw._clip), pointBorderColor: c => clipColor(s.color, c.raw && c.raw._clip),
+                data: s.kept.map(x => { const c = clipY(Number(x.mean)); return { x: toT(x.d), y: c.y, _clip: c.clip, _p: x }; }).filter(p => p.x != null)
             }));
             const allX = datasets.flatMap(d => d.data.map(p => p.x));
             if(allX.length) datasets.push(...specSets(0, [Math.min(...allX), Math.max(...allX)]));
@@ -636,14 +629,14 @@
                 options: { animation: false, responsive: true, maintainAspectRatio: false, parsing: false,
                     plugins: { legend: { position: 'top', align: 'start', labels: { usePointStyle: true, boxWidth: 10, font: { size: 11 }, filter: it => !(it.datasetIndex != null && datasets[it.datasetIndex] && datasets[it.datasetIndex]._spec) } },
                         tooltip: { filter: it => !it.dataset._spec, callbacks: { title: items => items.length ? fmtT(items[0].parsed.x) : '',
-                            label: c => { const p = c.raw && c.raw._p || {}; return `${c.dataset._full || c.dataset.label}: ${p.mean}` + (p.d ? '  ' + p.d : '') + (p.lot ? '  LOT ' + p.lot : '') + (p.wafer ? '  W' + p.wafer : ''); } } } },
+                            label: c => { const p = c.raw && c.raw._p || {}; const cl = c.raw && c.raw._clip; return `${c.dataset._full || c.dataset.label}: ${p.mean}` + (cl > 0 ? '（超出 Y 軸上限，顯示在上限）' : cl < 0 ? '（低於 Y 軸下限，顯示在下限）' : '') + (p.d ? '  ' + p.d : '') + (p.lot ? '  LOT ' + p.lot : '') + (p.wafer ? '  W' + p.wafer : ''); } } } },
                     scales: { x: { type: 'linear', title: { display: true, text: '時間（同一時間軸疊圖）' }, ticks: { font: { size: 10 }, maxRotation: 60, autoSkip: true, maxTicksLimit: 16, callback: v => fmtT(v) } },
                               y: Object.assign({ title: { display: true, text: 'MEAN_VALUE' }, ticks: { font: { size: 10 } } }, yRange) } } };
         }
         _matchChart = new Chart($('matchCanvas').getContext('2d'), cfg);
         renderRegionPanel();
     }
-    document.querySelectorAll('input[name=mx], input[name=my]').forEach(r => r.addEventListener('change', () => renderMatch()));
+    document.querySelectorAll('input[name=mx]').forEach(r => r.addEventListener('change', () => renderMatch()));
     $('btnMatchClear').addEventListener('click', () => { _match.length = 0; renderMatch(); });
 
     // ===== 檢定區間：在 matching chart 上拖拉 BSL（綠）/ 檢定（紅）方框，完成後帶入檢定表 =====
