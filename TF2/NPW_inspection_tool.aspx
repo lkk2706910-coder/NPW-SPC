@@ -567,23 +567,25 @@
             const segs = _matchMeta.segments || []; if(segs.length < 2) return;
             const { ctx, chartArea, scales } = chart; const x = scales.x; if(!x) return;
             ctx.save(); ctx.beginPath(); ctx.rect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, chartArea.bottom - chartArea.top); ctx.clip();
-            const baseY = chartArea.bottom - 3;
+            // 標示放在圖內「最上方」一列（下限常設 0，放底部會蓋住序列）
+            const baseY = chartArea.top + 3;
             segs.forEach(sg => {
                 if(!sg.n) return;
                 const left = x.getPixelForValue(sg.off), right = x.getPixelForValue(sg.off + sg.n - 1);
                 const cx = (left + right) / 2;
                 ctx.font = `bold ${sg.size || 10}px Arial`;
                 if(sg.rotate){
+                    // 直式：由上往下寫
                     let text = sg.text || sg.label; const maxLen = Math.min(90, chartArea.bottom - chartArea.top - 10);
                     while(text.length > 2 && ctx.measureText(text).width > maxLen) text = text.slice(0, -2) + '…';
                     const w = ctx.measureText(text).width, h = (sg.size || 9) + 4;
-                    ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.fillRect(cx - h / 2, baseY - w - 2, h, w + 4);
-                    ctx.fillStyle = sg.color; ctx.save(); ctx.translate(cx, baseY); ctx.rotate(-Math.PI / 2);
+                    ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.fillRect(cx - h / 2, baseY - 2, h, w + 4);
+                    ctx.fillStyle = sg.color; ctx.save(); ctx.translate(cx, baseY); ctx.rotate(Math.PI / 2);
                     ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(text, 0, 0); ctx.restore();
                 }else{
                     const text = sg.text || sg.label; const w = ctx.measureText(text).width, h = (sg.size || 10) + 2;
-                    ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.fillRect(cx - w / 2 - 2, baseY - h, w + 4, h + 1);
-                    ctx.fillStyle = sg.color; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillText(text, cx, baseY);
+                    ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.fillRect(cx - w / 2 - 2, baseY - 1, w + 4, h + 1);
+                    ctx.fillStyle = sg.color; ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillText(text, cx, baseY);
                 }
             });
             ctx.restore();
@@ -691,9 +693,10 @@
             ctx.fillStyle = st.fill; ctx.fillRect(left, chartArea.top, right - left, chartArea.bottom - chartArea.top);
             ctx.strokeStyle = st.line; ctx.lineWidth = 1.5; ctx.setLineDash([]); ctx.strokeRect(left, chartArea.top, right - left, chartArea.bottom - chartArea.top);
             // 邊界把手
-            ctx.fillStyle = st.line; ctx.fillRect(left - 2, chartArea.top, 4, 14); ctx.fillRect(right - 2, chartArea.top, 4, 14);
+            ctx.fillStyle = st.line; ctx.fillRect(left - 2, chartArea.bottom - 14, 4, 14); ctx.fillRect(right - 2, chartArea.bottom - 14, 4, 14);
             ctx.fillStyle = st.text; ctx.font = 'bold 11px Arial'; ctx.textBaseline = 'top';
-            ctx.fillText(`${st.name} ${m.name}  N=${s ? s.n : 0}  AVG=${s && Number.isFinite(s.avg) ? fmt(s.avg) : '—'}  σ=${s && Number.isFinite(s.sd) ? fmt(s.sd) : '—'}`, Math.max(left, chartArea.left) + 4, chartArea.top + (kind === 'test' ? 16 : 2));
+            const shift = ((_matchMeta.segments || []).length >= 2) ? ((_matchMeta.segments.some(g => g.rotate)) ? 0 : 16) : 0;   // 讓開最上方的序列標示列
+            ctx.fillText(`${st.name} ${m.name}  N=${s ? s.n : 0}  AVG=${s && Number.isFinite(s.avg) ? fmt(s.avg) : '—'}  σ=${s && Number.isFinite(s.sd) ? fmt(s.sd) : '—'}`, Math.max(left, chartArea.left) + 4, chartArea.top + shift + (kind === 'test' ? 16 : 2));
             ctx.restore();
         }); });
     } };
