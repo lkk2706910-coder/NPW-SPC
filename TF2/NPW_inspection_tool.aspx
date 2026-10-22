@@ -10,7 +10,8 @@
         :root { --bd: 2px solid #000; --accent: #1976d2; }
         * { box-sizing: border-box; }
         body { margin: 0; background: #f3f6fa; font-family: Arial, "Microsoft JhengHei", "PingFang TC", sans-serif; color: #111; font-size: 14px; }
-        .wrap { max-width: 1500px; margin: 0 auto; padding: 14px 16px 60px; }
+        /* 滿版：不限制最大寬度，兩側只留 12px */
+        .wrap { max-width: none; margin: 0; padding: 12px 12px 60px; }
         h1 { font-size: 20px; margin: 0 0 12px; }
         .card { background: #fff; border: 1px solid #d6dbe3; border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; }
         .card h2 { font-size: 15px; margin: 0 0 10px; color: #0f4aa8; }
@@ -33,9 +34,11 @@
         .hint { font-size: 12px; color: #666; }
 
         /* 搜尋結果 */
-        .res-wrap { overflow-x: auto; }
+        /* 搜尋結果不用捲軸：表格依頁寬排版，長文字自動換行 */
+        .res-wrap { overflow: visible; }
         table.res { border-collapse: collapse; width: 100%; background: #fff; }
-        table.res th, table.res td { border: 1px solid #222; padding: 4px 6px; font-size: 12px; white-space: nowrap; }
+        table.res th, table.res td { border: 1px solid #222; padding: 4px 6px; font-size: 12px; white-space: normal; word-break: break-word; }
+        table.res td.num, table.res td.c, table.res td.addcell, table.res td.tools { white-space: nowrap; }
         table.res th { background: #e9f0ff; font-weight: 700; position: sticky; top: 0; }
         table.res td.num { text-align: right; font-variant-numeric: tabular-nums; }
         table.res td.c { text-align: center; }
@@ -43,7 +46,7 @@
         table.res tr.added td { background: #fff8d6; }
         table.res td.addcell { white-space: nowrap; }
         table.res td.addcell select { padding: 3px 4px; border: 1px solid var(--accent); border-radius: 6px; color: var(--accent); font: inherit; font-size: 12px; font-weight: 700; margin-left: 4px; }
-        .valbox { max-height: 260px; overflow: auto; font-size: 11px; }
+        .valbox { font-size: 11px; }   /* 明細全部展開，不用捲軸 */
         .valbox table { border-collapse: collapse; }
         .valbox td, .valbox th { border: 1px solid #ccc; padding: 2px 6px; }
         .valbox tr.excluded td { color: #999; text-decoration: line-through; background: #f6f6f6; }
@@ -169,7 +172,7 @@
             <div class="hint">在圖上<b>拖拉方框左右邊界</b>調整區間、<b>拖拉方框中間</b>整段平移（只在「依序排列」模式）。帶入時 BSL 區間 → 該組奇數列（X1、σ1），檢定區間 → 偶數列（X2、σ2）。</div>
             <table class="mstat" id="regionTable"></table>
         </div>
-        <div style="overflow-x:auto;"><table class="mstat" id="matchStat"></table></div>
+        <table class="mstat" id="matchStat"></table>
     </div>
 
     <!-- 3/4/5. 檢定表格 -->
