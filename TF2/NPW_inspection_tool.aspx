@@ -506,7 +506,7 @@
         if(bySpec && spec && spec.ucl != null && spec.lcl != null && spec.ucl > spec.lcl){ const pad = (spec.ucl - spec.lcl) * 0.15; yRange = { min: spec.lcl - pad, max: spec.ucl + pad }; }
         else if(bySpec && spec && spec.cl != null && spec.ucl != null){ const pad = Math.abs(spec.ucl - spec.cl) * 1.3 || 1; yRange = { min: spec.cl - pad, max: spec.cl + pad }; }
         // 圖例一多會把繪圖區擠扁：依序列數把容器加高（每 6 個圖例項約一列 22px），繪圖區維持約 320px
-        { const items = series.length + 3; const box = document.querySelector('#matchCard .mbox'); if(box) box.style.height = (380 + Math.ceil(items / 6) * 22 + (series.length > 1 ? 30 : 0)) + 'px'; }
+        { const items = series.length + 3; const box = document.querySelector('#matchCard .mbox'); if(box) box.style.height = (380 + Math.ceil(items / 6) * 22 + (series.length > 1 ? (series.length > 8 ? 84 : 32) : 0)) + 'px'; }
         { const sel = _match.find(m => m.key === _specKey) || _match[0];
           $('matchInfo').textContent = `（${_match.length} 條序列；排除的點不列入；Spec 取「${spec ? spec.name : '—'}」` + (spec && sel && spec.key !== sel.key ? `，因「${sel.name}」沒有 UCL / LCL 而改用` : '') + '）'; }
         const specDs = (label, val, color, dash, len, xs) => ({ label, _spec: true, data: xs ? xs.map(x => ({ x, y: val })) : new Array(len).fill(val), borderColor: color, borderDash: dash, borderWidth: 1.8, pointRadius: 0, fill: false, spanGaps: true });
@@ -524,22 +524,54 @@
             const seg = u.split('-').find(x => /^[ABC]{1,3}[12]$/.test(x)); return seg ? 'S' + seg.slice(-1) : '';
         };
         const segLabel = m => { const side = sideOfName(m.name); return ((m.pu || m.name) + (side ? ' ' + side : '')).trim(); };
-        // chamber 標籤畫在繪圖區上方獨立的一條帶（layout.padding.top 預留，與圖例分開），
-        // 相鄰段落交錯上下兩列、段太窄時縮小字體，避免互相重疊
-        const CHAMBER_BAND = 30;
+        // chamber 標籤畫在繪圖區上方獨立的一條帶（layout.padding.top 預留，與圖例分開）。
+        // 字型依每段可用的寬度決定：交錯上下兩列，先試完整標籤 12→7px，不行就改短標籤（去掉機台前綴，
+        // 如 NISACVD-B01A S1 → B01A S1），還是放不下就整排改成直式（旋轉 90°），帶高也跟著加大。
+        function planChamberLabels(segments, total){
+            const cv = $('matchCanvas'); const canvasW = (cv && cv.clientWidth) || 1200;
+            const plotW = Math.max(200, canvasW - 110), ppp = plotW / Math.max(total, 1);
+            const mctx = document.createElement('canvas').getContext('2d');
+            const centers = segments.map(sg => (sg.off + Math.max(sg.n - 1, 0) / 2) * ppp);
+            let rotate = false;
+            segments.forEach((sg, k) => {
+                // 同一列的鄰居是 k±2（交錯兩列），可用寬度 = 到同列鄰居中心的距離
+                let avail = plotW;
+                if(k >= 2) avail = Math.min(avail, centers[k] - centers[k - 2]);
+                if(k + 2 < segments.length) avail = Math.min(avail, centers[k + 2] - centers[k]);
+                avail = Math.max(avail - 6, 10);
+                const shortLabel = sg.label.replace(/^[A-Z0-9]+-/i, '');
+                const fits = (text, size) => { mctx.font = `bold ${size}px Arial`; return mctx.measureText(text).width <= avail; };
+                let done = false;
+                for(const text of [sg.label, shortLabel]){
+                    for(let size = 12; size >= 7; size--){ if(fits(text, size)){ sg.text = text; sg.size = size; done = true; break; } }
+                    if(done) break;
+                }
+                if(!done){ sg.text = shortLabel; sg.size = 9; sg.rotate = true; rotate = true; }
+            });
+            if(rotate){ segments.forEach(sg => { sg.rotate = true; sg.size = 9; sg.text = sg.text || sg.label; }); }
+            return { rotate, band: rotate ? 84 : 32 };
+        }
         const chamberPlugin = { id: 'npwChambers', afterDraw(chart){
             const segs = _matchMeta.segments || []; if(segs.length < 2) return;
             const { ctx, chartArea, scales } = chart; const x = scales.x; if(!x) return;
-            ctx.save(); ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+            const band = _matchMeta.band || 32;
+            ctx.save();
             segs.forEach((sg, k) => {
                 if(!sg.n) return;
                 const left = x.getPixelForValue(sg.off), right = x.getPixelForValue(sg.off + sg.n - 1);
-                const segW = Math.max(right - left, 12) + 12;
-                let size = 12; ctx.font = `bold ${size}px Arial`;
-                while(size > 8 && ctx.measureText(sg.label).width > segW * 2){ size--; ctx.font = `bold ${size}px Arial`; }
-                const cx = Math.min(Math.max((left + right) / 2, chartArea.left + 10), chartArea.right - 10);
-                const y = chartArea.top - 2 - (k % 2 ? 0 : 14);   // 偶數段上列、奇數段下列
-                ctx.fillStyle = sg.color; ctx.fillText(sg.label, cx, y);
+                const cx = Math.min(Math.max((left + right) / 2, chartArea.left + 4), chartArea.right - 4);
+                ctx.fillStyle = sg.color; ctx.font = `bold ${sg.size || 11}px Arial`;
+                if(sg.rotate){
+                    // 直式：從帶底往上寫，太長就截斷加「…」
+                    let text = sg.text || sg.label; const maxLen = band - 8;
+                    while(text.length > 2 && ctx.measureText(text).width > maxLen) text = text.slice(0, -2) + '…';
+                    ctx.save(); ctx.translate(cx, chartArea.top - 4); ctx.rotate(-Math.PI / 2);
+                    ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(text, 0, 0); ctx.restore();
+                }else{
+                    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+                    const y = chartArea.top - 2 - (k % 2 ? 0 : 15);   // 偶數段上列、奇數段下列
+                    ctx.fillText(sg.text || sg.label, cx, y);
+                }
             });
             ctx.restore();
         } };
@@ -572,9 +604,10 @@
             datasets.push(...specSets(total, null));
             { const seen = {}; segments.forEach(sg => { seen[sg.label] = (seen[sg.label] || 0) + 1; });
               series.forEach((x, k) => { if(seen[segments[k].label] > 1) segments[k].label = segLabel(x.m) + '（' + x.m.name + '）'; }); }
-            _matchMeta = { boundaries, segments, sideBySide: true };
+            const plan = series.length > 1 ? planChamberLabels(segments, total) : { band: 4 };
+            _matchMeta = { boundaries, segments, sideBySide: true, band: plan.band };
             cfg = { type: 'line', data: { labels, datasets }, plugins: [chamberPlugin, separatorPlugin, regionPlugin],
-                options: { animation: false, responsive: true, maintainAspectRatio: false, layout: { padding: { top: series.length > 1 ? CHAMBER_BAND : 4 } },
+                options: { animation: false, responsive: true, maintainAspectRatio: false, layout: { padding: { top: plan.band } },
                     plugins: { legend: { position: 'top', align: 'start', labels: { usePointStyle: true, boxWidth: 10, font: { size: 11 } } },
                         tooltip: { filter: it => !it.dataset._spec, callbacks: { title: items => items.length ? ((pts[items[0].dataIndex] || {}).d || '') : '',
                             label: c => { const p = pts[c.dataIndex] || {}; return `${c.dataset._full || c.dataset.label}: ${p.mean}` + (p.lot ? '  LOT ' + p.lot : '') + (p.wafer ? '  W' + p.wafer : '') + (p.seq != null ? '  SEQ ' + p.seq : ''); } } } },
