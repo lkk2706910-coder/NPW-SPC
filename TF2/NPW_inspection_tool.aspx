@@ -468,6 +468,19 @@
             spec.lcl != null ? specDs(`LCL ${fmt(spec.lcl)}（${spec.name}）`, spec.lcl, 'red', [4, 2], len, xs) : null
         ].filter(Boolean);
         // 序列之間的分隔線（只在依序排列模式）：在相鄰兩段的邊界畫一條垂直虛線
+        // 多條序列時在每一段上方標示 chamber（PROCESSUNIT），用該序列顏色、置中
+        const chamberPlugin = { id: 'npwChambers', afterDraw(chart){
+            const segs = _matchMeta.segments || []; if(segs.length < 2) return;
+            const { ctx, chartArea, scales } = chart; const x = scales.x; if(!x) return;
+            ctx.save(); ctx.font = 'bold 12px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+            segs.forEach(sg => {
+                if(!sg.n) return;
+                const left = x.getPixelForValue(sg.off), right = x.getPixelForValue(sg.off + sg.n - 1);
+                const cx = Math.min(Math.max((left + right) / 2, chartArea.left + 30), chartArea.right - 30);
+                ctx.fillStyle = sg.color; ctx.fillText(sg.label, cx, chartArea.top - 3);
+            });
+            ctx.restore();
+        } };
         const separatorPlugin = { id: 'npwSeparators', afterDraw(chart){
             const b = _matchMeta.boundaries || []; if(!b.length) return;
             const { ctx, chartArea, scales } = chart; const x = scales.x; if(!x) return;
@@ -480,10 +493,11 @@
             // 左右分開（依序排列）：像 SPC 多 chart 檢視，序列一條接一條排在 X 軸上，中間以分隔線隔開
             const total = series.reduce((s, x) => s + x.kept.length, 0);
             const labels = []; const pts = new Array(total).fill(null);
-            const datasets = []; const boundaries = []; let off = 0;
+            const datasets = []; const boundaries = []; const segments = []; let off = 0;
             series.forEach((s, k) => {
                 const mean = new Array(total).fill(null);
                 s.m._off = off; s.m._kept = s.kept;   // 檢定區間需要知道每條序列在 X 軸上的起點與採用點
+                segments.push({ off, n: s.kept.length, label: s.m.pu || s.m.name, color: s.color });
                 clampRegions(s.m);
                 s.kept.forEach((x, j) => {
                     const idx = off + j; labels[idx] = String(x.d || '').substring(5, 16); pts[idx] = x;
@@ -494,16 +508,16 @@
                 if(k < series.length - 1 && s.kept.length) boundaries.push(off);
             });
             datasets.push(...specSets(total, null));
-            _matchMeta = { boundaries, sideBySide: true };
-            cfg = { type: 'line', data: { labels, datasets }, plugins: [separatorPlugin, regionPlugin],
-                options: { animation: false, responsive: true, maintainAspectRatio: false,
+            _matchMeta = { boundaries, segments, sideBySide: true };
+            cfg = { type: 'line', data: { labels, datasets }, plugins: [chamberPlugin, separatorPlugin, regionPlugin],
+                options: { animation: false, responsive: true, maintainAspectRatio: false, layout: { padding: { top: series.length > 1 ? 18 : 4 } },
                     plugins: { legend: { position: 'top', align: 'start', labels: { usePointStyle: true, boxWidth: 10, font: { size: 11 } } },
                         tooltip: { filter: it => !it.dataset._spec, callbacks: { title: items => items.length ? ((pts[items[0].dataIndex] || {}).d || '') : '',
                             label: c => { const p = pts[c.dataIndex] || {}; return `${c.dataset.label}: ${p.mean}` + (p.lot ? '  LOT ' + p.lot : '') + (p.wafer ? '  W' + p.wafer : '') + (p.seq != null ? '  SEQ ' + p.seq : ''); } } } },
                     scales: { x: { title: { display: true, text: '依序排列（各 chart 左右分開，虛線為分隔）' }, ticks: { font: { size: 9 }, maxRotation: 90, minRotation: 90, autoSkip: true, maxTicksLimit: 40 } },
                               y: { title: { display: true, text: 'MEAN_VALUE' }, ticks: { font: { size: 10 } } } } } };
         }else{
-            _matchMeta = { boundaries: [], sideBySide: false };
+            _matchMeta = { boundaries: [], segments: [], sideBySide: false };
             series.forEach(s => { s.m._kept = s.kept; clampRegions(s.m); });
             const datasets = series.map(s => ({
                 label: `${s.m.pu} ${s.m.name}`.trim(), borderColor: s.color, backgroundColor: s.color, fill: false, tension: .15, borderWidth: 1.5, pointRadius: 3, pointHoverRadius: 6, spanGaps: true, showLine: true,
