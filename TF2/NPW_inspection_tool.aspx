@@ -5,6 +5,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>TF2/T_EQ1 NPW inspection tool</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.3.0/dist/chart.umd.min.js"></script>
     <style>
         :root { --bd: 2px solid #000; --accent: #1976d2; }
         * { box-sizing: border-box; }
@@ -50,6 +51,22 @@
         .valbox .btn.small { padding: 1px 6px; font-size: 11px; }
         table.res tr.adjusted td:nth-child(6), table.res tr.adjusted td:nth-child(7), table.res tr.adjusted td:nth-child(8) { background: #fde9c9; }
         table.res .adjnote { font-size: 10px; color: #a35; margin-left: 2px; }
+        table.res td.tools { white-space: nowrap; }
+        table.res td.tools .btn + .btn { margin-left: 3px; }
+        table.res tr.trend td { background: #fbfbfb; }
+        .trendbox { position: relative; width: 100%; height: 300px; }
+        .trendbox canvas { display: block; width: 100% !important; height: 100% !important; }
+        /* Matching chart（比較） */
+        .mchips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+        .mchip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #b8c0cc; border-radius: 14px; padding: 2px 8px 2px 6px; font-size: 12px; background: #fff; }
+        .mchip .sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+        .mchip button { border: 0; background: transparent; color: #c00; cursor: pointer; font-weight: 700; padding: 0 2px; }
+        .mbox { position: relative; width: 100%; height: 380px; }
+        .mbox canvas { display: block; width: 100% !important; height: 100% !important; }
+        table.mstat { border-collapse: collapse; margin-top: 8px; }
+        table.mstat th, table.mstat td { border: 1px solid #222; padding: 3px 8px; font-size: 12px; white-space: nowrap; }
+        table.mstat th { background: #e9f0ff; }
+        table.mstat td.num { text-align: right; font-variant-numeric: tabular-nums; }
 
         /* 檢定表格（PCRB，沿用檢定機器人） */
         .pcrb-wrap { overflow-x: auto; }
@@ -118,12 +135,27 @@
                 <thead>
                     <tr>
                         <th>加入</th><th>CHART_ID</th><th>CHART_NAME</th><th>機台</th><th>Type</th>
-                        <th>N</th><th>AVG</th><th>STDEVA</th><th>Min</th><th>Max</th><th>首筆</th><th>末筆</th><th>明細</th>
+                        <th>N</th><th>AVG</th><th>STDEVA</th><th>Min</th><th>Max</th><th>首筆</th><th>末筆</th><th>明細 / chart</th>
                     </tr>
                 </thead>
                 <tbody id="resBody"><tr><td colspan="13" class="hint">尚未搜尋</td></tr></tbody>
             </table>
         </div>
+    </div>
+
+    <!-- Matching chart：使用者從搜尋結果點「＋matching」加入的 chart 疊在一起比較（可跨 tool / 跨區間） -->
+    <div class="card" id="matchCard" hidden>
+        <div class="toolbar" style="margin-bottom:8px;">
+            <h2 style="margin:0;">Matching chart（比較）<small id="matchInfo" class="hint"></small></h2>
+            <span class="hint">X 軸：
+                <label><input type="radio" name="mx" value="idx" checked />點序</label>
+                <label><input type="radio" name="mx" value="time" />時間</label>
+            </span>
+            <button type="button" class="btn ghost small" id="btnMatchClear" style="margin-left:auto;">清空 matching</button>
+        </div>
+        <div class="mchips" id="matchChips"></div>
+        <div class="mbox"><canvas id="matchCanvas"></canvas></div>
+        <div style="overflow-x:auto;"><table class="mstat" id="matchStat"></table></div>
     </div>
 
     <!-- 3/4/5. 檢定表格 -->
@@ -197,6 +229,7 @@
             if(!data.ok) throw new Error(data.error || ('HTTP ' + res.status));
             _results = data.rows || [];
             Object.keys(_vals).forEach(k => delete _vals[k]);   // 新搜尋：明細與排除點全部重來
+            Object.keys(_trendCharts).forEach(k => { try{ _trendCharts[k].destroy(); }catch(e){} delete _trendCharts[k]; });
             _range = { start:data.start, end:data.end, prod:qs.get('prod') };
             renderResults();
             setStatus('完成：' + _results.length + ' 張 chart' + (data.truncated ? '（已達上限，請縮小條件）' : ''));
@@ -218,7 +251,7 @@
                 <td class="num">${esc(r.N)}</td><td class="num">${fmt(r.AVG)}</td><td class="num">${r.STDEV == null ? '—' : fmt(r.STDEV)}</td>
                 <td class="num">${fmt(r.MIN)}</td><td class="num">${fmt(r.MAX)}</td>
                 <td>${esc(r.FIRST_TIME)}</td><td>${esc(r.LAST_TIME)}</td>
-                <td class="c"><button type="button" class="btn small ghost" data-vals="${i}">明細</button></td>
+                <td class="c tools"><button type="button" class="btn small ghost" data-vals="${i}">明細</button><button type="button" class="btn small ghost" data-trend="${i}" title="在下方展開此 chart 區間內的趨勢圖">看 chart</button><button type="button" class="btn small" data-match="${i}" title="加入下方 Matching chart 一起比較（可跨 tool / 區間）">＋matching</button></td>
             </tr>`;
         });
         tb.innerHTML = html;
@@ -257,20 +290,25 @@
             ptr.classList.toggle('excluded', on);
             const b = ptr.querySelector('button[data-ex]'); if(b) b.textContent = on ? '還原' : '刪除';
         });
+        if($('resBody').querySelector(`tr.trend[data-ti="${i}"]`)) drawTrend(i);   // 趨勢圖同步更新排除點
+    }
+    // 取得（必要時載入）某列的明細點
+    async function ensureVals(i){
+        if(_vals[i]) return _vals[i];
+        const r = _results[i];
+        const qs = new URLSearchParams({ op:'values', cid:r.CHART_ID, start:_range.start, end:_range.end, prod:_range.prod || 'ctrl' });
+        const res = await fetch(PAGE + '?' + qs.toString(), { cache:'no-store' });
+        const data = await res.json();
+        if(!data.ok) throw new Error(data.error || ('HTTP ' + res.status));
+        _vals[i] = { rows: data.rows || [], excluded: new Set() };
+        return _vals[i];
     }
     async function toggleValues(i, btn){
-        const tr = btn.closest('tr'); const next = tr.nextElementSibling;
-        if(next && next.classList.contains('vals')){ next.remove(); btn.textContent='明細'; return; }
-        const r = _results[i]; btn.disabled = true;
+        const tr = btn.closest('tr'); const next = $('resBody').querySelector(`tr.vals[data-vi="${i}"]`);
+        if(next){ next.remove(); btn.textContent='明細'; return; }
+        btn.disabled = true;
         try{
-            if(!_vals[i]){
-                const qs = new URLSearchParams({ op:'values', cid:r.CHART_ID, start:_range.start, end:_range.end, prod:_range.prod || 'ctrl' });
-                const res = await fetch(PAGE + '?' + qs.toString(), { cache:'no-store' });
-                const data = await res.json();
-                if(!data.ok) throw new Error(data.error || ('HTTP ' + res.status));
-                _vals[i] = { rows: data.rows || [], excluded: new Set() };
-            }
-            const rows = _vals[i].rows;
+            const rows = (await ensureVals(i)).rows;
             let inner = `<div class="hint valsum"></div><div class="valbox"><table><tr><th></th><th>#</th><th>UPDATE_TIME</th><th>CHART_SEQ</th><th>MEAN_VALUE</th><th>LOT</th><th>WAFER</th></tr>`;
             rows.forEach((x, k) => { inner += `<tr data-pt="${k}"><td><button type="button" class="btn small danger" data-ex="${k}" title="排除這一點，重算 N / AVG / STDEVA">刪除</button></td><td>${k+1}</td><td>${esc(x.d)}</td><td>${esc(x.seq)}</td><td style="text-align:right">${esc(x.mean)}</td><td>${esc(x.lot)}</td><td>${esc(x.wafer)}</td></tr>`; });
             inner += '</table></div>';
@@ -287,6 +325,120 @@
         recomputeValues(i);
     }
     function restorePoints(i){ const v = _vals[i]; if(!v) return; v.excluded.clear(); recomputeValues(i); }
+
+    // ===== 看 chart：該列下方展開區間內趨勢圖（MEAN_VALUE + UCL / LCL / XBAR；排除點灰色空心）=====
+    const _trendCharts = {};   // i -> Chart 實例
+    const numOrNull = x => (x == null || x === '' || !isFinite(Number(x))) ? null : Number(x);
+    function lineDs(label, data, color, dash, width){ return { label, data, borderColor: color, borderDash: dash, fill: false, pointRadius: 0, borderWidth: width || 1.2, spanGaps: true }; }
+    async function toggleTrend(i, btn){
+        const tr = btn.closest('tr'); const open = $('resBody').querySelector(`tr.trend[data-ti="${i}"]`);
+        if(open){ if(_trendCharts[i]){ try{ _trendCharts[i].destroy(); }catch(e){} delete _trendCharts[i]; } open.remove(); btn.textContent = '看 chart'; return; }
+        btn.disabled = true;
+        try{
+            await ensureVals(i);
+            const t = document.createElement('tr'); t.className = 'trend'; t.setAttribute('data-ti', String(i));
+            t.innerHTML = `<td colspan="13"><div class="hint trendsum"></div><div class="trendbox"><canvas></canvas></div></td>`;
+            // 放在明細列之後（若已展開），否則緊接在結果列之後
+            const vals = $('resBody').querySelector(`tr.vals[data-vi="${i}"]`);
+            (vals || tr).after(t);
+            btn.textContent = '收合 chart';
+            drawTrend(i);
+        }catch(e){ alert('趨勢圖載入失敗：' + e.message); }
+        finally{ btn.disabled = false; }
+    }
+    function drawTrend(i){
+        const holder = $('resBody').querySelector(`tr.trend[data-ti="${i}"]`); const v = _vals[i], r = _results[i];
+        if(!holder || !v || !r) return;
+        const rows = v.rows;
+        holder.querySelector('.trendsum').textContent = `CHART_ID ${r.CHART_ID}　${r.CHART_NAME || ''}　${r.PROCESSUNIT || ''}　${_range.start}~${_range.end}　${prodLabel(_range.prod)}　共 ${rows.length} 點` + (v.excluded.size ? `（排除 ${v.excluded.size} 點，灰色空心）` : '');
+        if(!window.Chart){ holder.querySelector('.trendsum').textContent += '　（Chart.js 未載入，無法繪圖）'; return; }
+        if(_trendCharts[i]){ try{ _trendCharts[i].destroy(); }catch(e){} }
+        const labels = rows.map(x => String(x.d || '').substring(5, 16));
+        const mean = rows.map(x => numOrNull(x.mean));
+        const ex = rows.map((x, k) => v.excluded.has(k));
+        const ds = [{
+            label: 'MEAN_VALUE', data: mean, borderColor: '#000', backgroundColor: 'rgba(0,0,0,.08)', fill: false, tension: .2, borderWidth: 1.5,
+            pointStyle: 'triangle', pointRadius: ex.map(e => e ? 5 : 3), pointHoverRadius: 6,
+            pointBackgroundColor: ex.map(e => e ? '#fff' : '#000'), pointBorderColor: ex.map(e => e ? '#999' : '#000'),
+            segment: { borderColor: ctx => (ex[ctx.p0DataIndex] || ex[ctx.p1DataIndex]) ? '#bbb' : '#000' }
+        },
+            lineDs('UCL', rows.map(x => numOrNull(x.ucl)), 'red', [4, 2], 1.5),
+            lineDs('XBAR (CL)', rows.map(x => numOrNull(x.xbar)), '#0f766e', [0, 0], 1.5),
+            lineDs('LCL', rows.map(x => numOrNull(x.lcl)), 'red', [4, 2], 1.5)
+        ];
+        _trendCharts[i] = new Chart(holder.querySelector('canvas').getContext('2d'), {
+            type: 'line', data: { labels, datasets: ds },
+            options: { animation: false, responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { position: 'top', align: 'end', labels: { usePointStyle: true, pointStyle: 'line', boxWidth: 26, font: { size: 10 } } },
+                    tooltip: { callbacks: { label: c => { if(c.dataset.label !== 'MEAN_VALUE') return c.dataset.label + ': ' + c.formattedValue; const x = rows[c.dataIndex] || {}; return 'MEAN_VALUE: ' + (x.mean == null ? '-' : x.mean) + (ex[c.dataIndex] ? '（已排除）' : '') + (x.lot ? '  LOT ' + x.lot : '') + (x.wafer ? '  W' + x.wafer : '') + (x.seq != null ? '  SEQ ' + x.seq : ''); } } } },
+                scales: { x: { ticks: { font: { size: 9 }, maxRotation: 90, minRotation: 90, autoSkip: true, maxTicksLimit: 20 } }, y: { ticks: { font: { size: 10 } } } } }
+        });
+    }
+
+    // ===== Matching chart：使用者點「＋matching」加入的 chart 疊在同一張圖比較 =====
+    // 加入時快照該列目前的點與排除狀態（之後重新搜尋不影響已加入的序列）
+    const _match = [];   // [{key,label,cid,name,pu,start,end,prod,rows,excluded:Set}]
+    let _matchChart = null;
+    const MCOLORS = ['#1976d2','#d32f2f','#2e7d32','#f57c00','#7b1fa2','#00838f','#5d4037','#c2185b','#455a64','#9e9d24'];
+    async function addToMatch(i, btn){
+        const r = _results[i]; if(!r) return;
+        btn.disabled = true;
+        try{
+            const v = await ensureVals(i);
+            const key = `${r.CHART_ID}|${_range.start}|${_range.end}|${_range.prod}`;
+            const dup = _match.findIndex(m => m.key === key);
+            const entry = { key, cid: String(r.CHART_ID), name: r.CHART_NAME || '', pu: r.PROCESSUNIT || '', start: _range.start, end: _range.end, prod: _range.prod,
+                label: `${r.PROCESSUNIT || ''} ${r.CHART_NAME || ''}（${_range.start}~${_range.end}，${prodLabel(_range.prod)}）`,
+                rows: v.rows.slice(), excluded: new Set(v.excluded) };
+            if(dup >= 0) _match[dup] = entry; else _match.push(entry);
+            renderMatch();
+            $('matchCard').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            setStatus(`已${dup >= 0 ? '更新' : '加入'} matching：CHART_ID ${r.CHART_ID}（${_match.length} 條序列）`);
+        }catch(e){ alert('加入 matching 失敗：' + e.message); }
+        finally{ btn.disabled = false; }
+    }
+    function removeMatch(k){ _match.splice(k, 1); renderMatch(); }
+    function renderMatch(){
+        const card = $('matchCard');
+        if(!_match.length){ if(_matchChart){ try{ _matchChart.destroy(); }catch(e){} _matchChart = null; } card.hidden = true; return; }
+        card.hidden = false;
+        $('matchInfo').textContent = `（${_match.length} 條序列；排除的點不列入）`;
+        $('matchChips').innerHTML = _match.map((m, k) => `<span class="mchip"><span class="sw" style="background:${MCOLORS[k % MCOLORS.length]}"></span>${esc(m.label)}${m.excluded.size ? `<span class="hint">排除 ${m.excluded.size}</span>` : ''}<button type="button" data-mrm="${k}" title="移除">×</button></span>`).join('');
+        // 統計表：每條序列 N / AVG / STDEVA / Min / Max
+        let st = '<tr><th></th><th>CHART_ID</th><th>CHART_NAME</th><th>機台</th><th>區間</th><th>Type</th><th>N</th><th>AVG</th><th>STDEVA</th><th>Min</th><th>Max</th></tr>';
+        const series = _match.map((m, k) => {
+            const kept = m.rows.filter((x, j) => !m.excluded.has(j)).filter(x => numOrNull(x.mean) != null);
+            const vals = kept.map(x => Number(x.mean));
+            const n = vals.length, avg = n ? vals.reduce((s, x) => s + x, 0) / n : NaN, sd = stdevS(vals);
+            st += `<tr><td><span class="sw" style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${MCOLORS[k % MCOLORS.length]}"></span></td><td>${esc(m.cid)}</td><td>${esc(m.name)}</td><td>${esc(m.pu)}</td><td>${esc(m.start)}~${esc(m.end)}</td><td>${prodLabel(m.prod)}</td><td class="num">${n}</td><td class="num">${Number.isFinite(avg)?fmt(avg):'—'}</td><td class="num">${Number.isFinite(sd)?fmt(sd):'—'}</td><td class="num">${n?fmt(Math.min(...vals)):'—'}</td><td class="num">${n?fmt(Math.max(...vals)):'—'}</td></tr>`;
+            return { m, kept, color: MCOLORS[k % MCOLORS.length] };
+        });
+        $('matchStat').innerHTML = st;
+        drawMatch(series);
+    }
+    function drawMatch(series){
+        if(!window.Chart) return;
+        if(_matchChart){ try{ _matchChart.destroy(); }catch(e){} _matchChart = null; }
+        const byTime = (document.querySelector('input[name=mx]:checked') || {}).value === 'time';
+        const toT = d => { const t = new Date(String(d || '').replace(' ', 'T')); return isNaN(t) ? null : t.getTime(); };
+        const datasets = series.map(s => ({
+            label: `${s.m.pu} ${s.m.name}`.trim(), borderColor: s.color, backgroundColor: s.color, fill: false, tension: .15, borderWidth: 1.5, pointRadius: 3, pointHoverRadius: 6, spanGaps: true, showLine: true,
+            data: s.kept.map((x, j) => ({ x: byTime ? toT(x.d) : j + 1, y: Number(x.mean), _p: x })).filter(p => p.x != null)
+        }));
+        const fmtT = v => { const d = new Date(v); return isNaN(d) ? '' : `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; };
+        _matchChart = new Chart($('matchCanvas').getContext('2d'), {
+            type: 'line', data: { datasets },
+            options: { animation: false, responsive: true, maintainAspectRatio: false, parsing: false,
+                plugins: { legend: { position: 'top', align: 'start', labels: { usePointStyle: true, boxWidth: 10, font: { size: 11 } } },
+                    tooltip: { callbacks: { title: items => items.length ? (byTime ? fmtT(items[0].parsed.x) : '第 ' + items[0].parsed.x + ' 點') : '',
+                        label: c => { const p = c.raw && c.raw._p || {}; return `${c.dataset.label}: ${p.mean}` + (p.d ? '  ' + p.d : '') + (p.lot ? '  LOT ' + p.lot : '') + (p.wafer ? '  W' + p.wafer : ''); } } } },
+                scales: { x: { type: 'linear', title: { display: true, text: byTime ? '時間' : '點序（第 n 點）' }, ticks: { font: { size: 10 }, maxRotation: 60, autoSkip: true, maxTicksLimit: 16, callback: v => byTime ? fmtT(v) : v } },
+                          y: { title: { display: true, text: 'MEAN_VALUE' }, ticks: { font: { size: 10 } } } } }
+        });
+    }
+    document.querySelectorAll('input[name=mx]').forEach(r => r.addEventListener('change', () => renderMatch()));
+    $('btnMatchClear').addEventListener('click', () => { _match.length = 0; renderMatch(); });
+    $('matchChips').addEventListener('click', e => { const b = e.target.closest('button[data-mrm]'); if(b) removeMatch(Number(b.getAttribute('data-mrm'))); });
 
     // ===== 3/4/5. 檢定表（PCRB）=====
     // 每一列一個編號：奇數列 = BSL（X1、σ1）、偶數列 = wafer extend（X2、σ2），
@@ -425,6 +577,8 @@
         const a = e.target.closest('button[data-add]'); if(a){ fillRow(Number(a.getAttribute('data-add'))); return; }
         const x = e.target.closest('button[data-ex]'); if(x){ togglePoint(Number(x.closest('tr.vals').getAttribute('data-vi')), Number(x.getAttribute('data-ex'))); return; }
         const rs = e.target.closest('button[data-restore]'); if(rs){ restorePoints(Number(rs.getAttribute('data-restore'))); return; }
+        const t = e.target.closest('button[data-trend]'); if(t){ toggleTrend(Number(t.getAttribute('data-trend')), t); return; }
+        const mm = e.target.closest('button[data-match]'); if(mm){ addToMatch(Number(mm.getAttribute('data-match')), mm); return; }
         const v = e.target.closest('button[data-vals]'); if(v){ toggleValues(Number(v.getAttribute('data-vals')), v); }
     });
 

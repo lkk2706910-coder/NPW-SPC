@@ -28,7 +28,7 @@ using System.Web.UI;
 //          With &cid= only, this is also the per-chart stats call used to fill
 //          the BSL / wafer extend rows of the check table for two ranges.
 //   GET  NPW_inspection_tool.aspx?op=values&cid=&start=&end=  -> the individual points
-//          { ok, rows:[{d, seq, mean, lot, wafer}] }
+//          { ok, rows:[{d, seq, mean, lot, wafer, pu, ucl, lcl, xbar}] }
 //
 // The range filters on UPDATE_TIME (datetime); start/end are sent to the minute.
 //
@@ -205,7 +205,7 @@ public partial class NPW_Inspection : Page
         }
         string sql =
             "SELECT TOP " + MaxPoints + " CHART_SEQ, CONVERT(varchar(19), UPDATE_TIME, 120) AS D, " +
-            "CAST(MEAN_VALUE AS float) AS MEAN_VALUE, LOT, WAFER, PROCESSUNIT " +
+            "CAST(MEAN_VALUE AS float) AS MEAN_VALUE, LOT, WAFER, PROCESSUNIT, UCL, LCL, XBAR " +
             "FROM " + ChartTable + " WITH (NOLOCK) " +
             "WHERE CHART_ID = @p0 AND " + DateExpr + " >= @p1 AND " + DateExpr + " < @p2 AND MEAN_VALUE IS NOT NULL " +
             ProdTypeFilter() + " " +
@@ -216,7 +216,8 @@ public partial class NPW_Inspection : Page
         {
             outRows.Add(new Dictionary<string, object> {
                 { "d", r["D"] }, { "seq", r["CHART_SEQ"] }, { "mean", r["MEAN_VALUE"] },
-                { "lot", r["LOT"] }, { "wafer", r["WAFER"] }, { "pu", r["PROCESSUNIT"] }
+                { "lot", r["LOT"] }, { "wafer", r["WAFER"] }, { "pu", r["PROCESSUNIT"] },
+                { "ucl", r["UCL"] }, { "lcl", r["LCL"] }, { "xbar", r["XBAR"] }
             });
         }
         var ser = new JavaScriptSerializer { MaxJsonLength = int.MaxValue };
