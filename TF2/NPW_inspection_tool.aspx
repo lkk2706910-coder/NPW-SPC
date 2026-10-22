@@ -42,9 +42,14 @@
         table.res tr.added td { background: #fff8d6; }
         table.res td.addcell { white-space: nowrap; }
         table.res td.addcell select { padding: 3px 4px; border: 1px solid var(--accent); border-radius: 6px; color: var(--accent); font: inherit; font-size: 12px; font-weight: 700; margin-left: 4px; }
-        .valbox { max-height: 220px; overflow: auto; font-size: 11px; }
+        .valbox { max-height: 260px; overflow: auto; font-size: 11px; }
         .valbox table { border-collapse: collapse; }
         .valbox td, .valbox th { border: 1px solid #ccc; padding: 2px 6px; }
+        .valbox tr.excluded td { color: #999; text-decoration: line-through; background: #f6f6f6; }
+        .valbox tr.excluded td:first-child { text-decoration: none; }
+        .valbox .btn.small { padding: 1px 6px; font-size: 11px; }
+        table.res tr.adjusted td:nth-child(6), table.res tr.adjusted td:nth-child(7), table.res tr.adjusted td:nth-child(8) { background: #fde9c9; }
+        table.res .adjnote { font-size: 10px; color: #a35; margin-left: 2px; }
 
         /* 檢定表格（PCRB，沿用檢定機器人） */
         .pcrb-wrap { overflow-x: auto; }
@@ -191,6 +196,7 @@
             const data = await res.json();
             if(!data.ok) throw new Error(data.error || ('HTTP ' + res.status));
             _results = data.rows || [];
+            Object.keys(_vals).forEach(k => delete _vals[k]);   // 新搜尋：明細與排除點全部重來
             _range = { start:data.start, end:data.end, prod:qs.get('prod') };
             renderResults();
             setStatus('完成：' + _results.length + ' 張 chart' + (data.truncated ? '（已達上限，請縮小條件）' : ''));
@@ -218,29 +224,69 @@
         tb.innerHTML = html;
     }
 
-    // 明細：列出區間內每一筆 MEAN_VALUE（可對照 AVG / STDEVA）
+    // 明細：列出區間內每一筆 MEAN_VALUE；每一點可「刪除」（排除）後前端重算 N / AVG / STDEVA，
+    // 重算值會回寫到該列搜尋結果（標示已排除幾點），之後「加入檢定」就用重算後的值
+    const _vals = {};   // i -> { rows:[...], excluded:Set(index) }
+    const stdevS = a => { const n = a.length; if(n < 2) return NaN; const m = a.reduce((s,v)=>s+v,0)/n; return Math.sqrt(a.reduce((s,v)=>s+(v-m)*(v-m),0)/(n-1)); };
+    function recomputeValues(i){
+        const v = _vals[i], r = _results[i]; if(!v || !r) return;
+        const kept = v.rows.filter((x, k) => !v.excluded.has(k)).map(x => Number(x.mean)).filter(Number.isFinite);
+        const n = kept.length, avg = n ? kept.reduce((s,x)=>s+x,0)/n : NaN, sd = stdevS(kept);
+        const ex = v.excluded.size;
+        r.adj = ex ? { n, avg: Number.isFinite(avg) ? avg : null, sd: Number.isFinite(sd) ? sd : null, excluded: ex } : null;
+        // 回寫搜尋結果該列的 N / AVG / STDEVA
+        const tr = $('resBody').querySelector(`tr[data-i="${i}"]`);
+        if(tr){
+            const tds = tr.querySelectorAll('td');
+            if(ex){
+                tds[5].innerHTML = `${n}<span class="adjnote">（原 ${esc(r.N)}，排除 ${ex}）</span>`;
+                tds[6].textContent = Number.isFinite(avg) ? fmt(avg) : '—';
+                tds[7].textContent = Number.isFinite(sd) ? fmt(sd) : '—';
+                tr.classList.add('adjusted');
+            }else{
+                tds[5].textContent = String(r.N == null ? '' : r.N);
+                tds[6].textContent = fmt(r.AVG);
+                tds[7].textContent = r.STDEV == null ? '—' : fmt(r.STDEV);
+                tr.classList.remove('adjusted');
+            }
+        }
+        const sum = $('resBody').querySelector(`tr.vals[data-vi="${i}"] .valsum`);
+        if(sum) sum.innerHTML = `共 ${v.rows.length} 筆，已排除 <b>${ex}</b> 點，採用 <b>${n}</b> 筆：AVG = <b>${Number.isFinite(avg)?fmt(avg):'—'}</b>、STDEVA = <b>${Number.isFinite(sd)?fmt(sd):'—'}</b>` + (ex ? '　<button type="button" class="btn small ghost" data-restore="' + i + '">全部還原</button>' : '');
+        $('resBody').querySelectorAll(`tr.vals[data-vi="${i}"] tr[data-pt]`).forEach(ptr => {
+            const k = Number(ptr.getAttribute('data-pt')); const on = v.excluded.has(k);
+            ptr.classList.toggle('excluded', on);
+            const b = ptr.querySelector('button[data-ex]'); if(b) b.textContent = on ? '還原' : '刪除';
+        });
+    }
     async function toggleValues(i, btn){
         const tr = btn.closest('tr'); const next = tr.nextElementSibling;
         if(next && next.classList.contains('vals')){ next.remove(); btn.textContent='明細'; return; }
         const r = _results[i]; btn.disabled = true;
         try{
-            const qs = new URLSearchParams({ op:'values', cid:r.CHART_ID, start:_range.start, end:_range.end, prod:_range.prod || 'ctrl' });
-            const res = await fetch(PAGE + '?' + qs.toString(), { cache:'no-store' });
-            const data = await res.json();
-            if(!data.ok) throw new Error(data.error || ('HTTP ' + res.status));
-            const rows = data.rows || [];
-            const vals = rows.map(x => Number(x.mean)).filter(Number.isFinite);
-            const n = vals.length, avg = n ? vals.reduce((s,v)=>s+v,0)/n : NaN;
-            const sd = n >= 2 ? Math.sqrt(vals.reduce((s,v)=>s+(v-avg)*(v-avg),0)/(n-1)) : NaN;
-            let inner = `<div class="hint">共 ${n} 筆；前端重算 AVG = ${fmt(avg)}、STDEVA = ${Number.isFinite(sd)?fmt(sd):'—'}</div><div class="valbox"><table><tr><th>#</th><th>UPDATE_TIME</th><th>CHART_SEQ</th><th>MEAN_VALUE</th><th>LOT</th><th>WAFER</th></tr>`;
-            rows.forEach((x, k) => { inner += `<tr><td>${k+1}</td><td>${esc(x.d)}</td><td>${esc(x.seq)}</td><td style="text-align:right">${esc(x.mean)}</td><td>${esc(x.lot)}</td><td>${esc(x.wafer)}</td></tr>`; });
+            if(!_vals[i]){
+                const qs = new URLSearchParams({ op:'values', cid:r.CHART_ID, start:_range.start, end:_range.end, prod:_range.prod || 'ctrl' });
+                const res = await fetch(PAGE + '?' + qs.toString(), { cache:'no-store' });
+                const data = await res.json();
+                if(!data.ok) throw new Error(data.error || ('HTTP ' + res.status));
+                _vals[i] = { rows: data.rows || [], excluded: new Set() };
+            }
+            const rows = _vals[i].rows;
+            let inner = `<div class="hint valsum"></div><div class="valbox"><table><tr><th></th><th>#</th><th>UPDATE_TIME</th><th>CHART_SEQ</th><th>MEAN_VALUE</th><th>LOT</th><th>WAFER</th></tr>`;
+            rows.forEach((x, k) => { inner += `<tr data-pt="${k}"><td><button type="button" class="btn small danger" data-ex="${k}" title="排除這一點，重算 N / AVG / STDEVA">刪除</button></td><td>${k+1}</td><td>${esc(x.d)}</td><td>${esc(x.seq)}</td><td style="text-align:right">${esc(x.mean)}</td><td>${esc(x.lot)}</td><td>${esc(x.wafer)}</td></tr>`; });
             inner += '</table></div>';
-            const vr = document.createElement('tr'); vr.className = 'vals';
+            const vr = document.createElement('tr'); vr.className = 'vals'; vr.setAttribute('data-vi', String(i));
             vr.innerHTML = `<td colspan="13">${inner}</td>`;
             tr.after(vr); btn.textContent = '收合';
+            recomputeValues(i);
         }catch(e){ alert('明細載入失敗：' + e.message); }
         finally{ btn.disabled = false; }
     }
+    function togglePoint(i, k){
+        const v = _vals[i]; if(!v) return;
+        if(v.excluded.has(k)) v.excluded.delete(k); else v.excluded.add(k);
+        recomputeValues(i);
+    }
+    function restorePoints(i){ const v = _vals[i]; if(!v) return; v.excluded.clear(); recomputeValues(i); }
 
     // ===== 3/4/5. 檢定表（PCRB）=====
     // 每一列一個編號：奇數列 = BSL（X1、σ1）、偶數列 = wafer extend（X2、σ2），
@@ -357,20 +403,23 @@
         if(!(rowNo >= 1 && rowNo <= total)) rowNo = 1;
         const { idx, key } = rowOf(rowNo);
         const side = pairs[idx][key];
-        side.x = r.AVG == null ? '' : fmt(r.AVG);
-        side.s = r.STDEV == null ? '' : fmt(r.STDEV);
-        side.n = r.N == null ? '0' : String(r.N);
+        const a = r.adj;   // 明細內有排除點 → 用前端重算的值
+        side.x = a ? (a.avg == null ? '' : fmt(a.avg)) : (r.AVG == null ? '' : fmt(r.AVG));
+        side.s = a ? (a.sd == null ? '' : fmt(a.sd)) : (r.STDEV == null ? '' : fmt(r.STDEV));
+        side.n = a ? String(a.n) : (r.N == null ? '0' : String(r.N));
         side.cid = String(r.CHART_ID || '');
-        side.src = `${r.PROCESSUNIT || ''} ${_range.start}~${_range.end} ${prodLabel(_range.prod)}`.trim();
+        side.src = `${r.PROCESSUNIT || ''} ${_range.start}~${_range.end} ${prodLabel(_range.prod)}`.trim() + (a ? `（排除 ${a.excluded} 點）` : '');
         _nextRow = rowNo < total ? rowNo + 1 : rowNo;
         renderPairs(); save();
         const tr = $('tbodyPairs').querySelector(`tr[data-row="${rowNo}"]`);
         if(tr){ tr.classList.add('flash'); setTimeout(() => tr.classList.remove('flash'), 1300); }
         const rr = $('resBody').querySelector(`tr[data-i="${i}"]`); if(rr) rr.classList.add('added');
-        setStatus(`CHART_ID ${r.CHART_ID}（${_range.start}~${_range.end}，${prodLabel(_range.prod)}，N=${r.N}）已填入編號 ${rowLabel(rowNo)}` + (_nextRow !== rowNo ? `；下一列：${rowLabel(_nextRow)}` : ''));
+        setStatus(`CHART_ID ${r.CHART_ID}（${_range.start}~${_range.end}，${prodLabel(_range.prod)}，N=${side.n}${a ? '，已排除 ' + a.excluded + ' 點' : ''}）已填入編號 ${rowLabel(rowNo)}` + (_nextRow !== rowNo ? `；下一列：${rowLabel(_nextRow)}` : ''));
     }
     $('resBody').addEventListener('click', e => {
         const a = e.target.closest('button[data-add]'); if(a){ fillRow(Number(a.getAttribute('data-add'))); return; }
+        const x = e.target.closest('button[data-ex]'); if(x){ togglePoint(Number(x.closest('tr.vals').getAttribute('data-vi')), Number(x.getAttribute('data-ex'))); return; }
+        const rs = e.target.closest('button[data-restore]'); if(rs){ restorePoints(Number(rs.getAttribute('data-restore'))); return; }
         const v = e.target.closest('button[data-vals]'); if(v){ toggleValues(Number(v.getAttribute('data-vals')), v); }
     });
 
