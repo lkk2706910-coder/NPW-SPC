@@ -514,7 +514,7 @@
         if(!('min' in yRange) && bySpec && spec && spec.ucl != null && spec.lcl != null && spec.ucl > spec.lcl){ const pad = (spec.ucl - spec.lcl) * 0.15; yRange = { min: spec.lcl - pad, max: spec.ucl + pad }; }
         if(!('min' in yRange) && bySpec && spec && spec.cl != null && spec.ucl != null){ const pad = Math.abs(spec.ucl - spec.cl) * 1.3 || 1; yRange = { min: spec.cl - pad, max: spec.cl + pad }; }
         // 圖例一多會把繪圖區擠扁：依序列數把容器加高（每 6 個圖例項約一列 22px），繪圖區維持約 320px
-        { const items = series.length + 5; const box = document.querySelector('#matchCard .mbox'); if(box) box.style.height = (380 + Math.ceil(items / 6) * 22 + (series.length > 1 ? (series.length > 8 ? 84 : 32) : 0)) + 'px'; }
+        { const items = series.length; const box = document.querySelector('#matchCard .mbox'); if(box) box.style.height = (380 + Math.ceil(items / 6) * 22 + (series.length > 1 ? (series.length > 8 ? 84 : 32) : 0)) + 'px'; }
         { const sel = _match.find(m => m.key === _specKey) || _match[0];
           $('matchInfo').textContent = `（${_match.length} 條序列；排除的點不列入；Spec 取「${spec ? spec.name : '—'}」` + (spec && sel && spec.key !== sel.key ? `，因「${sel.name}」沒有 UCL / LCL 而改用` : '') + '）'; }
         const specDs = (label, val, color, dash, len, xs) => ({ label, _spec: true, data: xs ? xs.map(x => ({ x, y: val })) : new Array(len).fill(val), borderColor: color, borderDash: dash, borderWidth: 1.8, pointRadius: 0, fill: false, spanGaps: true });
@@ -618,7 +618,7 @@
             _matchMeta = { boundaries, segments, sideBySide: true, band: plan.band };
             cfg = { type: 'line', data: { labels, datasets }, plugins: [chamberPlugin, separatorPlugin, regionPlugin],
                 options: { animation: false, responsive: true, maintainAspectRatio: false, layout: { padding: { top: plan.band } },
-                    plugins: { legend: { position: 'top', align: 'start', labels: { usePointStyle: true, boxWidth: 10, font: { size: 11 } } },
+                    plugins: { legend: { position: 'top', align: 'start', labels: { usePointStyle: true, boxWidth: 10, font: { size: 11 }, filter: it => !(it.datasetIndex != null && datasets[it.datasetIndex] && datasets[it.datasetIndex]._spec) } },
                         tooltip: { filter: it => !it.dataset._spec, callbacks: { title: items => items.length ? ((pts[items[0].dataIndex] || {}).d || '') : '',
                             label: c => { const p = pts[c.dataIndex] || {}; return `${c.dataset._full || c.dataset.label}: ${p.mean}` + (p.lot ? '  LOT ' + p.lot : '') + (p.wafer ? '  W' + p.wafer : '') + (p.seq != null ? '  SEQ ' + p.seq : ''); } } } },
                     scales: { x: { title: { display: true, text: '依序排列（各 chart 左右分開，虛線為分隔）' }, ticks: { font: { size: 9 }, maxRotation: 90, minRotation: 90, autoSkip: true, maxTicksLimit: 40 } },
@@ -634,7 +634,7 @@
             if(allX.length) datasets.push(...specSets(0, [Math.min(...allX), Math.max(...allX)]));
             cfg = { type: 'line', data: { datasets },
                 options: { animation: false, responsive: true, maintainAspectRatio: false, parsing: false,
-                    plugins: { legend: { position: 'top', align: 'start', labels: { usePointStyle: true, boxWidth: 10, font: { size: 11 } } },
+                    plugins: { legend: { position: 'top', align: 'start', labels: { usePointStyle: true, boxWidth: 10, font: { size: 11 }, filter: it => !(it.datasetIndex != null && datasets[it.datasetIndex] && datasets[it.datasetIndex]._spec) } },
                         tooltip: { filter: it => !it.dataset._spec, callbacks: { title: items => items.length ? fmtT(items[0].parsed.x) : '',
                             label: c => { const p = c.raw && c.raw._p || {}; return `${c.dataset._full || c.dataset.label}: ${p.mean}` + (p.d ? '  ' + p.d : '') + (p.lot ? '  LOT ' + p.lot : '') + (p.wafer ? '  W' + p.wafer : ''); } } } },
                     scales: { x: { type: 'linear', title: { display: true, text: '時間（同一時間軸疊圖）' }, ticks: { font: { size: 10 }, maxRotation: 60, autoSkip: true, maxTicksLimit: 16, callback: v => fmtT(v) } },
