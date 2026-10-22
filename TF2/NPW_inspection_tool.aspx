@@ -164,6 +164,10 @@
                 <label><input type="radio" name="mx" value="idx" checked />依序排列（左右分開）</label>
                 <label><input type="radio" name="mx" value="time" />時間（疊圖）</label>
             </span>
+            <span class="hint">Y 軸：
+                <label><input type="radio" name="my" value="auto" checked />自動</label>
+                <label><input type="radio" name="my" value="spec" title="以 Spec 的 LCL~UCL 再各留 15% 為範圍，避免某條序列的極端值把其他序列和 Spec 線壓扁" />依 Spec</label>
+            </span>
             <span class="hint">Spec 來源：<select id="specSrc" title="UCL / CL / LCL 取哪一條序列"></select></span>
             <button type="button" class="btn ghost small" id="btnRegion" style="margin-left:auto;">檢定區間：關</button>
             <button type="button" class="btn ghost small" id="btnMatchClear">清空 matching</button>
@@ -501,9 +505,16 @@
         const fmtT = v => { const d = new Date(v); return isNaN(d) ? '' : `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; };
         // Spec 預設以「第一張點選加入」的 chart 為主（可用下拉改選）：取其最後一個有 UCL / LCL 的採用點
         const spec = specFrom(series);
+        // Y 軸：自動，或依 Spec（LCL~UCL 各留 15%），避免極端值把 Spec 線和其他序列壓成一條
+        const bySpec = (document.querySelector('input[name=my]:checked') || {}).value === 'spec';
+        let yRange = {};
+        if(bySpec && spec && spec.ucl != null && spec.lcl != null && spec.ucl > spec.lcl){ const pad = (spec.ucl - spec.lcl) * 0.15; yRange = { min: spec.lcl - pad, max: spec.ucl + pad }; }
+        else if(bySpec && spec && spec.cl != null && spec.ucl != null){ const pad = Math.abs(spec.ucl - spec.cl) * 1.3 || 1; yRange = { min: spec.cl - pad, max: spec.cl + pad }; }
+        // 圖例一多會把繪圖區擠扁：依序列數把容器加高（每 6 個圖例項約一列 22px），繪圖區維持約 320px
+        { const items = series.length + 3; const box = document.querySelector('#matchCard .mbox'); if(box) box.style.height = (380 + Math.ceil(items / 6) * 22 + (series.length > 1 ? 30 : 0)) + 'px'; }
         { const sel = _match.find(m => m.key === _specKey) || _match[0];
           $('matchInfo').textContent = `（${_match.length} 條序列；排除的點不列入；Spec 取「${spec ? spec.name : '—'}」` + (spec && sel && spec.key !== sel.key ? `，因「${sel.name}」沒有 UCL / LCL 而改用` : '') + '）'; }
-        const specDs = (label, val, color, dash, len, xs) => ({ label, _spec: true, data: xs ? xs.map(x => ({ x, y: val })) : new Array(len).fill(val), borderColor: color, borderDash: dash, borderWidth: 1.3, pointRadius: 0, fill: false, spanGaps: true });
+        const specDs = (label, val, color, dash, len, xs) => ({ label, _spec: true, data: xs ? xs.map(x => ({ x, y: val })) : new Array(len).fill(val), borderColor: color, borderDash: dash, borderWidth: 1.8, pointRadius: 0, fill: false, spanGaps: true });
         const specSets = (len, xs) => !spec ? [] : [
             spec.ucl != null ? specDs(`UCL ${fmt(spec.ucl)}（${spec.name}）`, spec.ucl, 'red', [4, 2], len, xs) : null,
             spec.cl != null ? specDs(`CL ${fmt(spec.cl)}（${spec.name}）`, spec.cl, '#0f766e', [0, 0], len, xs) : null,
@@ -573,7 +584,7 @@
                         tooltip: { filter: it => !it.dataset._spec, callbacks: { title: items => items.length ? ((pts[items[0].dataIndex] || {}).d || '') : '',
                             label: c => { const p = pts[c.dataIndex] || {}; return `${c.dataset._full || c.dataset.label}: ${p.mean}` + (p.lot ? '  LOT ' + p.lot : '') + (p.wafer ? '  W' + p.wafer : '') + (p.seq != null ? '  SEQ ' + p.seq : ''); } } } },
                     scales: { x: { title: { display: true, text: '依序排列（各 chart 左右分開，虛線為分隔）' }, ticks: { font: { size: 9 }, maxRotation: 90, minRotation: 90, autoSkip: true, maxTicksLimit: 40 } },
-                              y: { title: { display: true, text: 'MEAN_VALUE' }, ticks: { font: { size: 10 } } } } } };
+                              y: Object.assign({ title: { display: true, text: 'MEAN_VALUE' }, ticks: { font: { size: 10 } } }, yRange) } } };
         }else{
             _matchMeta = { boundaries: [], segments: [], sideBySide: false };
             series.forEach(s => { s.m._kept = s.kept; clampRegions(s.m); });
@@ -589,12 +600,12 @@
                         tooltip: { filter: it => !it.dataset._spec, callbacks: { title: items => items.length ? fmtT(items[0].parsed.x) : '',
                             label: c => { const p = c.raw && c.raw._p || {}; return `${c.dataset._full || c.dataset.label}: ${p.mean}` + (p.d ? '  ' + p.d : '') + (p.lot ? '  LOT ' + p.lot : '') + (p.wafer ? '  W' + p.wafer : ''); } } } },
                     scales: { x: { type: 'linear', title: { display: true, text: '時間（同一時間軸疊圖）' }, ticks: { font: { size: 10 }, maxRotation: 60, autoSkip: true, maxTicksLimit: 16, callback: v => fmtT(v) } },
-                              y: { title: { display: true, text: 'MEAN_VALUE' }, ticks: { font: { size: 10 } } } } } };
+                              y: Object.assign({ title: { display: true, text: 'MEAN_VALUE' }, ticks: { font: { size: 10 } } }, yRange) } } };
         }
         _matchChart = new Chart($('matchCanvas').getContext('2d'), cfg);
         renderRegionPanel();
     }
-    document.querySelectorAll('input[name=mx]').forEach(r => r.addEventListener('change', () => renderMatch()));
+    document.querySelectorAll('input[name=mx], input[name=my]').forEach(r => r.addEventListener('change', () => renderMatch()));
     $('btnMatchClear').addEventListener('click', () => { _match.length = 0; renderMatch(); });
 
     // ===== 檢定區間：在 matching chart 上拖拉 BSL（綠）/ 檢定（紅）方框，完成後帶入檢定表 =====
