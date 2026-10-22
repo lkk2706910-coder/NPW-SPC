@@ -59,7 +59,9 @@
         table.pcrb td.no { background: #e9f0ff; font-weight: 700; font-size: 16px; }
         table.pcrb td.item { background: #f3c19b; }
         table.pcrb td.item.green { background: #b9f0b7; }
-        table.pcrb td.pu { background: #c9f6c9; text-align: left; min-width: 260px; }
+        /* PU 欄：寬度隨內容長短變化（輸入框依字數設定 ch 寬度，欄寬收縮到最寬的那一列） */
+        table.pcrb td.pu { background: #c9f6c9; text-align: left; width: 1%; white-space: nowrap; }
+        table.pcrb td.pu input.cell { width: auto; min-width: 12ch; max-width: 70ch; }
         table.pcrb td.result { background: #9fc6ff; font-variant-numeric: tabular-nums; }
         table.pcrb td.verdict { font-weight: 700; }
         table.pcrb td.verdict.pass { background: #b9f0b7; color: #0a5c0a; }
@@ -327,8 +329,14 @@
     function renderPairs(){
         const tb = $('tbodyPairs');
         tb.innerHTML = pairs.map((p, i) => sideRow(i, 'bsl', p.bsl, p.bsl.item || 'BSL') + sideRow(i, 'ext', p.ext, p.ext.item || 'wafer extend')).join('');
+        tb.querySelectorAll('input[data-f="pu"]').forEach(fitPu);
         refreshRowSelects();
         recalcAll();
+    }
+    // PU 輸入框寬度隨字數變化（中文字算 2 格），最窄 12ch、最寬 70ch
+    function fitPu(inp){
+        let w = 0; for(const ch of String(inp.value || inp.placeholder || '')) w += ch.charCodeAt(0) > 255 ? 2 : 1;
+        inp.style.width = Math.min(70, Math.max(12, w + 2)) + 'ch';
     }
 
     function recalcAll(){
@@ -360,6 +368,7 @@
         const tr = inp.closest('tr'); const idx = Number(tr.getAttribute('data-idx')); const side = tr.getAttribute('data-side');
         const f = inp.getAttribute('data-f'); const obj = pairs[idx][side];
         if(f === 'item') obj.item = inp.value; else obj[f] = inp.value;
+        if(f === 'pu') fitPu(inp);
         recalcAll(); save();
     });
     $('tbodyPairs').addEventListener('click', e => {
