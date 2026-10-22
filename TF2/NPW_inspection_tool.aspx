@@ -393,6 +393,8 @@
     // 加入時快照該列目前的點與排除狀態（之後重新搜尋不影響已加入的序列）
     const _match = [];   // [{key,label,cid,name,pu,start,end,prod,rows,excluded:Set}]
     let _matchChart = null;
+    // Chart.js 會把傳入的 config 包成自己的物件，掛在 config 上的自訂欄位外掛讀不到，所以版面資訊放這裡
+    let _matchMeta = { boundaries: [], sideBySide: false };
     const MCOLORS = ['#1976d2','#d32f2f','#2e7d32','#f57c00','#7b1fa2','#00838f','#5d4037','#c2185b','#455a64','#9e9d24'];
     async function addToMatch(i, btn){
         const r = _results[i]; if(!r) return;
@@ -448,7 +450,7 @@
         ].filter(Boolean);
         // 序列之間的分隔線（只在依序排列模式）：在相鄰兩段的邊界畫一條垂直虛線
         const separatorPlugin = { id: 'npwSeparators', afterDraw(chart){
-            const b = chart.config._boundaries || []; if(!b.length) return;
+            const b = _matchMeta.boundaries || []; if(!b.length) return;
             const { ctx, chartArea, scales } = chart; const x = scales.x; if(!x) return;
             ctx.save(); ctx.strokeStyle = '#555'; ctx.setLineDash([5, 4]); ctx.lineWidth = 1.2;
             b.forEach(idx => { const px = (x.getPixelForValue(idx - 1) + x.getPixelForValue(idx)) / 2; ctx.beginPath(); ctx.moveTo(px, chartArea.top); ctx.lineTo(px, chartArea.bottom); ctx.stroke(); });
@@ -472,7 +474,8 @@
                 if(k < series.length - 1 && s.kept.length) boundaries.push(off);
             });
             datasets.push(...specSets(total, null));
-            cfg = { type: 'line', data: { labels, datasets }, plugins: [separatorPlugin, regionPlugin], _boundaries: boundaries, _sideBySide: true,
+            _matchMeta = { boundaries, sideBySide: true };
+            cfg = { type: 'line', data: { labels, datasets }, plugins: [separatorPlugin, regionPlugin],
                 options: { animation: false, responsive: true, maintainAspectRatio: false,
                     plugins: { legend: { position: 'top', align: 'start', labels: { usePointStyle: true, boxWidth: 10, font: { size: 11 } } },
                         tooltip: { filter: it => !it.dataset._spec, callbacks: { title: items => items.length ? ((pts[items[0].dataIndex] || {}).d || '') : '',
@@ -480,6 +483,7 @@
                     scales: { x: { title: { display: true, text: '依序排列（各 chart 左右分開，虛線為分隔）' }, ticks: { font: { size: 9 }, maxRotation: 90, minRotation: 90, autoSkip: true, maxTicksLimit: 40 } },
                               y: { title: { display: true, text: 'MEAN_VALUE' }, ticks: { font: { size: 10 } } } } } };
         }else{
+            _matchMeta = { boundaries: [], sideBySide: false };
             series.forEach(s => { s.m._kept = s.kept; });
             const datasets = series.map(s => ({
                 label: `${s.m.pu} ${s.m.name}`.trim(), borderColor: s.color, backgroundColor: s.color, fill: false, tension: .15, borderWidth: 1.5, pointRadius: 3, pointHoverRadius: 6, spanGaps: true, showLine: true,
@@ -521,7 +525,7 @@
         return { left: px(gi0) - step / 2, right: px(gi1) + step / 2 };
     }
     const regionPlugin = { id: 'npwRegions', afterDatasetsDraw(chart){
-        if(!_regionMode || !chart.config._sideBySide) return;
+        if(!_regionMode || !_matchMeta.sideBySide) return;
         const { ctx, chartArea } = chart;
         _match.forEach(m => { if(!m.regions || !m._kept) return; ['bsl', 'test'].forEach(kind => {
             const rg = m.regions[kind]; if(!rg) return;
@@ -538,7 +542,7 @@
     } };
     // 滑鼠位置 → 命中的方框（優先邊界）
     function regionHit(chart, mx, my){
-        if(!_regionMode || !chart || !chart.config._sideBySide) return null;
+        if(!_regionMode || !chart || !_matchMeta.sideBySide) return null;
         const ca = chart.chartArea; if(my < ca.top || my > ca.bottom) return null;
         let best = null;
         _match.forEach((m, k) => { if(!m.regions) return; ['bsl', 'test'].forEach(kind => {
@@ -609,7 +613,7 @@
         btn.textContent = '檢定區間：' + (_regionMode ? '開' : '關'); btn.classList.toggle('on', _regionMode);
         if(!_regionMode || !_match.length){ panel.hidden = true; return; }
         panel.hidden = false;
-        const sideBySide = !!(_matchChart && _matchChart.config && _matchChart.config._sideBySide);
+        const sideBySide = !!(_matchChart && _matchMeta.sideBySide);
         let html = '<tr><th></th><th>序列</th><th>BSL 區間（綠）</th><th>檢定區間（紅）</th><th>帶入檢定表</th></tr>';
         _match.forEach((m, k) => {
             const r = m.regions || {};
