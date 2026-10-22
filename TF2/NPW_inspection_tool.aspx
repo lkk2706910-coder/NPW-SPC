@@ -392,7 +392,9 @@
         },
             lineDs('UCL', rows.map(x => numOrNull(x.ucl)), 'red', [4, 2], 1.5),
             lineDs('XBAR (CL)', rows.map(x => numOrNull(x.xbar)), '#0f766e', [0, 0], 1.5),
-            lineDs('LCL', rows.map(x => numOrNull(x.lcl)), 'red', [4, 2], 1.5)
+            lineDs('LCL', rows.map(x => numOrNull(x.lcl)), 'red', [4, 2], 1.5),
+            lineDs('SPEC_HIGH', rows.map(x => numOrNull(x.spech)), '#7b1fa2', [8, 3], 1.5),
+            lineDs('SPEC_LOW', rows.map(x => numOrNull(x.specl)), '#7b1fa2', [8, 3], 1.5)
         ];
         _trendCharts[i] = new Chart(holder.querySelector('canvas').getContext('2d'), {
             type: 'line', data: { labels, datasets: ds },
@@ -456,7 +458,9 @@
     // Spec 來源：預設第一條；下拉可改；找不到有 UCL/LCL 的點就往後找其他序列
     let _specKey = null;
     function specFrom(series){
-        const pick = s => { for(let j = s.kept.length - 1; j >= 0; j--){ const x = s.kept[j]; if(numOrNull(x.ucl) != null || numOrNull(x.lcl) != null || numOrNull(x.xbar) != null) return { ucl: numOrNull(x.ucl), cl: numOrNull(x.xbar), lcl: numOrNull(x.lcl), name: s.m.name, key: s.m.key }; } return null; };
+        const pick = s => { for(let j = s.kept.length - 1; j >= 0; j--){ const x = s.kept[j];
+            if(numOrNull(x.ucl) != null || numOrNull(x.lcl) != null || numOrNull(x.xbar) != null || numOrNull(x.spech) != null || numOrNull(x.specl) != null)
+                return { ucl: numOrNull(x.ucl), cl: numOrNull(x.xbar), lcl: numOrNull(x.lcl), spech: numOrNull(x.spech), specl: numOrNull(x.specl), name: s.m.name, key: s.m.key }; } return null; };
         const ordered = series.slice(); const si = series.findIndex(s => s.m.key === _specKey);
         if(si > 0){ ordered.splice(si, 1); ordered.unshift(series[si]); }
         for(const s of ordered){ const sp = pick(s); if(sp) return sp; }
@@ -503,17 +507,23 @@
         // Y 軸：自動，或依 Spec（LCL~UCL 各留 15%），避免極端值把 Spec 線和其他序列壓成一條
         const bySpec = (document.querySelector('input[name=my]:checked') || {}).value === 'spec';
         let yRange = {};
-        if(bySpec && spec && spec.ucl != null && spec.lcl != null && spec.ucl > spec.lcl){ const pad = (spec.ucl - spec.lcl) * 0.15; yRange = { min: spec.lcl - pad, max: spec.ucl + pad }; }
-        else if(bySpec && spec && spec.cl != null && spec.ucl != null){ const pad = Math.abs(spec.ucl - spec.cl) * 1.3 || 1; yRange = { min: spec.cl - pad, max: spec.cl + pad }; }
+        if(bySpec && spec){
+            const hi = [spec.ucl, spec.spech].filter(v => v != null), lo = [spec.lcl, spec.specl].filter(v => v != null);
+            if(hi.length && lo.length && Math.max(...hi) > Math.min(...lo)){ const top = Math.max(...hi), bot = Math.min(...lo), pad = (top - bot) * 0.15; yRange = { min: bot - pad, max: top + pad }; }
+        }
+        if(!('min' in yRange) && bySpec && spec && spec.ucl != null && spec.lcl != null && spec.ucl > spec.lcl){ const pad = (spec.ucl - spec.lcl) * 0.15; yRange = { min: spec.lcl - pad, max: spec.ucl + pad }; }
+        if(!('min' in yRange) && bySpec && spec && spec.cl != null && spec.ucl != null){ const pad = Math.abs(spec.ucl - spec.cl) * 1.3 || 1; yRange = { min: spec.cl - pad, max: spec.cl + pad }; }
         // 圖例一多會把繪圖區擠扁：依序列數把容器加高（每 6 個圖例項約一列 22px），繪圖區維持約 320px
-        { const items = series.length + 3; const box = document.querySelector('#matchCard .mbox'); if(box) box.style.height = (380 + Math.ceil(items / 6) * 22 + (series.length > 1 ? (series.length > 8 ? 84 : 32) : 0)) + 'px'; }
+        { const items = series.length + 5; const box = document.querySelector('#matchCard .mbox'); if(box) box.style.height = (380 + Math.ceil(items / 6) * 22 + (series.length > 1 ? (series.length > 8 ? 84 : 32) : 0)) + 'px'; }
         { const sel = _match.find(m => m.key === _specKey) || _match[0];
           $('matchInfo').textContent = `（${_match.length} 條序列；排除的點不列入；Spec 取「${spec ? spec.name : '—'}」` + (spec && sel && spec.key !== sel.key ? `，因「${sel.name}」沒有 UCL / LCL 而改用` : '') + '）'; }
         const specDs = (label, val, color, dash, len, xs) => ({ label, _spec: true, data: xs ? xs.map(x => ({ x, y: val })) : new Array(len).fill(val), borderColor: color, borderDash: dash, borderWidth: 1.8, pointRadius: 0, fill: false, spanGaps: true });
         const specSets = (len, xs) => !spec ? [] : [
             spec.ucl != null ? specDs(`UCL ${fmt(spec.ucl)}（${spec.name}）`, spec.ucl, 'red', [4, 2], len, xs) : null,
             spec.cl != null ? specDs(`CL ${fmt(spec.cl)}（${spec.name}）`, spec.cl, '#0f766e', [0, 0], len, xs) : null,
-            spec.lcl != null ? specDs(`LCL ${fmt(spec.lcl)}（${spec.name}）`, spec.lcl, 'red', [4, 2], len, xs) : null
+            spec.lcl != null ? specDs(`LCL ${fmt(spec.lcl)}（${spec.name}）`, spec.lcl, 'red', [4, 2], len, xs) : null,
+            spec.spech != null ? specDs(`SPEC_HIGH ${fmt(spec.spech)}（${spec.name}）`, spec.spech, '#7b1fa2', [8, 3], len, xs) : null,
+            spec.specl != null ? specDs(`SPEC_LOW ${fmt(spec.specl)}（${spec.name}）`, spec.specl, '#7b1fa2', [8, 3], len, xs) : null
         ].filter(Boolean);
         // 序列之間的分隔線（只在依序排列模式）：在相鄰兩段的邊界畫一條垂直虛線
         // 多條序列時在每一段上方標示 chamber（PROCESSUNIT），用該序列顏色、置中
