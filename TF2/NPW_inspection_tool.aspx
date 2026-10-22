@@ -67,7 +67,6 @@
         table.pcrb td.muted { color: rgba(0,0,0,.55); }
         table.pcrb input.cell { width: 100%; border: 0; outline: none; background: transparent; font: inherit; text-align: inherit; }
         table.pcrb input.num { text-align: right; font-variant-numeric: tabular-nums; }
-        table.pcrb .meta { display: block; font-size: 11px; color: #555; font-weight: 400; }
         table.pcrb td.ops { white-space: nowrap; }
         table.pcrb tr.flash td { animation: flash 1.2s ease-out; }
         @keyframes flash { from { background-color: #ffe9a8; } to { } }
@@ -137,7 +136,6 @@
                         <th>PU</th>
                         <th><input class="cell" id="adderHeader" value="ADDER" aria-label="ADDER 標題可編輯" style="text-align:center;font-weight:700;"></th>
                         <th>σ</th>
-                        <th>N</th>
                         <th>/X2-X1//σ1</th>
                         <th>≦1</th>
                         <th>σ2^2/σ1^2</th>
@@ -312,13 +310,11 @@
 
     function sideRow(idx, key, side, label){
         const isExt = key === 'ext';
-        const metaHtml = side.cid ? `<span class="meta">CHART_ID ${esc(side.cid)}${side.src ? '　' + esc(side.src) : ''}</span>` : '';
         let cells = `
             <td class="item${isExt ? ' green' : ''}"><input class="cell" data-f="item" value="${esc(label)}" aria-label="Item"></td>
-            <td class="pu"><input class="cell" data-f="pu" value="${esc(side.pu)}" placeholder="PU（自行填寫）" aria-label="PU">${metaHtml}</td>
+            <td class="pu"><input class="cell" data-f="pu" value="${esc(side.pu)}" placeholder="PU（自行填寫）" aria-label="PU" title="${esc(side.cid ? 'CHART_ID ' + side.cid + (side.src ? '　' + side.src : '') : '')}"></td>
             <td><input class="cell num" data-f="x" type="number" step="any" value="${esc(side.x)}" placeholder="${isExt ? 'X2' : 'X1'}" aria-label="X"></td>
-            <td><input class="cell num" data-f="s" type="number" step="any" value="${esc(side.s)}" placeholder="${isExt ? 'σ2' : 'σ1'}" aria-label="σ"></td>
-            <td class="muted">${esc(side.n)}</td>`;
+            <td><input class="cell num" data-f="s" type="number" step="any" value="${esc(side.s)}" placeholder="${isExt ? 'σ2' : 'σ1'}" aria-label="σ"></td>`;
         if(isExt){
             cells += `<td class="result z">—</td><td class="result zOK">—</td><td class="result r">—</td><td class="result rOK">—</td><td class="verdict">—</td>`;
         }else{
@@ -425,13 +421,13 @@
 
     // 複製檢定表（TSV，可直接貼到 Excel）
     $('btnCopy').addEventListener('click', () => {
-        const head = ['編號','Item','PU','CHART_ID', $('adderHeader').value || 'ADDER','σ','N','/X2-X1//σ1','≦1','σ2^2/σ1^2','(σ2^2/σ1^2)<2','檢定結果'];
+        const head = ['編號','Item','PU','CHART_ID', $('adderHeader').value || 'ADDER','σ','/X2-X1//σ1','≦1','σ2^2/σ1^2','(σ2^2/σ1^2)<2','檢定結果'];
         const lines = [head.join('\t')];
         pairs.forEach((p, i) => {
             const ext = $('tbodyPairs').querySelector(`tr[data-idx="${i}"][data-side="ext"]`);
             const g = c => ext ? ext.querySelector(c).textContent : '';
-            lines.push([rowNoOf(i, 'bsl'), p.bsl.item || 'BSL', p.bsl.pu, p.bsl.cid, p.bsl.x, p.bsl.s, p.bsl.n, '', '', '', '', ''].join('\t'));
-            lines.push([rowNoOf(i, 'ext'), p.ext.item || 'wafer extend', p.ext.pu, p.ext.cid, p.ext.x, p.ext.s, p.ext.n, g('.z'), g('.zOK'), g('.r'), g('.rOK'), g('.verdict')].join('\t'));
+            lines.push([rowNoOf(i, 'bsl'), p.bsl.item || 'BSL', p.bsl.pu, p.bsl.cid, p.bsl.x, p.bsl.s, '', '', '', '', ''].join('\t'));
+            lines.push([rowNoOf(i, 'ext'), p.ext.item || 'wafer extend', p.ext.pu, p.ext.cid, p.ext.x, p.ext.s, g('.z'), g('.zOK'), g('.r'), g('.rOK'), g('.verdict')].join('\t'));
         });
         const text = lines.join('\n');
         const done = () => setStatus('檢定表已複製到剪貼簿');
