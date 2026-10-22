@@ -168,7 +168,6 @@
                 <label><input type="radio" name="my" value="auto" checked />自動</label>
                 <label><input type="radio" name="my" value="spec" title="以 Spec 的 LCL~UCL 再各留 15% 為範圍，避免某條序列的極端值把其他序列和 Spec 線壓扁" />依 Spec</label>
             </span>
-            <span class="hint">Spec 來源：<select id="specSrc" title="UCL / CL / LCL 取哪一條序列"></select></span>
             <button type="button" class="btn ghost small" id="btnRegion" style="margin-left:auto;">檢定區間：關</button>
             <button type="button" class="btn ghost small" id="btnMatchClear">清空 matching</button>
         </div>
@@ -463,12 +462,8 @@
         for(const s of ordered){ const sp = pick(s); if(sp) return sp; }
         return null;
     }
-    function renderSpecSelect(){
-        const sel = $('specSrc'); if(!sel) return;
-        sel.innerHTML = _match.map(m => `<option value="${esc(m.key)}"${m.key === _specKey ? ' selected' : ''}>${esc(m.pu)} ${esc(m.name)}</option>`).join('');
-        if(!_match.some(m => m.key === _specKey)) { _specKey = _match.length ? _match[0].key : null; if(sel.options.length) sel.value = _specKey; }
-    }
-    $('specSrc').addEventListener('change', e => { _specKey = e.target.value; renderMatch(); });
+    // Spec 一律取第一條加入的序列（沒有 UCL / LCL 時自動往後找）
+    function renderSpecSelect(){ _specKey = _match.length ? _match[0].key : null; }
     // 已加入 matching 的搜尋結果列：＋matching 按鈕反灰並顯示「已加入」；移除或清空後恢復
     function syncMatchButtons(){
         document.querySelectorAll('#resBody button[data-match]').forEach(b => {
