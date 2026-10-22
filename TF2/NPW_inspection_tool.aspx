@@ -65,7 +65,7 @@
         .mchip .sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
         .mchip button { border: 0; background: transparent; color: #c00; cursor: pointer; font-weight: 700; padding: 0 2px; }
         .mbox { position: relative; width: 100%; height: 380px; }
-        .yscale { position: absolute; top: 2px; right: 8px; z-index: 2; font-size: 12px; color: #333; background: rgba(255,255,255,.9); border: 1px solid #d6dbe3; border-radius: 6px; padding: 3px 8px; }
+        .yscale { display: inline-flex; align-items: center; font-size: 12px; color: #333; }
         .yscale input { width: 80px; padding: 2px 4px; border: 1px solid #b8c0cc; border-radius: 4px; font: inherit; font-size: 12px; margin: 0 4px; }
         .mbox canvas { display: block; width: 100% !important; height: 100% !important; }
         table.mstat { border-collapse: collapse; margin-top: 8px; }
@@ -166,17 +166,15 @@
                 <label><input type="radio" name="mx" value="idx" checked />依序排列（左右分開）</label>
                 <label><input type="radio" name="mx" value="time" />時間（疊圖）</label>
             </span>
-            <button type="button" class="btn ghost small" id="btnRegion" style="margin-left:auto;">檢定區間：關</button>
-            <button type="button" class="btn ghost small" id="btnMatchClear">清空 matching</button>
-        </div>
-        <div class="mbox">
             <!-- Y 軸手動範圍：留空 = 自動（依 Spec） -->
-            <div class="yscale" title="Y 軸上下限；留空則自動依 Spec">
+            <span class="yscale" style="margin-left:auto;" title="Y 軸上下限；留空則自動依 Spec">
                 Y 軸 下限 <input id="yMin" type="number" step="any" placeholder="自動" /> 上限 <input id="yMax" type="number" step="any" placeholder="自動" />
                 <button type="button" class="btn small ghost" id="yReset" title="清除，改回自動">自動</button>
-            </div>
-            <canvas id="matchCanvas"></canvas>
+            </span>
+            <button type="button" class="btn ghost small" id="btnRegion">檢定區間：關</button>
+            <button type="button" class="btn ghost small" id="btnMatchClear">清空 matching</button>
         </div>
+        <div class="mbox"><canvas id="matchCanvas"></canvas></div>
         <!-- 檢定區間：每條序列可加 BSL（綠）與檢定（紅）區間，直接在圖上拖拉邊界或整塊移動，完成後帶入檢定表 -->
         <div id="regionPanel" class="rpanel" hidden>
             <div class="hint">在圖上<b>拖拉方框左右邊界</b>調整區間、<b>拖拉方框中間</b>整段平移（只在「依序排列」模式）。帶入時 BSL 區間 → 該組奇數列（X1、σ1），檢定區間 → 偶數列（X2、σ2）。</div>
