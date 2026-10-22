@@ -469,6 +469,13 @@
         ].filter(Boolean);
         // 序列之間的分隔線（只在依序排列模式）：在相鄰兩段的邊界畫一條垂直虛線
         // 多條序列時在每一段上方標示 chamber（PROCESSUNIT），用該序列顏色、置中
+        // S1/S2：由 CHART_NAME 推導（W1/W2，或 AC1/AC2、B2 這類段落的尾數）→ 「SACVD-B10A S1」「SACVD-B10A S2」
+        const sideOfName = name => {
+            const u = String(name || '').toUpperCase();
+            const m = u.match(/(^|[-_])W([12])(?=[-_]|$)/); if(m) return 'S' + m[2];
+            const seg = u.split('-').find(x => /^[ABC]{1,3}[12]$/.test(x)); return seg ? 'S' + seg.slice(-1) : '';
+        };
+        const segLabel = m => { const side = sideOfName(m.name); return ((m.pu || m.name) + (side ? ' ' + side : '')).trim(); };
         const chamberPlugin = { id: 'npwChambers', afterDraw(chart){
             const segs = _matchMeta.segments || []; if(segs.length < 2) return;
             const { ctx, chartArea, scales } = chart; const x = scales.x; if(!x) return;
@@ -497,7 +504,7 @@
             series.forEach((s, k) => {
                 const mean = new Array(total).fill(null);
                 s.m._off = off; s.m._kept = s.kept;   // 檢定區間需要知道每條序列在 X 軸上的起點與採用點
-                segments.push({ off, n: s.kept.length, label: s.m.pu || s.m.name, color: s.color });
+                segments.push({ off, n: s.kept.length, label: segLabel(s.m), color: s.color });
                 clampRegions(s.m);
                 s.kept.forEach((x, j) => {
                     const idx = off + j; labels[idx] = String(x.d || '').substring(5, 16); pts[idx] = x;
@@ -508,6 +515,8 @@
                 if(k < series.length - 1 && s.kept.length) boundaries.push(off);
             });
             datasets.push(...specSets(total, null));
+            { const seen = {}; segments.forEach(sg => { seen[sg.label] = (seen[sg.label] || 0) + 1; });
+              series.forEach((x, k) => { if(seen[segments[k].label] > 1) segments[k].label = segLabel(x.m) + '（' + x.m.name + '）'; }); }
             _matchMeta = { boundaries, segments, sideBySide: true };
             cfg = { type: 'line', data: { labels, datasets }, plugins: [chamberPlugin, separatorPlugin, regionPlugin],
                 options: { animation: false, responsive: true, maintainAspectRatio: false, layout: { padding: { top: series.length > 1 ? 18 : 4 } },
